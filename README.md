@@ -1,43 +1,54 @@
 # Nuvyon — Dashboard de Inteligência Operacional
 
-Dashboard React para gestão de técnicos e agentes de ISP de fibra.
+## 🚀 Deploy automático via GitHub Actions
 
-## Rodando localmente
+Com o arquivo `.github/workflows/deploy.yml` incluído, **basta fazer push** que o GitHub compila e publica sozinho.
 
-```bash
-npm install
-npm run dev
-```
-
-Acesse: http://localhost:5173/dashboard-nuvyon/
-
-## Publicando no GitHub Pages
+### Passo a passo (única vez)
 
 ```bash
-# 1. Instalar dependências
+# 1. Instale as dependências (só para rodar local)
 npm install
 
-# 2. Subir o código
+# 2. Suba o projeto no GitHub
 git init
 git add .
 git commit -m "feat: dashboard nuvyon v1"
 git remote add origin https://github.com/erjinfo/dashboard-nuvyon.git
 git branch -M main
 git push -u origin main
-
-# 3. Publicar no GitHub Pages
-npm run deploy
 ```
 
-4. Acesse **Settings → Pages** no repositório → branch `gh-pages` → **Save**
+### Ativar o GitHub Pages (única vez)
 
-Dashboard disponível em: `https://erjinfo.github.io/dashboard-nuvyon/`
+1. Abra o repositório no GitHub
+2. Vá em **Settings → Pages**
+3. Em **Source**, selecione **Deploy from a branch**
+4. Branch: **gh-pages** → pasta **/ (root)**
+5. Clique **Save**
 
-## Atualizando
+Aguarde ~2 minutos. O GitHub Actions vai compilar e publicar automaticamente.
+
+✅ Dashboard em: `https://erjinfo.github.io/dashboard-nuvyon/`
+
+---
+
+### Para atualizar no futuro
+
+Apenas faça push — o deploy acontece automaticamente:
 
 ```bash
 git add .
 git commit -m "atualização"
 git push
-npm run deploy
+```
+
+---
+
+### Rodar localmente
+
+```bash
+npm install
+npm run dev
+# Acesse: http://localhost:5173/dashboard-nuvyon/
 ```
