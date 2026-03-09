@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+import logoEric from "./logo-eric.png";
 
 // ═══════════════════════════════════════════════════════════════════
 // STORAGE — persiste metadados e dados entre sessões
@@ -265,8 +266,8 @@ function UploadPanel({ nomes, onProcessed, onClose }) {
         });
         setParsed(p => ({ ...p, [key]: rows }));
       } else {
-        // XLSX via SheetJS CDN
-        const { read, utils } = await import("https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs");
+        // XLSX via npm package (xlsx)
+        const { read, utils } = await import("xlsx");
         const buf  = await file.arrayBuffer();
         const wb   = read(buf);
         const rows = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
@@ -410,11 +411,254 @@ function UploadPanel({ nomes, onProcessed, onClose }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// STAR RATING
+// ═══════════════════════════════════════════════════════════════════
+function StarRating({ value, onChange }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div style={{ display:"flex", gap:4 }}>
+      {[1,2,3,4,5].map(n => (
+        <span key={n}
+          onClick={() => onChange(n)}
+          onMouseEnter={() => setHover(n)}
+          onMouseLeave={() => setHover(0)}
+          style={{ fontSize:24, cursor:"pointer", color:(hover||value)>=n ? "#F4A429" : C.border, transition:"color 0.15s", userSelect:"none" }}>
+          ★
+        </span>
+      ))}
+      {value > 0 && (
+        <span style={{ color:C.muted, fontSize:12, alignSelf:"center", marginLeft:4 }}>
+          {["","Insuficiente","Precisa Melhorar","Regular","Bom","Excelente"][value]}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMPETENCIA CARD
+// ═══════════════════════════════════════════════════════════════════
+function CompetenciaCard({ titulo, descricao, icon, value, comentario, onChange, onComentario }) {
+  return (
+    <div style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:12, padding:18 }}>
+      <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
+        <span style={{ fontSize:22, flexShrink:0 }}>{icon}</span>
+        <div>
+          <div style={{ fontWeight:700, color:C.text, fontSize:13, marginBottom:3 }}>{titulo}</div>
+          <div style={{ color:C.muted, fontSize:11, lineHeight:1.55 }}>{descricao}</div>
+        </div>
+      </div>
+      <div style={{ marginBottom:10 }}>
+        <div style={{ color:C.muted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Nota</div>
+        <StarRating value={value} onChange={onChange} />
+      </div>
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+          <span style={{ color:C.muted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>Comentários e observações</span>
+          <span style={{ color:comentario.length > 1400 ? C.red : C.muted, fontSize:10 }}>{comentario.length}/1500</span>
+        </div>
+        <textarea
+          value={comentario}
+          onChange={e => onComentario(e.target.value.slice(0,1500))}
+          placeholder="Deixe comentários ou observações que justifiquem a nota dada nesta competência."
+          style={{
+            width:"100%", minHeight:72, background:C.card, border:`1px solid ${C.border}`,
+            borderRadius:8, padding:"9px 11px", color:C.text, fontSize:12, resize:"vertical",
+            outline:"none", fontFamily:"inherit", lineHeight:1.5, boxSizing:"border-box",
+          }}
+          onFocus={e => e.target.style.borderColor = C.accent}
+          onBlur={e  => e.target.style.borderColor = C.border}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORTAR PDF
+// ═══════════════════════════════════════════════════════════════════
+function exportarPDF(nome, tipo, dados, competencias, avaliador) {
+  const isAgente = tipo === "agente";
+  const ver      = dados.veredicto || dados.v;
+  const scolor   = ver==="Manter"?"#10B981":ver==="Treinar"?"#F4A429":"#F05252";
+  const nomeExib = isAgente ? nome : nome.replace(/^\d+\.?\d*/,"").trim();
+  const hoje     = new Date().toLocaleDateString("pt-BR");
+
+  const notaLabel = n => ["","Insuficiente","Precisa Melhorar","Regular","Bom","Excelente"][n] || "Não avaliado";
+  const estrelas  = n => "★".repeat(n) + "☆".repeat(5-n);
+
+  const mediaComp = (() => {
+    const notas = competencias.map(c => c.nota).filter(n => n > 0);
+    return notas.length ? (notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(1) : "—";
+  })();
+
+  const indicadores = isAgente ? [
+    { l:"Taxa de Resolução",    v:`${dados.taxa_resolucao}%`    },
+    { l:"Taxa de Reincidência", v:`${dados.taxa_reincidencia}%` },
+    { l:"Taxa de Transferência",v:`${dados.taxa_transferencia}%`},
+    { l:"Tempo Médio Atend.",   v:`${dados.tempo_atend_min} min`},
+    { l:"Total de Chats",       v:dados.total                   },
+    { l:"Score de Performance", v:dados.score                   },
+  ] : [
+    { l:"Total de OS",          v:dados.os                      },
+    { l:"Reincidências",        v:dados.reinc                   },
+    { l:"Taxa de Reincidência", v:`${dados.taxa_r}%`            },
+    { l:"OS Rápidas (<20min)",  v:`${dados.taxa_rap}%`          },
+    { l:"Desc. Genéricas",      v:`${dados.taxa_gen}%`          },
+    { l:"Score de Performance", v:dados.score                   },
+  ];
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Boletim — ${nomeExib}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',sans-serif; background:#fff; color:#1a1a2e; font-size:13px; padding:32px; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #00C9A7; padding-bottom:18px; margin-bottom:22px; }
+  .nome { font-size:22px; font-weight:800; color:#0E1420; }
+  .cargo { font-size:12px; color:#5A6A85; margin-top:3px; }
+  .badge { background:${scolor}22; color:${scolor}; border:1px solid ${scolor}88; border-radius:8px; padding:5px 14px; font-weight:800; font-size:13px; }
+  .logo-wrap { text-align:right; }
+  .logo-wrap img { height:48px; }
+  .section { margin-bottom:22px; }
+  .sec-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#5A6A85; border-left:3px solid #00C9A7; padding-left:8px; margin-bottom:12px; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .kpi { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; text-align:center; }
+  .kpi-val { font-size:20px; font-weight:800; color:#0E1420; font-family:monospace; }
+  .kpi-lbl { font-size:10px; color:#5A6A85; margin-top:3px; }
+  .comp { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:16px; margin-bottom:12px; }
+  .comp-titulo { font-weight:700; font-size:13px; color:#0E1420; margin-bottom:4px; }
+  .comp-desc { font-size:11px; color:#5A6A85; line-height:1.5; margin-bottom:10px; }
+  .estrelas { font-size:18px; color:#F4A429; letter-spacing:2px; }
+  .nota-label { font-size:11px; color:#5A6A85; margin-left:8px; }
+  .comentario-box { background:#fff; border:1px solid #E2E8F0; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; line-height:1.6; margin-top:8px; min-height:36px; white-space:pre-wrap; }
+  .veredito { background:${scolor}12; border:2px solid ${scolor}44; border-radius:10px; padding:16px; }
+  .ver-titulo { font-weight:800; color:${scolor}; font-size:13px; margin-bottom:6px; }
+  .ver-texto { font-size:12px; color:#334155; line-height:1.65; }
+  .footer { margin-top:28px; padding-top:14px; border-top:1px solid #E2E8F0; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#5A6A85; }
+  .footer-logo { display:flex; align-items:center; gap:10px; }
+  .footer-logo img { height:32px; }
+  .media-comp { background:#0E1420; color:#00C9A7; border-radius:8px; padding:8px 16px; text-align:center; display:inline-block; }
+  @media print { body { padding:16px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="nome">${nomeExib}</div>
+    <div class="cargo">${isAgente ? "Agente SAC" : "Técnico de Campo"} · Avaliado em ${hoje}</div>
+    ${avaliador ? `<div style="font-size:11px;color:#5A6A85;margin-top:2px">Avaliador: <strong>${avaliador}</strong></div>` : ""}
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <div class="badge">⚖️ ${ver.toUpperCase()}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-title">📊 Indicadores de Performance</div>
+  <div class="kpi-grid">
+    ${indicadores.map(i => `<div class="kpi"><div class="kpi-val">${i.v}</div><div class="kpi-lbl">${i.l}</div></div>`).join("")}
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-title">🎯 Avaliação de Competências — Média: ${mediaComp}/5</div>
+  ${competencias.map(c => `
+  <div class="comp">
+    <div class="comp-titulo">${c.icon} ${c.titulo}</div>
+    <div class="comp-desc">${c.descricao}</div>
+    <div>
+      <span class="estrelas">${estrelas(c.nota)}</span>
+      <span class="nota-label">${notaLabel(c.nota)}</span>
+    </div>
+    ${c.comentario ? `<div class="comentario-box">${c.comentario}</div>` : '<div class="comentario-box" style="color:#aaa;font-style:italic">Sem comentários.</div>'}
+  </div>`).join("")}
+</div>
+
+<div class="section">
+  <div class="sec-title">📋 Veredito Final</div>
+  <div class="veredito">
+    <div class="ver-titulo">VEREDITO: ${ver.toUpperCase()}</div>
+    <div class="ver-texto">
+      ${ver==="Manter"  ? `${nomeExib} demonstra performance consistente. Mantenha o monitoramento padrão e considere reconhecimento se os resultados se sustentarem no próximo período.` : ""}
+      ${ver==="Treinar" ? `${nomeExib} apresenta indicadores que necessitam atenção. Recomendamos treinamento focado em ${isAgente?"técnicas de resolução e redução de transferências":"diagnóstico técnico e documentação detalhada de chamados"}. Prazo de reavaliação: 30 dias.` : ""}
+      ${ver==="Desligar"? `${nomeExib} apresenta indicadores críticos persistentes. Os dados frios indicam padrão de baixa qualidade técnica. Recomenda-se reunião de feedback formal e, se não houver melhora em 15 dias, desligamento.` : ""}
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Nuvyon — Central de Inteligência Operacional · Gerado em ${hoje}</div>
+  <div class="footer-logo">
+    <div style="text-align:right;">
+      <div style="font-weight:700;color:#00C9A7;font-size:12px;">Eng. Eric Jonas</div>
+      <div style="font-size:10px;color:#5A6A85;">erj.informatica@gmail.com</div>
+    </div>
+  </div>
+</div>
+
+<script>window.onload=()=>{ window.print(); }</script>
+</body>
+</html>`;
+
+  const win = window.open("","_blank","width=900,height=700");
+  win.document.write(html);
+  win.document.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // BOLETIM MODAL
 // ═══════════════════════════════════════════════════════════════════
+const COMPETENCIAS_DEF = [
+  {
+    key:"adaptabilidade",
+    icon:"🔄",
+    titulo:"Adaptabilidade e Flexibilidade",
+    descricao:"Capacidade de ajustar-se a diferentes situações, cenários e mudanças de prioridades sem perder a produtividade ou a qualidade do trabalho. Inclui abertura a novas ideias, resiliência diante de imprevistos e disposição para aprender rapidamente.",
+  },
+  {
+    key:"comprometimento",
+    icon:"🎯",
+    titulo:"Comprometimento",
+    descricao:"Dedicação e responsabilidade em relação às atividades, prazos e objetivos da empresa. Demonstra interesse genuíno pelo trabalho, cumpre o que foi acordado e busca entregar sempre o melhor resultado, mesmo diante de desafios.",
+  },
+  {
+    key:"comunicacao",
+    icon:"💬",
+    titulo:"Comunicação Assertiva",
+    descricao:"Habilidade de expressar ideias, opiniões e feedbacks de forma clara, respeitosa e objetiva, garantindo entendimento mútuo. Inclui saber ouvir ativamente, adequar a linguagem ao público e evitar ruídos ou conflitos desnecessários.",
+  },
+  {
+    key:"resultados",
+    icon:"📈",
+    titulo:"Foco em Resultados",
+    descricao:"Demonstra dedicação em alcançar as metas e objetivos definidos, mantendo disciplina, organização e eficiência. Representa a capacidade de priorizar o que é mais importante, tomar decisões eficazes e entregar com qualidade e dentro dos prazos estabelecidos.",
+  },
+];
+
 function Boletim({ tipo, nome, dados, onClose }) {
   const isAgente = tipo === "agente";
   const scolor   = vColor(dados.veredicto || dados.v);
+  const ver      = dados.veredicto || dados.v;
+  const nomeExib = isAgente ? nome : shortName(nome);
+
+  // Estado das competências (nota + comentário por competência)
+  const initComp = () => COMPETENCIAS_DEF.map(c => ({ ...c, nota:0, comentario:"" }));
+  const [competencias, setCompetencias] = useState(initComp);
+  const [avaliador, setAvaliador]       = useState("");
+  const [abaLocal, setAbaLocal]         = useState("performance"); // "performance" | "gestao"
+
+  const setNota      = (i, v) => setCompetencias(cs => cs.map((c,idx) => idx===i ? {...c, nota:v} : c));
+  const setComentario= (i, v) => setCompetencias(cs => cs.map((c,idx) => idx===i ? {...c, comentario:v} : c));
+
+  const mediaComp = (() => {
+    const notas = competencias.map(c => c.nota).filter(n => n > 0);
+    return notas.length ? (notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(1) : null;
+  })();
+
   const radarData = isAgente ? [
     { m:"Resolução",   v: dados.taxa_resolucao },
     { m:"Sem Reinc.",  v: Math.max(0, 100 - dados.taxa_reincidencia * 2) },
@@ -428,94 +672,175 @@ function Boletim({ tipo, nome, dados, onClose }) {
     { m:"Desc. OK",    v: Math.max(0, 100 - dados.taxa_gen) },
     { m:"Sem Reinc.",  v: Math.max(0, 100 - dados.taxa_r * 6) },
   ];
+
   const resolvidos = isAgente ? dados.finalizados : dados.os - dados.reinc;
   const problemas  = isAgente ? dados.transferidos : dados.reinc;
-  const ver = dados.veredicto || dados.v;
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"#000000dd", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={onClose}>
-      <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:18, width:"min(820px,100%)", maxHeight:"92vh", overflowY:"auto", padding:28 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+    <div style={{ position:"fixed", inset:0, background:"#000000e8", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={onClose}>
+      <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:18, width:"min(900px,100%)", maxHeight:"94vh", overflowY:"auto", padding:26, display:"flex", flexDirection:"column", gap:18 }} onClick={e => e.stopPropagation()}>
+
+        {/* ── HEADER ── */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
           <div style={{ display:"flex", gap:14, alignItems:"center" }}>
             <div style={{ width:50, height:50, borderRadius:14, background:scolor+"20", border:`2px solid ${scolor}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>
               {isAgente ? "🎧" : "🔧"}
             </div>
             <div>
-              <div style={{ fontWeight:800, fontSize:19, color:C.text }}>{isAgente ? nome : shortName(nome)}</div>
+              <div style={{ fontWeight:800, fontSize:19, color:C.text }}>{nomeExib}</div>
               <div style={{ color:C.muted, fontSize:11, marginTop:2 }}>{isAgente ? "Agente SAC" : nome}</div>
             </div>
           </div>
-          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
             <Chip color={scolor}>{ver}</Chip>
+            <button
+              onClick={() => exportarPDF(nome, tipo, dados, competencias, avaliador)}
+              style={{ background:C.blue, color:"#fff", border:"none", borderRadius:8, padding:"7px 14px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", gap:5, alignItems:"center" }}>
+              📄 Exportar PDF
+            </button>
             <button onClick={onClose} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", borderRadius:8, padding:"6px 12px", fontSize:12 }}>✕</button>
           </div>
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
+        {/* ── KPIs ── */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
           {[
-            { l:"Resolvidos",   v:resolvidos.toLocaleString("pt-BR"), c:C.green  },
-            { l:isAgente?"Transf.":"Reinc.", v:problemas, c:C.red },
-            { l:isAgente?"Chats":"OS",       v:(isAgente?dados.total:dados.os).toLocaleString("pt-BR"), c:C.accent },
-            { l:"Score",        v:dados.score, c:scolor },
+            { l:"Resolvidos",              v:resolvidos.toLocaleString("pt-BR"), c:C.green  },
+            { l:isAgente?"Transferidos":"Reincidências", v:problemas, c:C.red    },
+            { l:isAgente?"Total Chats":"Total OS", v:(isAgente?dados.total:dados.os).toLocaleString("pt-BR"), c:C.accent },
+            { l:"Score",                   v:dados.score, c:scolor },
           ].map(({ l, v, c }) => (
-            <div key={l} style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px", textAlign:"center" }}>
+            <div key={l} style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px", textAlign:"center" }}>
               <div style={{ color:C.muted, fontSize:10, marginBottom:4, textTransform:"uppercase" }}>{l}</div>
-              <div style={{ color:c, fontSize:24, fontWeight:800, fontFamily:"monospace" }}>{v}</div>
+              <div style={{ color:c, fontSize:22, fontWeight:800, fontFamily:"monospace" }}>{v}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:16 }}>
-          <Card>
-            <SecTitle color={C.blue}>Radar de Performance</SecTitle>
-            <ResponsiveContainer width="100%" height={195}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke={C.border} />
-                <PolarAngleAxis dataKey="m" tick={{ fill:C.muted, fontSize:11 }} />
-                <PolarRadiusAxis domain={[0,100]} tick={false} />
-                <Radar dataKey="v" stroke={scolor} fill={scolor} fillOpacity={0.25} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </Card>
-          <Card>
-            <SecTitle color={C.purple}>Indicadores</SecTitle>
-            <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
-              {(isAgente ? [
-                { l:"Taxa Resolução",    v:dados.taxa_resolucao,    c:C.green  },
-                { l:"Taxa Reincidência", v:dados.taxa_reincidencia, c:C.red    },
-                { l:"Taxa Transferência",v:dados.taxa_transferencia,c:C.yellow },
-              ] : [
-                { l:"Taxa Reincidência", v:dados.taxa_r,   c:C.red    },
-                { l:"OS Rápidas (<20min)",v:dados.taxa_rap, c:C.yellow },
-                { l:"Desc. Genéricas",   v:dados.taxa_gen, c:C.orange },
-              ]).map(({ l, v, c }) => (
-                <div key={l}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ color:C.muted, fontSize:12 }}>{l}</span>
-                    <span style={{ color:c, fontWeight:700, fontSize:12 }}>{v}%</span>
-                  </div>
-                  <ScorBar val={v} color={c} />
-                </div>
-              ))}
-              {isAgente && dados.tempo_atend_min > 0 && (
-                <div style={{ marginTop:6, padding:"9px 12px", background:C.panel, borderRadius:8 }}>
-                  <span style={{ color:C.muted, fontSize:11 }}>Tempo médio atendimento: </span>
-                  <span style={{ color:C.accent, fontWeight:700 }}>{dados.tempo_atend_min} min</span>
-                </div>
-              )}
-              {!isAgente && <Chip color={flagColor(dados.flag)}>{flagIcon(dados.flag)} {dados.flag}</Chip>}
-            </div>
-          </Card>
+        {/* ── SUB-TABS ── */}
+        <div style={{ display:"flex", gap:2, background:C.panel, borderRadius:10, padding:4 }}>
+          {[["performance","📊 Desempenho"],["gestao","⚖️ Avaliação de Gestão"]].map(([k,l]) => (
+            <button key={k} onClick={() => setAbaLocal(k)} style={{
+              flex:1, background:abaLocal===k ? C.card : "transparent",
+              color:abaLocal===k ? C.text : C.muted,
+              border:abaLocal===k ? `1px solid ${C.border}` : "1px solid transparent",
+              borderRadius:8, padding:"8px 0", cursor:"pointer", fontWeight:abaLocal===k?700:500, fontSize:13,
+              transition:"all 0.2s",
+            }}>{l}</button>
+          ))}
         </div>
 
-        <Card style={{ background:scolor+"0C", borderColor:scolor+"44" }}>
-          <div style={{ fontWeight:700, color:scolor, fontSize:13, marginBottom:6 }}>📋 VEREDITO: {ver.toUpperCase()}</div>
-          <div style={{ color:C.text, fontSize:13, lineHeight:1.65 }}>
-            {ver === "Manter"   && `${isAgente?nome:shortName(nome)} demonstra performance consistente com os dados disponíveis. Mantenha o monitoramento padrão e considere reconhecimento se os resultados se sustentarem no próximo período.`}
-            {ver === "Treinar"  && `${isAgente?nome:shortName(nome)} apresenta indicadores que necessitam atenção. Recomendamos treinamento focado em ${isAgente?"técnicas de resolução e redução de transferências":"diagnóstico técnico e documentação detalhada de chamados"}. Prazo de reavaliação: 30 dias.`}
-            {ver === "Desligar" && `${isAgente?nome:shortName(nome)} apresenta indicadores críticos persistentes. Os dados frios indicam padrão de baixa qualidade. Recomenda-se reunião de feedback formal e, se não houver melhora em 15 dias, desligamento.`}
-          </div>
-        </Card>
+        {/* ── TAB: DESEMPENHO ── */}
+        {abaLocal === "performance" && (
+          <>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <Card>
+                <SecTitle color={C.blue}>Radar de Performance</SecTitle>
+                <ResponsiveContainer width="100%" height={195}>
+                  <RadarChart data={radarData}>
+                    <PolarGrid stroke={C.border} />
+                    <PolarAngleAxis dataKey="m" tick={{ fill:C.muted, fontSize:11 }} />
+                    <PolarRadiusAxis domain={[0,100]} tick={false} />
+                    <Radar dataKey="v" stroke={scolor} fill={scolor} fillOpacity={0.25} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </Card>
+              <Card>
+                <SecTitle color={C.purple}>Indicadores</SecTitle>
+                <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+                  {(isAgente ? [
+                    { l:"Taxa Resolução",     v:dados.taxa_resolucao,     c:C.green  },
+                    { l:"Taxa Reincidência",  v:dados.taxa_reincidencia,  c:C.red    },
+                    { l:"Taxa Transferência", v:dados.taxa_transferencia, c:C.yellow },
+                  ] : [
+                    { l:"Taxa Reincidência",   v:dados.taxa_r,   c:C.red    },
+                    { l:"OS Rápidas (<20min)", v:dados.taxa_rap, c:C.yellow },
+                    { l:"Desc. Genéricas",     v:dados.taxa_gen, c:C.orange },
+                  ]).map(({ l, v, c }) => (
+                    <div key={l}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ color:C.muted, fontSize:12 }}>{l}</span>
+                        <span style={{ color:c, fontWeight:700, fontSize:12 }}>{v}%</span>
+                      </div>
+                      <ScorBar val={v} color={c} />
+                    </div>
+                  ))}
+                  {isAgente && dados.tempo_atend_min > 0 && (
+                    <div style={{ marginTop:4, padding:"8px 11px", background:C.panel, borderRadius:8 }}>
+                      <span style={{ color:C.muted, fontSize:11 }}>Tempo médio: </span>
+                      <span style={{ color:C.accent, fontWeight:700 }}>{dados.tempo_atend_min} min</span>
+                    </div>
+                  )}
+                  {!isAgente && <div style={{ marginTop:4 }}><Chip color={flagColor(dados.flag)}>{flagIcon(dados.flag)} {dados.flag}</Chip></div>}
+                </div>
+              </Card>
+            </div>
+
+            <Card style={{ background:scolor+"0C", borderColor:scolor+"44" }}>
+              <div style={{ fontWeight:700, color:scolor, fontSize:13, marginBottom:6 }}>📋 VEREDITO: {ver.toUpperCase()}</div>
+              <div style={{ color:C.text, fontSize:13, lineHeight:1.65 }}>
+                {ver==="Manter"   && `${nomeExib} demonstra performance consistente com os dados disponíveis. Mantenha o monitoramento padrão e considere reconhecimento se os resultados se sustentarem no próximo período.`}
+                {ver==="Treinar"  && `${nomeExib} apresenta indicadores que necessitam atenção. Recomendamos treinamento focado em ${isAgente?"técnicas de resolução e redução de transferências":"diagnóstico técnico e documentação detalhada de chamados"}. Prazo de reavaliação: 30 dias.`}
+                {ver==="Desligar" && `${nomeExib} apresenta indicadores críticos persistentes. Os dados frios indicam padrão de baixa qualidade. Recomenda-se reunião de feedback formal e, se não houver melhora em 15 dias, desligamento.`}
+              </div>
+            </Card>
+          </>
+        )}
+
+        {/* ── TAB: AVALIAÇÃO DE GESTÃO ── */}
+        {abaLocal === "gestao" && (
+          <>
+            {/* Avaliador */}
+            <Card>
+              <SecTitle color={C.accent}>Identificação do Avaliador</SecTitle>
+              <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                <span style={{ color:C.muted, fontSize:13, whiteSpace:"nowrap" }}>Nome do avaliador:</span>
+                <input
+                  value={avaliador}
+                  onChange={e => setAvaliador(e.target.value)}
+                  placeholder="Ex: Eric Jonas"
+                  style={{ flex:1, background:C.panel, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", color:C.text, fontSize:13, outline:"none", fontFamily:"inherit" }}
+                  onFocus={e => e.target.style.borderColor = C.accent}
+                  onBlur={e  => e.target.style.borderColor = C.border}
+                />
+              </div>
+            </Card>
+
+            {/* Média geral */}
+            {mediaComp && (
+              <div style={{ background:C.accent+"15", border:`1px solid ${C.accent}44`, borderRadius:10, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ color:C.text, fontWeight:600, fontSize:13 }}>Média das Competências</span>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <span style={{ color:"#F4A429", fontSize:20 }}>{"★".repeat(Math.round(parseFloat(mediaComp)))}{"☆".repeat(5-Math.round(parseFloat(mediaComp)))}</span>
+                  <span style={{ color:C.accent, fontWeight:800, fontSize:18, fontFamily:"monospace" }}>{mediaComp}/5</span>
+                </div>
+              </div>
+            )}
+
+            {/* 4 competências */}
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {competencias.map((c, i) => (
+                <CompetenciaCard
+                  key={c.key}
+                  titulo={c.titulo}
+                  descricao={c.descricao}
+                  icon={c.icon}
+                  value={c.nota}
+                  comentario={c.comentario}
+                  onChange={v => setNota(i, v)}
+                  onComentario={v => setComentario(i, v)}
+                />
+              ))}
+            </div>
+
+            {/* Botão exportar ao final */}
+            <button
+              onClick={() => exportarPDF(nome, tipo, dados, competencias, avaliador)}
+              style={{ background:C.blue, color:"#fff", border:"none", borderRadius:10, padding:"13px 0", cursor:"pointer", fontWeight:800, fontSize:14, width:"100%", display:"flex", gap:8, alignItems:"center", justifyContent:"center" }}>
+              📄 Exportar Boletim Completo em PDF
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -969,7 +1294,7 @@ export default function App() {
                       background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
                       padding:"12px 22px", maxWidth:420, margin:"0 auto" }}>
           <img
-            src={new URL('./logo-eric.png', import.meta.url).href}
+            src={logoEric}
             alt="Eric Jonas Engenheiro"
             style={{ width:48, height:48, objectFit:"contain", borderRadius:8, flexShrink:0 }}
           />
