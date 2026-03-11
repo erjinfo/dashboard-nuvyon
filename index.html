@@ -170,6 +170,13 @@ td{padding:9px}
     </div>
     <button id="login-btn" onclick="doLogin()">Entrar</button>
     <div id="login-err"></div>
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+      <div id="login-diag" style="font-size:11px;color:var(--muted);text-align:left;background:var(--panel);border-radius:7px;padding:10px;display:none;max-height:140px;overflow-y:auto;font-family:monospace;word-break:break-all"></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button onclick="loginDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">🔍 Diagnóstico</button>
+        <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar banco</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -493,6 +500,38 @@ function dbImport() {
     reader.readAsText(f);
   };
   inp.click();
+}
+
+/* ── Diagnóstico e reset de banco (visível na tela de login) ── */
+function loginDiag() {
+  const diag = document.getElementById('login-diag');
+  diag.style.display = 'block';
+  const users = dbLoad();
+  const linhas = [
+    '📦 Chave: "' + DB_KEY + '"',
+    '👥 Usuários: ' + users.length,
+    ...users.map(u => '  • ' + u.user + ' [' + u.role + '] abas:' + (u.abas||[]).join(',')),
+    '',
+    '🔑 Chave antiga ("nuvyon_users"):',
+    ...(() => {
+      try {
+        const old = JSON.parse(localStorage.getItem('nuvyon_users')||'[]');
+        return old.length ? old.map(u => '  • ' + u.user + ' [' + (u.role||'?') + ']') : ['  (vazio)'];
+      } catch { return ['  erro']; }
+    })()
+  ];
+  diag.innerHTML = linhas.map(l => '<div>' + l + '</div>').join('');
+}
+
+async function loginReset() {
+  if (!confirm('Isso apaga TODOS os usuários e recria só o master padrão (eric / eric2024).\n\nConfirmar?')) return;
+  localStorage.removeItem(DB_KEY);
+  localStorage.removeItem('nuvyon_users');
+  localStorage.removeItem('nuvyon_logs');
+  await initDB();
+  loginDiag();
+  document.getElementById('login-err').style.color = 'var(--accent)';
+  document.getElementById('login-err').textContent = '✅ Banco resetado. Use eric / eric2024';
 }
 
 /* ── INIT: após TODO o JavaScript do app carregar ── */
