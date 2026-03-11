@@ -328,7 +328,7 @@ async function sha256(s) {
 
 async function dbLoad() {
   const cfg = ghGetConfig();
-  if (cfg) {
+  if (cfg && location.protocol !== 'file:') {
     try {
       const banco = await ghGet(cfg);
       if (banco && Array.isArray(banco.users)) {
@@ -350,7 +350,7 @@ async function dbSave(users) {
   // Sempre salvar local primeiro (imediato)
   localStorage.setItem(DB_KEY, JSON.stringify(users));
   const cfg = ghGetConfig();
-  if (!cfg) { setModeIndicator(false); return; }
+  if (!cfg || location.protocol === 'file:') { setModeIndicator(false); return; }
   try {
     const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
     await ghPut(cfg, { users, logs, updated: new Date().toISOString() });
@@ -675,48 +675,76 @@ function openGhConfig() {
     document.getElementById('gh-repo').value  = cfg.repo||'';
     document.getElementById('gh-token').value = cfg.token||'';
   }
+  // Mostrar aviso se aberto via file://
+  const det = document.getElementById('gh-config-detail');
+  if (location.protocol === 'file:') {
+    det.style.display = 'block';
+    det.innerHTML = '<span style="color:#f39c12">⚠ Você está abrindo o dashboard como arquivo local (file://).</span><br>' +
+      'O GitHub funcionará normalmente quando acessar via <strong>https://erjinfo.github.io/dashboard-nuvyon/</strong><br>' +
+      'Configure o token aqui — ele fica salvo nesta máquina e será usado automaticamente no acesso via HTTPS.';
+  } else {
+    if (det) { det.style.display='none'; det.textContent=''; }
+  }
+  document.getElementById('gh-config-msg').textContent = '';
   document.getElementById('gh-config-modal').style.display = 'flex';
 }
 function closeGhConfig() { document.getElementById('gh-config-modal').style.display = 'none'; }
 
 async function ghTestAndSave() {
-  const owner = document.getElementById('gh-owner').value.trim();
-  const repo  = document.getElementById('gh-repo').value.trim();
+  // Limpar URL se usuário colou a URL completa
+  let owner = document.getElementById('gh-owner').value.trim()
+    .replace(/https?:\/\/(www\.)?(github\.com|github\.io)\/?/gi, '')
+    .replace(/\/.*/,'').trim();
+  document.getElementById('gh-owner').value = owner; // atualizar o campo
+  let repo  = document.getElementById('gh-repo').value.trim()
+    .replace(/https?:\/\/[^/]+\//gi,'').replace(/\.git$/,'').trim();
+  document.getElementById('gh-repo').value = repo;
   const token = document.getElementById('gh-token').value.trim();
   const msg   = document.getElementById('gh-config-msg');
   const det   = document.getElementById('gh-config-detail');
   if (!owner||!repo||!token) { msg.style.color='#e74c3c'; msg.textContent='❌ Preencha todos os campos'; return; }
+
+  // Salvar config sempre (funciona no HTTPS mesmo configurando via file://)
+  ghSetConfig({ owner, repo, token });
+
+  // Se estiver rodando como file://, não pode fazer fetch — apenas salva e orienta
+  if (location.protocol === 'file:') {
+    msg.style.color='#f39c12'; msg.textContent='⚠ Configuração salva (modo local)';
+    det.style.display='block';
+    det.innerHTML = '<strong style="color:#f39c12">⚠ Arquivo aberto localmente (file://)</strong><br><br>' +
+      'O browser bloqueia conexões externas neste modo. A configuração foi salva e funcionará automaticamente quando acessar via:<br><br>' +
+      '<strong style="color:var(--accent)">https://erjinfo.github.io/dashboard-nuvyon/</strong><br><br>' +
+      'Coloque o arquivo HTML no repositório e acesse pelo GitHub Pages — o banco do GitHub será sincronizado normalmente.';
+    setModeIndicator(false);
+    return;
+  }
+
   msg.style.color='var(--muted)'; msg.textContent='🔄 Testando conexão...';
   det.style.display='none';
   try {
-    // Testar acesso ao repo
     const r = await fetch('https://api.github.com/repos/' + owner + '/' + repo, {
       headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
     });
-    if (r.status === 401) throw new Error('Token inválido ou expirado');
-    if (r.status === 404) throw new Error('Repositório não encontrado ou sem acesso');
-    if (!r.ok) throw new Error('Erro ' + r.status);
+    if (r.status === 401) throw new Error('Token inválido ou expirado. Gere um novo em github.com/settings/tokens');
+    if (r.status === 404) throw new Error('Repo "' + owner + '/' + repo + '" não encontrado. Verifique o nome e se o token tem permissão "repo".');
+    if (!r.ok) throw new Error('Erro HTTP ' + r.status);
     const repoData = await r.json();
     if (!repoData.private) {
-      if (!confirm('⚠ Este repositório é PÚBLICO. Os dados de usuários ficarão visíveis para todos.\n\nDeseja continuar mesmo assim?')) return;
+      if (!confirm('Repositório PÚBLICO: o nuvyon_banco.json ficará visível (senhas são hash SHA-256).\n\nContinuar?')) return;
     }
-    // Salvar config
-    ghSetConfig({ owner, repo, token });
-    msg.style.color='var(--accent)'; msg.textContent='✅ Conectado! Sincronizando banco...';
+    msg.style.color='var(--accent)'; msg.textContent='✅ Conectado! Sincronizando...';
     det.style.display='block';
-    det.textContent = 'Repo: ' + repoData.full_name + ' | Privado: ' + repoData.private + ' | Acesso: OK';
-    // Migrar usuários locais para o GitHub
+    det.textContent = 'Repo: ' + repoData.full_name + ' | Privado: ' + repoData.private + ' | OK';
     const localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]');
     _USERS_CACHE = localUsers.length ? localUsers : _USERS_CACHE;
     if (_USERS_CACHE.length) {
-      GH_SHA = null; // forçar criação se não existir
-      // Tentar ler o arquivo existente primeiro
+      GH_SHA = null;
       try { await ghGet({owner,repo,token}); } catch {}
       await dbSave(_USERS_CACHE);
-      msg.textContent = '✅ Conectado! ' + _USERS_CACHE.length + ' usuário(s) sincronizados.';
+      msg.textContent = '✅ ' + _USERS_CACHE.length + ' usuário(s) sincronizados no GitHub!';
     }
     setModeIndicator(true);
-    setTimeout(closeGhConfig, 2000);
+    setTimeout(closeGhConfig, 2500);
   } catch(e) {
     msg.style.color='#e74c3c'; msg.textContent='❌ ' + e.message;
     det.style.display='block'; det.textContent = e.toString();
@@ -5152,8 +5180,10 @@ carregarDemoData();
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
       <div>
-        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">USUÁRIO DO GITHUB (owner)</div>
-        <input id="gh-owner" placeholder="ex: ericnuvyon" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">USUÁRIO DO GITHUB (owner) <span style="color:var(--accent);font-weight:400;text-transform:none">— só o nome, ex: erjinfo</span></div>
+        <input id="gh-owner" placeholder="ex: erjinfo" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none"
+          oninput="this.value=this.value.replace(/https?:\/\/(www\.)?(github\.com|github\.io)\/?/gi,'').replace(/\/.*/,'').trim()">
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">❌ Não coloque a URL completa — só o nome do usuário</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">NOME DO REPOSITÓRIO</div>
