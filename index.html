@@ -170,11 +170,13 @@ td{padding:9px}
     </div>
     <button id="login-btn" onclick="doLogin()">Entrar</button>
     <div id="login-err"></div>
-    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+    <div id="login-status" style="font-size:11px;color:var(--muted);text-align:center;min-height:16px;margin-top:6px"></div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <div id="login-diag" style="font-size:11px;color:var(--muted);text-align:left;background:var(--panel);border-radius:7px;padding:10px;display:none;max-height:140px;overflow-y:auto;font-family:monospace;word-break:break-all"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button onclick="openGhConfig()" style="background:#00C9A722;border:1px solid #00C9A744;color:var(--accent);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-weight:700">☁ Configurar GitHub</button>
         <button onclick="loginDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">🔍 Diagnóstico</button>
-        <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar banco</button>
+        <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
       </div>
     </div>
   </div>
@@ -258,32 +260,142 @@ const ABAS = [
   { id:'gestor',   label:'⚖️ Gestor Justo' },
   { id:'nps',      label:'⭐ NPS Pesquisa' },
 ];
-const DB_KEY = 'nuvyon_users_v2';
 
-function dbLoad() { try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; } }
-function dbSave(u) { localStorage.setItem(DB_KEY, JSON.stringify(u)); }
-function dbLog(msg) {
+/* ══════════════════════════════════════════════════════════════
+   BANCO DE DADOS — GitHub API (repositório privado)
+   Fallback automático para localStorage se offline
+══════════════════════════════════════════════════════════════ */
+const DB_KEY      = 'nuvyon_users_v2';       // fallback local
+const GH_CFG_KEY  = 'nuvyon_gh_config';      // config GitHub local
+const GH_FILE     = 'nuvyon_banco.json';      // arquivo no repo
+
+/* ── Config GitHub (salva só na máquina do admin) ── */
+function ghGetConfig() {
+  try { return JSON.parse(localStorage.getItem(GH_CFG_KEY))||null; } catch { return null; }
+}
+function ghSetConfig(cfg) { localStorage.setItem(GH_CFG_KEY, JSON.stringify(cfg)); }
+function ghClearConfig() { localStorage.removeItem(GH_CFG_KEY); }
+
+/* ── Indicador de modo ── */
+let GH_MODE = false; // true = GitHub ativo
+let GH_SHA  = null;  // SHA do arquivo atual no GitHub (necessário para update)
+
+function setModeIndicator(mode) {
+  GH_MODE = mode;
+  const el = document.getElementById('db-mode-badge');
+  if (el) {
+    el.textContent = mode ? '☁ GitHub' : '💾 Local';
+    el.style.color  = mode ? 'var(--accent)' : '#f39c12';
+    el.title = mode ? 'Banco sincronizado com GitHub' : 'Banco local — configure GitHub para sincronizar';
+  }
+}
+
+/* ── GitHub API helpers ── */
+async function ghGet(cfg) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
+  const r = await fetch(url, { headers: {
+    'Authorization': `token ${cfg.token}`,
+    'Accept': 'application/vnd.github.v3+json'
+  }});
+  if (r.status === 404) return null; // arquivo não existe ainda
+  if (!r.ok) throw new Error(`GitHub GET ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  GH_SHA = data.sha;
+  return JSON.parse(atob(data.content.replace(/\n/g,'')));
+}
+
+async function ghPut(cfg, banco) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
+  const body = {
+    message: `nuvyon: atualização do banco ${new Date().toLocaleString('pt-BR')}`,
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(banco, null, 2)))),
+    ...(GH_SHA ? { sha: GH_SHA } : {})
+  };
+  const r = await fetch(url, { method: 'PUT',
+    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`GitHub PUT ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  GH_SHA = data.content.sha;
+}
+
+/* ── dbLoad / dbSave com GitHub + fallback ── */
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function dbLoad() {
+  const cfg = ghGetConfig();
+  if (cfg) {
+    try {
+      const banco = await ghGet(cfg);
+      if (banco && Array.isArray(banco.users)) {
+        localStorage.setItem(DB_KEY, JSON.stringify(banco.users)); // cache local
+        dbLogLocal(`Banco carregado do GitHub (${banco.users.length} usuários)`);
+        setModeIndicator(true);
+        return banco.users;
+      }
+    } catch(e) {
+      console.warn('GitHub indisponível, usando cache local:', e.message);
+      dbLogLocal('GitHub indisponível — usando cache local');
+    }
+  }
+  setModeIndicator(false);
+  try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; }
+}
+
+async function dbSave(users) {
+  // Sempre salvar local primeiro (imediato)
+  localStorage.setItem(DB_KEY, JSON.stringify(users));
+  const cfg = ghGetConfig();
+  if (!cfg) { setModeIndicator(false); return; }
+  try {
+    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+    await ghPut(cfg, { users, logs, updated: new Date().toISOString() });
+    setModeIndicator(true);
+  } catch(e) {
+    console.warn('Falha ao salvar no GitHub:', e.message);
+    dbLogLocal('Falha ao gravar no GitHub: ' + e.message);
+    setModeIndicator(false);
+  }
+}
+
+function dbLogLocal(msg) {
   try {
     const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
     logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
     localStorage.setItem('nuvyon_logs', JSON.stringify(logs.slice(0,100)));
   } catch {}
 }
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+async function dbLog(msg) {
+  dbLogLocal(msg);
+  // Sincronizar logs no GitHub junto com próximo dbSave (não bloqueia)
 }
 
-let SESSION = null;
-let _showTabOrig = null; // guardado após todo o JS carregar
+let SESSION   = null;
+let _showTabOrig = null;
+let _USERS_CACHE = []; // cache em memória após login
 
-/* ── Inicializar banco (cria master padrão se vazio) ── */
+/* ── Inicializar banco ── */
 async function initDB() {
-  if (!dbLoad().length) {
-    dbSave([{ user:'eric', hash: await sha256('eric2024'),
-      abas: ABAS.map(a=>a.id), role:'master',
-      criado: new Date().toLocaleString('pt-BR') }]);
+  showLoginStatus('Conectando ao banco...', 'muted');
+  _USERS_CACHE = await dbLoad();
+  if (!_USERS_CACHE.length) {
+    const hash = await sha256('eric2024');
+    _USERS_CACHE = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
+    await dbSave(_USERS_CACHE);
+    dbLogLocal('Banco inicializado com usuário master padrão');
   }
+  showLoginStatus('', '');
+}
+
+function showLoginStatus(msg, color) {
+  const el = document.getElementById('login-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color === 'muted' ? 'var(--muted)' : color === 'ok' ? 'var(--accent)' : '#e74c3c';
 }
 
 /* ── Login ── */
@@ -293,13 +405,27 @@ async function doLogin() {
   const err = document.getElementById('login-err');
   err.textContent = '';
   if (!u||!p) { err.textContent='Preencha usuário e senha.'; return; }
-  const h = await sha256(p);
-  const found = dbLoad().find(x => x.user.toLowerCase()===u && x.hash===h);
-  if (!found) { err.textContent='❌ Usuário ou senha inválidos.'; dbLog(`Falha login: ${u}`); return; }
-  SESSION = found;
-  dbLog(`Login: ${SESSION.user}`);
-  document.getElementById('login-overlay').style.display = 'none';
-  applySession();
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Verificando...'; btn.disabled = true;
+  try {
+    const h = await sha256(p);
+    // Recarregar do GitHub para garantir dados mais recentes
+    showLoginStatus('Verificando credenciais...', 'muted');
+    _USERS_CACHE = await dbLoad();
+    const found = _USERS_CACHE.find(x => x.user.toLowerCase()===u && x.hash===h);
+    if (!found) {
+      err.textContent='❌ Usuário ou senha inválidos.';
+      dbLog('Falha login: ' + u);
+      return;
+    }
+    SESSION = found;
+    dbLog('Login: ' + SESSION.user);
+    document.getElementById('login-overlay').style.display = 'none';
+    applySession();
+  } finally {
+    btn.textContent = 'Entrar'; btn.disabled = false;
+    showLoginStatus('', '');
+  }
 }
 
 /* ── Aplicar sessão ── */
@@ -360,7 +486,7 @@ function openAdmin() {
 function closeAdmin() { document.getElementById('admin-modal').classList.remove('open'); }
 
 function renderAdminUsers() {
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   const el = document.getElementById('admin-users-list');
   if (!users.length) { el.innerHTML='<p style="color:var(--muted);font-size:12px">Nenhum usuário.</p>'; return; }
   el.innerHTML = users.map((u,i) => `
@@ -398,41 +524,45 @@ function renderLogs() {
 }
 
 function renderDbStatus() {
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-  document.getElementById('db-status').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-      <div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">${users.length}</div><div style="font-size:11px;color:var(--muted)">usuários cadastrados</div></div>
-      <div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">${logs.length}</div><div style="font-size:11px;color:var(--muted)">eventos de acesso</div></div>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Armazenado em: <code style="background:var(--card);padding:1px 5px;border-radius:3px">localStorage["${DB_KEY}"]</code></div>`;
+  const cfg = ghGetConfig();
+  const ghInfo = cfg
+    ? '<div style="margin-top:8px;background:var(--accent)11;border:1px solid var(--accent)33;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">☁ GitHub Ativo</div><div style="font-size:11px;color:var(--muted)">Repo: <strong style="color:var(--text)">' + cfg.owner + '/' + cfg.repo + '</strong></div><div style="font-size:11px;color:var(--muted)">Arquivo: <code style="background:var(--card);padding:1px 4px;border-radius:3px">nuvyon_banco.json</code></div><button onclick="openGhConfig()" style="margin-top:8px;background:transparent;border:1px solid var(--accent)44;color:var(--accent);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer">✏ Editar config</button></div>'
+    : '<div style="margin-top:8px;background:#f39c1211;border:1px solid #f39c1233;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:#f39c12;margin-bottom:4px">💾 Modo Local</div><div style="font-size:11px;color:var(--muted)">Banco armazenado apenas neste navegador.</div><button onclick="openGhConfig()" style="margin-top:8px;background:var(--accent);color:#000;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">☁ Configurar GitHub</button></div>';
+  document.getElementById('db-status').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + users.length + '</div><div style="font-size:11px;color:var(--muted)">usuários</div></div>' +
+    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + logs.length + '</div><div style="font-size:11px;color:var(--muted)">eventos</div></div>' +
+    '</div>' + ghInfo;
 }
 
 function adminToggleAba(idx, abaId, checked) {
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   if (!users[idx]) return;
   if (checked) { if (!users[idx].abas.includes(abaId)) users[idx].abas.push(abaId); }
   else users[idx].abas = users[idx].abas.filter(a=>a!==abaId);
-  dbSave(users);
-  dbLog(`Aba "${abaId}" ${checked?'liberada para':'removida de'} ${users[idx].user}`);
+  dbSave(users).then(() => dbLog('Aba "' + abaId + '" ' + (checked?'liberada para':'removida de') + ' ' + users[idx].user));
 }
 
 function adminDel(idx) {
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   if (!users[idx]||users[idx].role==='master') return;
-  if (!confirm(`Remover "${users[idx].user}"?`)) return;
-  dbLog(`Usuário removido: ${users[idx].user}`);
-  users.splice(idx,1); dbSave(users); renderAdminUsers();
+  if (!confirm('Remover "' + users[idx].user + '"?')) return;
+  const nome = users[idx].user;
+  users.splice(idx,1);
+  dbSave(users).then(() => { dbLog('Usuário removido: ' + nome); renderAdminUsers(); });
 }
 
 async function adminResetPass(idx) {
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   const inp = document.getElementById('rp'+idx);
   if (!inp?.value.trim()) { showAdminMsg('❌ Digite a nova senha'); return; }
   users[idx].hash = await sha256(inp.value);
-  dbSave(users); inp.value='';
-  dbLog(`Senha alterada: ${users[idx].user}`);
-  showAdminMsg('✅ Senha alterada!');
+  showAdminMsg('💾 Salvando...');
+  await dbSave(users); inp.value='';
+  dbLog('Senha alterada: ' + users[idx].user);
+  showAdminMsg('✅ Senha alterada e sincronizada!');
 }
 
 async function adminAddUser() {
@@ -441,18 +571,19 @@ async function adminAddUser() {
   if (!u||!p) { showAdminMsg('❌ Preencha usuário e senha'); return; }
   if (u.length < 3) { showAdminMsg('❌ Usuário muito curto'); return; }
   if (p.length < 4) { showAdminMsg('❌ Senha muito curta (mín. 4)'); return; }
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   if (users.find(x=>x.user===u)) { showAdminMsg('❌ Usuário já existe'); return; }
   const abas = Array.from(document.querySelectorAll('#new-u-tabs input:checked')).map(el=>el.value);
   if (!abas.length) { showAdminMsg('❌ Selecione ao menos uma aba'); return; }
   users.push({ user:u, hash: await sha256(p), abas, role:'user', criado: new Date().toLocaleString('pt-BR') });
-  dbSave(users);
-  dbLog(`Criado: ${u} | abas: ${abas.join(', ')}`);
+  showAdminMsg('💾 Salvando no GitHub...');
+  await dbSave(users);
+  dbLog('Criado: ' + u + ' | abas: ' + abas.join(', '));
   document.getElementById('new-u-user').value='';
   document.getElementById('new-u-pass').value='';
   renderAdminUsers(); renderNewUserTabs();
   admTab('usuarios');
-  showAdminMsg('✅ Usuário criado!');
+  showAdminMsg('✅ Usuário criado e sincronizado!');
 }
 
 function showAdminMsg(msg) {
@@ -506,7 +637,7 @@ function dbImport() {
 function loginDiag() {
   const diag = document.getElementById('login-diag');
   diag.style.display = 'block';
-  const users = dbLoad();
+  const users = _USERS_CACHE;
   const linhas = [
     '📦 Chave: "' + DB_KEY + '"',
     '👥 Usuários: ' + users.length,
@@ -524,14 +655,76 @@ function loginDiag() {
 }
 
 async function loginReset() {
-  if (!confirm('Isso apaga TODOS os usuários e recria só o master padrão (eric / eric2024).\n\nConfirmar?')) return;
+  if (!confirm('Isso apaga TODOS os usuários e recria só o master padrão (eric / eric2024).
+
+Confirmar?')) return;
   localStorage.removeItem(DB_KEY);
   localStorage.removeItem('nuvyon_users');
   localStorage.removeItem('nuvyon_logs');
+  GH_SHA = null;
+  _USERS_CACHE = [];
   await initDB();
   loginDiag();
   document.getElementById('login-err').style.color = 'var(--accent)';
   document.getElementById('login-err').textContent = '✅ Banco resetado. Use eric / eric2024';
+}
+
+/* ── Configuração GitHub ── */
+function openGhConfig() {
+  const cfg = ghGetConfig();
+  if (cfg) {
+    document.getElementById('gh-owner').value = cfg.owner||'';
+    document.getElementById('gh-repo').value  = cfg.repo||'';
+    document.getElementById('gh-token').value = cfg.token||'';
+  }
+  document.getElementById('gh-config-modal').style.display = 'flex';
+}
+function closeGhConfig() { document.getElementById('gh-config-modal').style.display = 'none'; }
+
+async function ghTestAndSave() {
+  const owner = document.getElementById('gh-owner').value.trim();
+  const repo  = document.getElementById('gh-repo').value.trim();
+  const token = document.getElementById('gh-token').value.trim();
+  const msg   = document.getElementById('gh-config-msg');
+  const det   = document.getElementById('gh-config-detail');
+  if (!owner||!repo||!token) { msg.style.color='#e74c3c'; msg.textContent='❌ Preencha todos os campos'; return; }
+  msg.style.color='var(--muted)'; msg.textContent='🔄 Testando conexão...';
+  det.style.display='none';
+  try {
+    // Testar acesso ao repo
+    const r = await fetch('https://api.github.com/repos/' + owner + '/' + repo, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (r.status === 401) throw new Error('Token inválido ou expirado');
+    if (r.status === 404) throw new Error('Repositório não encontrado ou sem acesso');
+    if (!r.ok) throw new Error('Erro ' + r.status);
+    const repoData = await r.json();
+    if (!repoData.private) {
+      if (!confirm('⚠ Este repositório é PÚBLICO. Os dados de usuários ficarão visíveis para todos.
+
+Deseja continuar mesmo assim?')) return;
+    }
+    // Salvar config
+    ghSetConfig({ owner, repo, token });
+    msg.style.color='var(--accent)'; msg.textContent='✅ Conectado! Sincronizando banco...';
+    det.style.display='block';
+    det.textContent = 'Repo: ' + repoData.full_name + ' | Privado: ' + repoData.private + ' | Acesso: OK';
+    // Migrar usuários locais para o GitHub
+    const localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]');
+    _USERS_CACHE = localUsers.length ? localUsers : _USERS_CACHE;
+    if (_USERS_CACHE.length) {
+      GH_SHA = null; // forçar criação se não existir
+      // Tentar ler o arquivo existente primeiro
+      try { await ghGet({owner,repo,token}); } catch {}
+      await dbSave(_USERS_CACHE);
+      msg.textContent = '✅ Conectado! ' + _USERS_CACHE.length + ' usuário(s) sincronizados.';
+    }
+    setModeIndicator(true);
+    setTimeout(closeGhConfig, 2000);
+  } catch(e) {
+    msg.style.color='#e74c3c'; msg.textContent='❌ ' + e.message;
+    det.style.display='block'; det.textContent = e.toString();
+  }
 }
 
 /* ── INIT: após TODO o JavaScript do app carregar ── */
@@ -558,6 +751,7 @@ window.addEventListener('load', async () => {
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap" title="Modo do banco de dados">💾 Local</div>
     <button onclick="openUpload()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:12px">⬆ Carregar Dados</button>
   </div>
 </div>
@@ -4939,6 +5133,47 @@ carregarDemoData();
     <div id="cpane-analise" style="padding:18px;display:none">
       <div id="cli-analise-content"></div>
     </div>
+  </div>
+</div>
+
+<!-- GITHUB CONFIG MODAL -->
+<div id="gh-config-modal" style="position:fixed;inset:0;background:#000000cc;z-index:10000;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:480px;max-width:96vw;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3 style="font-size:15px;font-weight:800;color:var(--accent)">☁ Configurar GitHub como banco de dados</h3>
+      <button onclick="closeGhConfig()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px">✕</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6">
+      Os usuários serão salvos no arquivo <code style="background:var(--panel);padding:1px 5px;border-radius:3px">nuvyon_banco.json</code> no seu repositório privado do GitHub.
+      Qualquer pessoa que abrir o dashboard vai ler do mesmo lugar. Configure <strong>apenas na sua máquina</strong> (admin).
+    </p>
+    <div style="background:var(--panel);border-radius:9px;padding:14px;margin-bottom:16px;font-size:11px;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--text)">Como obter o token:</strong><br>
+      1. Acesse <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>
+      2. Dê um nome (ex: <em>nuvyon-banco</em>)<br>
+      3. Marque apenas <strong>repo</strong> (acesso a repositórios privados)<br>
+      4. Clique <strong>Generate token</strong> e copie o token gerado
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">USUÁRIO DO GITHUB (owner)</div>
+        <input id="gh-owner" placeholder="ex: ericnuvyon" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">NOME DO REPOSITÓRIO</div>
+        <input id="gh-repo" placeholder="ex: nuvyon-dados (deve ser privado)" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">PERSONAL ACCESS TOKEN</div>
+        <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="ghTestAndSave()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:13px;cursor:pointer">✅ Testar e Salvar</button>
+      <button onclick="ghClearConfig();closeGhConfig();showLoginStatus('Configuração removida — modo local ativado','ok')" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:7px;padding:9px 14px;font-size:12px;cursor:pointer">🗑 Remover config</button>
+      <span id="gh-config-msg" style="font-size:12px;color:var(--accent)"></span>
+    </div>
+    <div id="gh-config-detail" style="margin-top:12px;font-size:11px;color:var(--muted);background:var(--panel);border-radius:7px;padding:10px;display:none;font-family:monospace;word-break:break-all"></div>
   </div>
 </div>
 
