@@ -2481,7 +2481,7 @@ function processNPS(rows) {
     const ag = String(r['Agente']||r['agente']||'').trim();
     const nota = parseInt(r['Opção']||r['opcao']||r['Opção']||'');
     const resp = limpa(String(r['Resposta']||r['resposta']||''));
-    const tel  = String(r['Telefone']||r['telefone']||'').slice(-5);
+    const tel  = String(r['Telefone']||r['telefone']||'').replace(/\D/g,'');
     const proto = String(r['Protocolo']||r['protocolo']||'');
     const dt   = String(r['Data']||r['data']||'').slice(0,10);
     const janela = String(r['__janela']||'');
@@ -2728,7 +2728,7 @@ function calcScorePremiacao(ag, npsData) {
 function renderPremiacaoSection(agentes, npsData) {
   const premios = [250, 200, 150, 100, 50];
   const cores   = ['#FFD700','#C0C0C0','#CD7F32','#3ECF8E','#6C8EAD'];
-  const medalhas= ['🥇 Ouro','🥈 Prata','🥉 Bronze','🔩 Ferro','🥫 Lata'];
+  const medalhas= ['🥇 1º Ouro','🥈 2º Prata','🥉 3º Bronze','🔩 4º Ferro','🥫 5º Latão'];
 
   // Gera scores para todos
   const todos = agentes.map(ag => calcScorePremiacao(ag, npsData)).filter(Boolean);
@@ -2801,7 +2801,7 @@ function premAtualizarRanking() {
   const npsData = getNPSData();
   const premios  = [250, 200, 150, 100, 50];
   const cores    = ['#FFD700','#C0C0C0','#CD7F32','#3ECF8E','#6C8EAD'];
-  const medalhas = ['🥇 Ouro','🥈 Prata','🥉 Bronze','🔩 Ferro','🥫 Lata'];
+  const medalhas = ['🥇 1º Ouro','🥈 2º Prata','🥉 3º Bronze','🔩 4º Ferro','🥫 5º Latão'];
 
   if (!selecionados.length) {
     wrap.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">Selecione pelo menos um participante.</div>';
@@ -2920,22 +2920,42 @@ function npsShowAgente(ag) {
   // Janela 1: avaliações 1-5 com destaques
   const j1PosHtml = d.dest_pos.length ? d.dest_pos.map(x=>`
     <div style="background:${C.green}11;border:1px solid ${C.green}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
-      <span style="color:${C.green};font-weight:700">${'★'.repeat(x.n)}</span>
-      <span style="color:var(--muted);font-size:10px;margin-left:6px">*****${x.tel} · ${x.d}</span>
-      ${x.r ? `<div style="color:var(--text);margin-top:4px;font-style:italic">"${x.r}"</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px">
+        <span style="color:${C.green};font-weight:700">${'★'.repeat(x.n)}${'☆'.repeat(5-x.n)}</span>
+        <span style="color:var(--muted);font-size:10px">${x.d}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        ${x.p ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:var(--accent);cursor:pointer" title="Clique para copiar protocolo" onclick="navigator.clipboard.writeText('${x.p}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📋 '+('${x.p}'),1200)">📋 ${x.p}</span>` : ''}
+        ${x.tel ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:${C.green};cursor:pointer" title="Clique para copiar telefone" onclick="navigator.clipboard.writeText('${x.tel}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📞 '+('${x.tel}'),1200)">📞 ${x.tel}</span>` : ''}
+      </div>
+      ${x.r ? `<div style="color:var(--text);font-size:11px;font-style:italic">"${x.r}"</div>` : ''}
     </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhum elogio com comentário registrado.</div>';
 
   const j1NegHtml = d.dest_neg.length ? d.dest_neg.map(x=>`
     <div style="background:${C.red}11;border:1px solid ${C.red}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
-      <span style="color:${C.red};font-weight:700">${'★'.repeat(x.n)}${'☆'.repeat(5-x.n)}</span>
-      <span style="color:var(--muted);font-size:10px;margin-left:6px">*****${x.tel} · ${x.d}</span>
-      ${x.r ? `<div style="color:var(--text);margin-top:4px;font-style:italic">"${x.r}"</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px">
+        <span style="color:${C.red};font-weight:700">${'★'.repeat(x.n)}${'☆'.repeat(5-x.n)}</span>
+        <span style="color:var(--muted);font-size:10px">${x.d}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        ${x.p ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:var(--accent);cursor:pointer" title="Clique para copiar protocolo" onclick="navigator.clipboard.writeText('${x.p}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📋 '+('${x.p}'),1200)">📋 ${x.p}</span>` : ''}
+        ${x.tel ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:${C.red};cursor:pointer" title="Clique para copiar telefone" onclick="navigator.clipboard.writeText('${x.tel}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📞 '+('${x.tel}'),1200)">📞 ${x.tel}</span>` : ''}
+      </div>
+      ${x.r ? `<div style="color:var(--text);font-size:11px;font-style:italic">"${x.r}"</div>` : ''}
+      <div style="margin-top:5px"><span style="background:${C.red}22;color:${C.red};border-radius:4px;padding:2px 6px;font-size:10px;font-weight:600">⚡ Indicado para Ativo</span></div>
     </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhuma avaliação negativa com comentário.</div>';
 
   const j2Html = d.reclamacoes.length ? d.reclamacoes.map(x=>`
     <div style="background:${C.orange}11;border:1px solid ${C.orange}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
-      <span style="color:var(--muted);font-size:10px">*****${x.tel} · ${x.d}</span>
-      <div style="color:var(--text);margin-top:4px">${x.r}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px">
+        <span style="background:${C.orange}22;color:${C.orange};border-radius:4px;padding:2px 6px;font-size:10px;font-weight:600">⚡ Ativo Recomendado</span>
+        <span style="color:var(--muted);font-size:10px">${x.d}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        ${x.p ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:var(--accent);cursor:pointer" title="Clique para copiar protocolo" onclick="navigator.clipboard.writeText('${x.p}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📋 '+('${x.p}'),1200)">📋 ${x.p}</span>` : ''}
+        ${x.tel ? `<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;font-family:monospace;color:${C.orange};cursor:pointer" title="Clique para copiar telefone" onclick="navigator.clipboard.writeText('${x.tel}');this.textContent='✓ Copiado!';setTimeout(()=>this.textContent='📞 '+('${x.tel}'),1200)">📞 ${x.tel}</span>` : ''}
+      </div>
+      <div style="color:var(--text);font-size:11px">${x.r}</div>
     </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhuma reclamação registrada nesta janela.</div>';
 
   // Nota cruzada com SAC
