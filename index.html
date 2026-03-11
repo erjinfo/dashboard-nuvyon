@@ -176,22 +176,62 @@ td{padding:9px}
 <!-- ADMIN MODAL -->
 <div id="admin-modal">
   <div id="admin-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <h3>⚙️ Gerenciar Usuários</h3>
       <button onclick="closeAdmin()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">✕ Fechar</button>
     </div>
-    <div id="admin-users-list"></div>
-    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
-      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">➕ Novo Usuário</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <input id="new-u-user" placeholder="Usuário" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-size:12px;outline:none">
-        <input id="new-u-pass" type="password" placeholder="Senha" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-size:12px;outline:none">
+    <!-- Sub-tabs admin -->
+    <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0">
+      <button id="admtab-usuarios" onclick="admTab('usuarios')" style="background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--accent);padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">👥 Usuários</button>
+      <button id="admtab-novo" onclick="admTab('novo')" style="background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:7px 14px;font-size:12px;cursor:pointer">➕ Novo</button>
+      <button id="admtab-logs" onclick="admTab('logs')" style="background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:7px 14px;font-size:12px;cursor:pointer">📋 Logs</button>
+      <button id="admtab-banco" onclick="admTab('banco')" style="background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:7px 14px;font-size:12px;cursor:pointer">💾 Banco</button>
+    </div>
+    <!-- Painel: Usuários -->
+    <div id="admpanel-usuarios">
+      <div id="admin-users-list"></div>
+    </div>
+    <!-- Painel: Novo Usuário -->
+    <div id="admpanel-novo" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px">USUÁRIO</div>
+          <input id="new-u-user" placeholder="nome do usuário" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 11px;color:var(--text);font-size:13px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px">SENHA</div>
+          <input id="new-u-pass" type="password" placeholder="senha segura" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 11px;color:var(--text);font-size:13px;outline:none">
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">Abas liberadas:</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px">ABAS LIBERADAS</div>
       <div class="tab-check-grid" id="new-u-tabs"></div>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
-        <button onclick="adminAddUser()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:12px;cursor:pointer">Criar Usuário</button>
+      <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+        <button onclick="adminAddUser()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:10px 24px;font-weight:800;font-size:13px;cursor:pointer">✅ Criar Usuário</button>
         <span id="admin-msg" style="font-size:12px;color:var(--accent)"></span>
+      </div>
+    </div>
+    <!-- Painel: Logs -->
+    <div id="admpanel-logs" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Últimos 20 eventos de acesso</div>
+      <div id="admin-logs" style="max-height:320px;overflow-y:auto"></div>
+      <button onclick="localStorage.removeItem('nuvyon_logs');renderLogs();showAdminMsg('Logs limpos')" style="margin-top:10px;background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">🗑 Limpar logs</button>
+    </div>
+    <!-- Painel: Banco -->
+    <div id="admpanel-banco" style="display:none">
+      <div style="background:var(--panel);border-radius:10px;padding:16px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">💾 Exportar banco de usuários</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Salva todos os usuários em um arquivo JSON. Use para backup ou para transferir para outra máquina.</div>
+        <button onclick="dbExport()" style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer">⬇ Exportar JSON</button>
+      </div>
+      <div style="background:var(--panel);border-radius:10px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">📂 Importar banco de usuários</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Carrega usuários de um arquivo JSON exportado anteriormente. O usuário master atual é preservado.</div>
+        <button onclick="dbImport()" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:8px 18px;font-size:12px;cursor:pointer">⬆ Importar JSON</button>
+        <span id="admin-msg2" style="font-size:12px;color:var(--accent);margin-left:10px"></span>
+      </div>
+      <div style="margin-top:14px;background:var(--panel);border-radius:10px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">📊 Status do banco</div>
+        <div id="db-status" style="font-size:12px;color:var(--muted)"></div>
       </div>
     </div>
   </div>
@@ -199,9 +239,8 @@ td{padding:9px}
 
 <script>
 /* ══════════════════════════════════════════════════════════════
-   AUTENTICAÇÃO NUVYON — Client-side SHA-256
-   Segurança básica para controle de acesso entre usuários não
-   técnicos. Para produção real migrar para servidor (v4.0).
+   NUVYON AUTH v3 — SHA-256 + localStorage
+   Fix: interceptação de showTab via window.onload (após todo JS)
 ══════════════════════════════════════════════════════════════ */
 const ABAS = [
   { id:'gestao',   label:'📊 Gestão Geral' },
@@ -212,51 +251,51 @@ const ABAS = [
   { id:'gestor',   label:'⚖️ Gestor Justo' },
   { id:'nps',      label:'⭐ NPS Pesquisa' },
 ];
+const DB_KEY = 'nuvyon_users_v2';
 
-async function sha256(msg) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+function dbLoad() { try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; } }
+function dbSave(u) { localStorage.setItem(DB_KEY, JSON.stringify(u)); }
+function dbLog(msg) {
+  try {
+    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+    logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
+    localStorage.setItem('nuvyon_logs', JSON.stringify(logs.slice(0,100)));
+  } catch {}
 }
-
-function loadUsers() {
-  try { return JSON.parse(localStorage.getItem('nuvyon_users')) || null; } catch { return null; }
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-function saveUsers(u) { localStorage.setItem('nuvyon_users', JSON.stringify(u)); }
 
 let SESSION = null;
+let _showTabOrig = null; // guardado após todo o JS carregar
 
-async function initAuth() {
-  let users = loadUsers();
-  if (!users) {
-    // Primeiro acesso: criar usuário master padrão
-    users = [{ user:'eric', hash: await sha256('eric2024'), abas: ABAS.map(a=>a.id), role:'master' }];
-    saveUsers(users);
-  }
-  // Sobrepor showTab após o DOM estar pronto
-  const origShowTab = window.showTab;
-  if (origShowTab) {
-    window.showTab = function(t) {
-      if (SESSION && !SESSION.abas.includes(t)) return;
-      origShowTab(t);
-    };
+/* ── Inicializar banco (cria master padrão se vazio) ── */
+async function initDB() {
+  if (!dbLoad().length) {
+    dbSave([{ user:'eric', hash: await sha256('eric2024'),
+      abas: ABAS.map(a=>a.id), role:'master',
+      criado: new Date().toLocaleString('pt-BR') }]);
   }
 }
 
+/* ── Login ── */
 async function doLogin() {
   const u = (document.getElementById('login-user').value||'').trim().toLowerCase();
-  const p = document.getElementById('login-pass').value || '';
+  const p = document.getElementById('login-pass').value||'';
   const err = document.getElementById('login-err');
   err.textContent = '';
   if (!u||!p) { err.textContent='Preencha usuário e senha.'; return; }
   const h = await sha256(p);
-  const users = loadUsers()||[];
-  const found = users.find(x => x.user.toLowerCase()===u && x.hash===h);
-  if (!found) { err.textContent='❌ Usuário ou senha inválidos.'; return; }
+  const found = dbLoad().find(x => x.user.toLowerCase()===u && x.hash===h);
+  if (!found) { err.textContent='❌ Usuário ou senha inválidos.'; dbLog(`Falha login: ${u}`); return; }
   SESSION = found;
+  dbLog(`Login: ${SESSION.user}`);
   document.getElementById('login-overlay').style.display = 'none';
   applySession();
 }
 
+/* ── Aplicar sessão ── */
 function applySession() {
   if (!SESSION) return;
   // Badge no topbar
@@ -264,109 +303,212 @@ function applySession() {
   if (!badge) {
     badge = document.createElement('div');
     badge.id = 'user-badge';
-    badge.onclick = () => SESSION.role==='master' ? openAdmin() : doLogout();
     const btns = document.querySelector('#topbar > div:last-child');
     if (btns) btns.insertBefore(badge, btns.firstChild);
   }
-  badge.innerHTML = `👤 <strong>${SESSION.user}</strong>${SESSION.role==='master'?' <span style="color:var(--accent);font-size:10px">★ Master</span>':''} <span style="color:var(--muted);font-size:10px;margin-left:4px">${SESSION.role==='master'?'⚙️':'🚪 Sair'}</span>`;
-  badge.title = SESSION.role==='master'?'Gerenciar usuários':'Clique para sair';
-  // Abas
-  ABAS.forEach(aba => {
-    const btn = document.getElementById('tab-'+aba.id);
-    if (btn) btn.style.display = SESSION.abas.includes(aba.id) ? '' : 'none';
+  const isMaster = SESSION.role === 'master';
+  badge.innerHTML = `👤 <strong style="color:var(--text)">${SESSION.user}</strong> ${isMaster?'<span style="color:var(--accent);font-size:10px">★ Admin</span>':''}`;
+  badge.title = isMaster ? 'Gerenciar usuários' : SESSION.user;
+  badge.onclick = isMaster ? openAdmin : null;
+  badge.style.cursor = isMaster ? 'pointer' : 'default';
+
+  // Mostrar/ocultar abas
+  ABAS.forEach(a => {
+    const btn = document.getElementById('tab-'+a.id);
+    if (btn) btn.style.display = SESSION.abas.includes(a.id) ? '' : 'none';
   });
-  // Ir para primeira aba permitida
+  // Botão logoff sempre visível
+  const lo = document.getElementById('tab-logoff');
+  if (lo) lo.style.display = '';
+
+  // Navegar para primeira aba permitida
   const first = SESSION.abas[0];
-  if (first && typeof showTab === 'function') showTab(first);
+  if (first && _showTabOrig) _showTabOrig(first);
 }
 
+/* ── Logoff ── */
 function doLogout() {
   if (!confirm('Deseja sair?')) return;
+  dbLog(`Logout: ${SESSION?.user}`);
   SESSION = null;
   location.reload();
 }
 
-// ── ADMIN ──
+/* ── Admin sub-tabs ── */
+function admTab(t) {
+  ['usuarios','novo','logs','banco'].forEach(p => {
+    document.getElementById('admpanel-'+p).style.display = p===t ? '' : 'none';
+    const btn = document.getElementById('admtab-'+p);
+    if (btn) { btn.style.borderBottomColor = p===t?'var(--accent)':'transparent'; btn.style.color = p===t?'var(--accent)':'var(--muted)'; }
+  });
+  if (t==='logs') renderLogs();
+  if (t==='banco') renderDbStatus();
+}
+
 function openAdmin() {
   if (!SESSION||SESSION.role!=='master') return;
-  renderAdminUsers();
-  renderNewUserTabs();
+  renderAdminUsers(); renderNewUserTabs(); admTab('usuarios');
   document.getElementById('admin-modal').classList.add('open');
 }
 function closeAdmin() { document.getElementById('admin-modal').classList.remove('open'); }
 
 function renderAdminUsers() {
-  const users = loadUsers()||[];
+  const users = dbLoad();
   const el = document.getElementById('admin-users-list');
+  if (!users.length) { el.innerHTML='<p style="color:var(--muted);font-size:12px">Nenhum usuário.</p>'; return; }
   el.innerHTML = users.map((u,i) => `
     <div class="admin-user-row">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-weight:700;color:var(--text);font-size:13px">${u.user}</span>
-          ${u.role==='master'?'<span style="background:var(--accent)22;color:var(--accent);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">master</span>':'<span style="background:var(--panel);color:var(--muted);border-radius:4px;padding:1px 7px;font-size:10px">usuário</span>'}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;color:var(--text)">${u.user}</span>
+          <span style="background:${u.role==='master'?'#00C9A722':'var(--border)33'};color:${u.role==='master'?'var(--accent)':'var(--muted)'};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600">${u.role==='master'?'★ master':'usuário'}</span>
+          <span style="font-size:10px;color:var(--muted)">criado ${u.criado||'—'}</span>
         </div>
-        ${u.role!=='master'?`<button onclick="adminDelUser(${i})" style="background:#e74c3c22;color:#e74c3c;border:1px solid #e74c3c33;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 Remover</button>`:''}
+        ${u.role!=='master'?`<button onclick="adminDel(${i})" style="background:#e74c3c18;color:#e74c3c;border:1px solid #e74c3c33;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 Remover</button>`:''}
       </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600">Abas liberadas:</div>
       <div class="tab-check-grid">
-        ${ABAS.map(aba=>`<label class="tab-check"><input type="checkbox" ${u.abas.includes(aba.id)?'checked':''} ${u.role==='master'?'disabled':''} onchange="adminToggleAba(${i},'${aba.id}',this.checked)">${aba.label}</label>`).join('')}
+        ${ABAS.map(a=>`<label class="tab-check"><input type="checkbox" ${u.abas.includes(a.id)?'checked':''} ${u.role==='master'?'disabled':''} onchange="adminToggleAba(${i},'${a.id}',this.checked)">${a.label}</label>`).join('')}
       </div>
-      ${u.role!=='master'?`<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-        <input id="rp${i}" type="password" placeholder="Nova senha" style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;width:160px">
+      ${u.role!=='master'?`<div style="margin-top:8px;display:flex;gap:7px;align-items:center">
+        <input id="rp${i}" type="password" placeholder="Nova senha..." style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;width:160px">
         <button onclick="adminResetPass(${i})" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">🔑 Alterar senha</button>
       </div>`:''}
     </div>`).join('');
 }
 
 function renderNewUserTabs() {
-  document.getElementById('new-u-tabs').innerHTML = ABAS.map(aba=>
-    `<label class="tab-check"><input type="checkbox" value="${aba.id}" checked>${aba.label}</label>`).join('');
+  document.getElementById('new-u-tabs').innerHTML = ABAS.map(a=>
+    `<label class="tab-check"><input type="checkbox" value="${a.id}" checked>${a.label}</label>`).join('');
+}
+
+function renderLogs() {
+  const el = document.getElementById('admin-logs'); if (!el) return;
+  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+  el.innerHTML = logs.length
+    ? logs.slice(0,20).map(l=>`<div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)22;display:flex;gap:10px"><span style="color:var(--accent);font-family:monospace;white-space:nowrap">${l.ts}</span><span style="color:var(--muted)">${l.msg}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:11px;padding:12px 0">Nenhum registro ainda.</div>';
+}
+
+function renderDbStatus() {
+  const users = dbLoad();
+  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+  document.getElementById('db-status').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+      <div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">${users.length}</div><div style="font-size:11px;color:var(--muted)">usuários cadastrados</div></div>
+      <div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">${logs.length}</div><div style="font-size:11px;color:var(--muted)">eventos de acesso</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Armazenado em: <code style="background:var(--card);padding:1px 5px;border-radius:3px">localStorage["${DB_KEY}"]</code></div>`;
 }
 
 function adminToggleAba(idx, abaId, checked) {
-  const users = loadUsers()||[];
+  const users = dbLoad();
   if (!users[idx]) return;
   if (checked) { if (!users[idx].abas.includes(abaId)) users[idx].abas.push(abaId); }
-  else { users[idx].abas = users[idx].abas.filter(a=>a!==abaId); }
-  saveUsers(users);
+  else users[idx].abas = users[idx].abas.filter(a=>a!==abaId);
+  dbSave(users);
+  dbLog(`Aba "${abaId}" ${checked?'liberada para':'removida de'} ${users[idx].user}`);
 }
 
-function adminDelUser(idx) {
-  const users = loadUsers()||[];
+function adminDel(idx) {
+  const users = dbLoad();
   if (!users[idx]||users[idx].role==='master') return;
   if (!confirm(`Remover "${users[idx].user}"?`)) return;
-  users.splice(idx,1); saveUsers(users); renderAdminUsers();
+  dbLog(`Usuário removido: ${users[idx].user}`);
+  users.splice(idx,1); dbSave(users); renderAdminUsers();
 }
 
 async function adminResetPass(idx) {
-  const users = loadUsers()||[];
+  const users = dbLoad();
   const inp = document.getElementById('rp'+idx);
-  if (!inp||!inp.value) { showAdminMsg('❌ Digite a nova senha'); return; }
+  if (!inp?.value.trim()) { showAdminMsg('❌ Digite a nova senha'); return; }
   users[idx].hash = await sha256(inp.value);
-  saveUsers(users); inp.value=''; showAdminMsg('✅ Senha alterada!');
+  dbSave(users); inp.value='';
+  dbLog(`Senha alterada: ${users[idx].user}`);
+  showAdminMsg('✅ Senha alterada!');
 }
 
 async function adminAddUser() {
   const u = (document.getElementById('new-u-user').value||'').trim().toLowerCase();
-  const p = document.getElementById('new-u-pass').value||'';
+  const p = (document.getElementById('new-u-pass').value||'').trim();
   if (!u||!p) { showAdminMsg('❌ Preencha usuário e senha'); return; }
-  const users = loadUsers()||[];
+  if (u.length < 3) { showAdminMsg('❌ Usuário muito curto'); return; }
+  if (p.length < 4) { showAdminMsg('❌ Senha muito curta (mín. 4)'); return; }
+  const users = dbLoad();
   if (users.find(x=>x.user===u)) { showAdminMsg('❌ Usuário já existe'); return; }
   const abas = Array.from(document.querySelectorAll('#new-u-tabs input:checked')).map(el=>el.value);
   if (!abas.length) { showAdminMsg('❌ Selecione ao menos uma aba'); return; }
-  users.push({ user:u, hash: await sha256(p), abas, role:'user' });
-  saveUsers(users);
+  users.push({ user:u, hash: await sha256(p), abas, role:'user', criado: new Date().toLocaleString('pt-BR') });
+  dbSave(users);
+  dbLog(`Criado: ${u} | abas: ${abas.join(', ')}`);
   document.getElementById('new-u-user').value='';
   document.getElementById('new-u-pass').value='';
-  renderAdminUsers(); renderNewUserTabs(); showAdminMsg('✅ Usuário criado!');
+  renderAdminUsers(); renderNewUserTabs();
+  admTab('usuarios');
+  showAdminMsg('✅ Usuário criado!');
 }
 
 function showAdminMsg(msg) {
-  const el = document.getElementById('admin-msg');
-  el.textContent = msg;
-  setTimeout(()=>el.textContent='', 3000);
+  ['admin-msg','admin-msg2'].forEach(id => {
+    const el = document.getElementById(id); if (el) { el.textContent=msg; setTimeout(()=>el.textContent='',3500); }
+  });
 }
 
-initAuth();
+/* ── Export / Import banco ── */
+function dbExport() {
+  const data = { users: dbLoad(), logs: JSON.parse(localStorage.getItem('nuvyon_logs')||'[]'), ts: new Date().toLocaleString('pt-BR') };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download = `nuvyon_banco_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); dbLog('Banco exportado');
+}
+function dbImport() {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    new FileReader().onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
+        const master = dbLoad().find(u=>u.role==='master');
+        const importados = data.users.filter(u=>u.role!=='master');
+        dbSave(master ? [master,...importados] : importados);
+        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
+        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
+        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
+      } catch { alert('Erro ao ler arquivo.'); }
+    };
+    const reader = new FileReader(); reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
+        const master = dbLoad().find(u=>u.role==='master');
+        const importados = data.users.filter(u=>u.role!=='master');
+        dbSave(master ? [master,...importados] : importados);
+        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
+        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
+        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
+      } catch { alert('Erro ao ler arquivo.'); }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+
+/* ── INIT: após TODO o JavaScript do app carregar ── */
+window.addEventListener('load', async () => {
+  await initDB();
+  // Capturar showTab AGORA (após todo o JS estar definido)
+  _showTabOrig = window.showTab;
+  window.showTab = function(t) {
+    if (t === 'logoff') { doLogout(); return; }
+    if (SESSION && !SESSION.abas.includes(t)) return; // bloquear aba não permitida
+    if (_showTabOrig) _showTabOrig(t);
+  };
+  // Ocultar logoff até login
+  const lo = document.getElementById('tab-logoff');
+  if (lo) lo.style.display = 'none';
+});
 </script>
 
 <!-- TOP BAR -->
@@ -390,6 +532,7 @@ initAuth();
   <button class="tab-btn" onclick="showTab('clientes')" id="tab-clientes">🩺 Saúde do Cliente</button>
   <button class="tab-btn" onclick="showTab('gestor')" id="tab-gestor">⚖️ Gestor Justo</button>
   <button class="tab-btn" onclick="showTab('nps')" id="tab-nps">⭐ NPS Pesquisa</button>
+  <button class="tab-btn" id="tab-logoff" onclick="doLogout()" style="margin-left:auto;color:#e74c3c;border-bottom-color:transparent" title="Sair do sistema">🚪 Sair</button>
 </div>
 
 <!-- MAIN CONTENT -->
