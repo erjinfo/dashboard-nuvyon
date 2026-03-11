@@ -148,6 +148,7 @@ td{padding:9px}
   <button class="tab-btn" onclick="showTab('campo')" id="tab-campo">🔧 Qualidade Técnica</button>
   <button class="tab-btn" onclick="showTab('clientes')" id="tab-clientes">🩺 Saúde do Cliente</button>
   <button class="tab-btn" onclick="showTab('gestor')" id="tab-gestor">⚖️ Gestor Justo</button>
+  <button class="tab-btn" onclick="showTab('nps')" id="tab-nps">⭐ NPS Pesquisa</button>
 </div>
 
 <!-- MAIN CONTENT -->
@@ -304,6 +305,16 @@ td{padding:9px}
     <div id="gestor-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px"></div>
   </div>
 
+
+  <!-- ══════ ABA NPS ══════ -->
+  <div class="tab-content" id="tab-content-nps">
+    <div id="nps-content">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">
+        Carregue o arquivo de pesquisa NPS clicando em <strong>⬆ Carregar Dados</strong> para ver os resultados.
+      </div>
+    </div>
+  </div>
+
 </div><!-- #main -->
 
 <!-- FOOTER -->
@@ -359,6 +370,16 @@ td{padding:9px}
           <div class="upload-slot-file" id="slot-sac-name" style="color:var(--muted)">Nenhum arquivo</div>
         </div>
         <div class="upload-slot-status" id="slot-sac-icon">○</div>
+      </div>
+      <div class="upload-slot" id="slot-nps">
+        <input type="file" accept=".xlsx,.xls" onchange="handleFile('nps',this)">
+        <div class="upload-slot-icon">⭐</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">Pesquisa NPS / Avaliação de Atendimento</div>
+          <div class="upload-slot-hint">detalhamento_de_pesquisa*.xlsx</div>
+          <div class="upload-slot-file" id="slot-nps-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-nps-icon">○</div>
       </div>
     </div>
     <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
@@ -434,6 +455,7 @@ const STATE = {
   agentes: {}, tecnicos: {}, clientes: [],
   cruzados: [], totais: {},
   sacRows: [], protocoloLinks: [],
+  rawNPS: null, npsData: null,
   nomes: { os: null, at: null, sac: null },
   loaded: { os: false, at: false, sac: false }
 };
@@ -951,6 +973,12 @@ async function handleFile(tipo, input) {
   try {
     const rows = await readFileAsRows(file);
     pendingFiles[tipo] = rows;
+    if (tipo === 'nps') {
+      const el = document.getElementById('slot-nps-name');
+      const ic = document.getElementById('slot-nps-icon');
+      if (el) el.textContent = file.name;
+      if (ic) ic.textContent = '✅';
+    }
     STATE.nomes[tipo] = file.name;
     slot.classList.add('ok');
     icon.textContent = '✅';
@@ -1006,6 +1034,13 @@ function aplicarDados() {
     }
 
     // Cruzamento SAC × Atendimento
+    if (pendingFiles.nps) {
+      STATE.rawNPS = pendingFiles.nps;
+      STATE.loaded.nps = true;
+    }
+    if (STATE.rawNPS) {
+      STATE.npsData = processNPS(STATE.rawNPS);
+    }
     if (STATE.rawSAC || STATE.rawAT) {
       const cross = cruzarSACAtendimento(STATE.rawSAC, STATE.rawAT, {});
       STATE.cruzados = cross.jornadas || [];
@@ -2420,6 +2455,7 @@ function showTab(t) {
   if (t === 'gestao') renderGestao();
   if (t === 'clientes') renderClientes();
   if (t === 'gestor') renderGestor();
+  if (t === 'nps') renderNPS();
   if (t === 'visao360') renderVisao360();
 }
 
@@ -2428,6 +2464,663 @@ function closeUpload(e) {
   if (e && e.target !== document.getElementById('upload-overlay')) return;
   document.getElementById('upload-overlay').classList.remove('open');
 }
+
+/* ════════════════════════════════════════════════════════════════
+   PARTE NPS — PROCESSAMENTO E RENDER DA PESQUISA
+════════════════════════════════════════════════════════════════ */
+
+const NPS_DEMO_DATA = {"Felipe": {"total_j1": 320, "total_j2": 23, "media": 3.98, "nota100": 74, "dist": {"1": 28, "2": 16, "3": 39, "4": 89, "5": 148}, "pct_pos": 74.1, "pct_neg": 13.8, "pct_neu": 12.2, "nps": 37.5, "dest_pos": [{"d": "01/02/2026", "tel": "54894", "n": 5, "r": "Excelente", "p": "48540000744651"}, {"d": "01/02/2026", "tel": "93941", "n": 5, "r": "Excelente", "p": "80120000744883"}, {"d": "01/02/2026", "tel": "02308", "n": 5, "r": "Excelente", "p": "24950000744941"}, {"d": "01/02/2026", "tel": "21813", "n": 5, "r": "Excelente", "p": "51300000744975"}, {"d": "03/02/2026", "tel": "03955", "n": 5, "r": "Excelente", "p": "22690000749320"}, {"d": "03/02/2026", "tel": "15657", "n": 5, "r": "Excelente", "p": "21490000749311"}], "dest_neg": [{"d": "01/02/2026", "tel": "35546", "n": 1, "r": "Péssimo", "p": "36160000744451"}, {"d": "01/02/2026", "tel": "18866", "n": 1, "r": "Péssimo", "p": "40170000744466"}, {"d": "01/02/2026", "tel": "79466", "n": 1, "r": "Péssimo", "p": "47850000744483"}, {"d": "01/02/2026", "tel": "05947", "n": 1, "r": "Péssimo", "p": "48010000744484"}, {"d": "03/02/2026", "tel": "71003", "n": 1, "r": "Péssimo", "p": "59540000746243"}, {"d": "03/02/2026", "tel": "14943", "n": 2, "r": "Ruim", "p": "01670000748120"}, {"d": "03/02/2026", "tel": "69493", "n": 1, "r": "Péssimo", "p": "33940000749592"}, {"d": "05/02/2026", "tel": "73943", "n": 1, "r": "Péssimo", "p": "99930000754291"}], "reclamacoes": [{"d": "27/02/2026", "tel": "90941", "r": "Quero falar com um atendente", "p": "24180000802830"}, {"d": "24/02/2026", "tel": "91533", "r": "Quero falar com um atendente", "p": "03990000790815"}, {"d": "20/02/2026", "tel": "07005", "r": "Minha internet não está funcionando de novo", "p": "43470000778255"}, {"d": "19/02/2026", "tel": "76660", "r": "Pra vc quer e-mail e telefone", "p": "01300000777601"}, {"d": "18/02/2026", "tel": "99677", "r": "Apenas precisaria atender", "p": "37580000776257"}, {"d": "16/02/2026", "tel": "23405", "r": "Enviei a foto e só encerraram meu atendimento sem resolver meu problema", "p": "68480000771699"}, {"d": "11/02/2026", "tel": "64184", "r": "Porque meu internete não fociona", "p": "12640000763977"}, {"d": "10/02/2026", "tel": "68530", "r": "Evitar interrupção do sinal", "p": "56050000761746"}, {"d": "09/02/2026", "tel": "74708", "r": "Técnico vem que horas?", "p": "87770000759207"}, {"d": "03/02/2026", "tel": "14943", "r": "Resolver o problema", "p": "01670000748120"}, {"d": "03/02/2026", "tel": "71003", "r": "Estou precisando do protocolo de atendimento mais não tenho retorno", "p": "59540000746243"}, {"d": "19/02/2026", "tel": "05442", "r": "Falta de eficiência no atendimento", "p": "08080000777622"}, {"d": "13/02/2026", "tel": "62580", "r": "320260213wamid.HBgNNTUxMTk3MjI2MjU4MBUCABIYFDNBQkI0QkQ5N0UzOUIxQkVGN0NFAA.jpg", "p": "03500000765050"}, {"d": "06/02/2026", "tel": "61133", "r": "Já foi resolvido o problema", "p": "29950000756190"}, {"d": "06/02/2026", "tel": "11619", "r": "Nem deu 30 minutos ainda", "p": "88440000755854"}, {"d": "05/02/2026", "tel": "15221", "r": "Mais rapidez", "p": "57970000755093"}, {"d": "05/02/2026", "tel": "59920", "r": "Falar com suporte comercial", "p": "65070000754857"}, {"d": "01/02/2026", "tel": "05947", "r": "Quero falar com a atendente estou desde ontem sem a minha Internet", "p": "48010000744484"}, {"d": "01/02/2026", "tel": "18866", "r": "Tá de palhaçada desde ontem sem internet", "p": "40170000744466"}]}, "Luiza": {"total_j1": 190, "total_j2": 22, "media": 3.77, "nota100": 69, "dist": {"1": 30, "2": 10, "3": 17, "4": 49, "5": 84}, "pct_pos": 70.0, "pct_neg": 21.1, "pct_neu": 8.9, "nps": 28.4, "dest_pos": [{"d": "01/02/2026", "tel": "23302", "n": 5, "r": "Excelente", "p": "03810000744418"}, {"d": "01/02/2026", "tel": "78531", "n": 5, "r": "Excelente", "p": "43690000744473"}, {"d": "01/02/2026", "tel": "20572", "n": 5, "r": "Excelente", "p": "68500000744526"}, {"d": "01/02/2026", "tel": "48647", "n": 5, "r": "Excelente", "p": "67240000744699"}, {"d": "01/02/2026", "tel": "40911", "n": 5, "r": "Excelente", "p": "60090000744679"}, {"d": "01/02/2026", "tel": "27690", "n": 5, "r": "Excelente", "p": "80040000744728"}], "dest_neg": [{"d": "01/02/2026", "tel": "65150", "n": 2, "r": "Ruim", "p": "43930000744474"}, {"d": "02/02/2026", "tel": "44133", "n": 1, "r": "Péssimo", "p": "54990000745796"}, {"d": "02/02/2026", "tel": "03809", "n": 1, "r": "Péssimo", "p": "81950000746073"}, {"d": "02/02/2026", "tel": "88272", "n": 1, "r": "Péssimo", "p": "46830000746224"}, {"d": "02/02/2026", "tel": "79034", "n": 1, "r": "Péssimo", "p": "83380000746303"}, {"d": "02/02/2026", "tel": "62872", "n": 1, "r": "Péssimo", "p": "67160000746268"}, {"d": "03/02/2026", "tel": "56678", "n": 1, "r": "Péssimo", "p": "02740000749738"}, {"d": "05/02/2026", "tel": "14642", "n": 1, "r": "Péssimo", "p": "51540000755292"}], "reclamacoes": [{"d": "27/02/2026", "tel": "16753", "r": "Começar a prestar serviço e não deixar o cliente esperando atoa", "p": "17750000802818"}, {"d": "25/02/2026", "tel": "68502", "r": "Agilidade no atendimento ao cliente", "p": "70320000797842"}, {"d": "25/02/2026", "tel": "99547", "r": "Da mais suporte ao cliente", "p": "71790000797425"}, {"d": "21/02/2026", "tel": "18448", "r": "É ridículo esperar mais de uma hora para ter uma resposta de que vão me transferir.", "p": "69730000782685"}, {"d": "21/02/2026", "tel": "96526", "r": "Minha Internet está muito ruim", "p": "34500000782614"}, {"d": "21/02/2026", "tel": "62295", "r": "Sac péssimo... Demora demais para responder... Mais de 1.30 hs para um retorno.... Empresa nova está uma porcaria....", "p": "22970000782586"}, {"d": "19/02/2026", "tel": "76660", "r": "Esse  robô do começo aí  horrível", "p": "29910000777685"}, {"d": "02/02/2026", "tel": "44133", "r": "Estou aguardando , pos me questionaram sobre o motivo que vou cancelar ,informei que é pelo preço e queda de sinal .", "p": "54990000745796"}, {"d": "05/02/2026", "tel": "29302", "r": "Ter mais tempo pra reparar os estrago que as chuvas faz", "p": "76900000755344"}, {"d": "10/02/2026", "tel": "54307", "r": "##1f621####1f914##", "p": "10280000762215"}, {"d": "02/02/2026", "tel": "79034", "r": "Demoram para responder e quando respondem temos prazo curto para interagir", "p": "83380000746303"}]}, "Ana Carolina": {"total_j1": 177, "total_j2": 13, "media": 4.07, "nota100": 77, "dist": {"1": 19, "2": 3, "3": 13, "4": 53, "5": 89}, "pct_pos": 80.2, "pct_neg": 12.4, "pct_neu": 7.3, "nps": 39.5, "dest_pos": [{"d": "01/02/2026", "tel": "16732", "n": 5, "r": "Excelente", "p": "74510000744710"}, {"d": "01/02/2026", "tel": "13126", "n": 5, "r": "Excelente", "p": "81090000744730"}, {"d": "01/02/2026", "tel": "54027", "n": 5, "r": "Excelente", "p": "90280000744747"}, {"d": "02/02/2026", "tel": "74640", "n": 5, "r": "Excelente", "p": "68550000745826"}, {"d": "02/02/2026", "tel": "25390", "n": 5, "r": "Excelente", "p": "28080000745967"}, {"d": "02/02/2026", "tel": "82131", "n": 5, "r": "Excelente", "p": "90770000745871"}], "dest_neg": [{"d": "02/02/2026", "tel": "62163", "n": 1, "r": "Péssimo", "p": "03540000745913"}, {"d": "02/02/2026", "tel": "41948", "n": 1, "r": "Péssimo", "p": "87490000746314"}, {"d": "03/02/2026", "tel": "31632", "n": 1, "r": "Péssimo", "p": "84530000749936"}, {"d": "03/02/2026", "tel": "52329", "n": 1, "r": "Péssimo", "p": "77370000749916"}, {"d": "04/02/2026", "tel": "83513", "n": 1, "r": "Péssimo", "p": "07700000754065"}, {"d": "04/02/2026", "tel": "83513", "n": 1, "r": "Péssimo", "p": "28160000754127"}, {"d": "05/02/2026", "tel": "75799", "n": 1, "r": "Péssimo", "p": "66270000755107"}, {"d": "05/02/2026", "tel": "52441", "n": 2, "r": "Ruim", "p": "79410000755134"}], "reclamacoes": [{"d": "27/02/2026", "tel": "18650", "r": "Serviço péssimo. \nDemora", "p": "26660000802834"}, {"d": "23/02/2026", "tel": "31433", "r": "Pessssssiiimmo", "p": "93220000789296"}, {"d": "15/02/2026", "tel": "09539", "r": "Não resolveu meu problema", "p": "99150000771404"}, {"d": "12/02/2026", "tel": "48549", "r": "Esse rompimento é desde ontem, e toda vez que entro em contato o prazo aumenta", "p": "21200000764704"}, {"d": "05/02/2026", "tel": "52441", "r": "Não concluiu", "p": "79410000755134"}, {"d": "23/02/2026", "tel": "42729", "r": "Eu gostaria que o atendimento fosse mais rápido e a internet ficasse boa se não vou ter que fazer o cancelamento e é para ir outra internet", "p": "45280000789175"}, {"d": "12/02/2026", "tel": "39456", "r": "Técnico nem finalizou o atendimento e encerrou a conversa, apenas enviando mensagem automática, nem esperou ver se eu tinha mais alguma dúvida", "p": "65980000764932"}, {"d": "05/02/2026", "tel": "75799", "r": "Desculpa, mandei avaliação errada, era pra ser nota 5", "p": "04070000755199"}, {"d": "04/02/2026", "tel": "83513", "r": "Quando eu tento entrar em contato vcs me deixam esperando igual bobo e ai quando é pra vcs esperarem vcs são sarcástico kkkkk\nFanfarrões ##1f595-1f3fc##", "p": "07700000754065"}]}, "Felipe Policiano": {"total_j1": 125, "total_j2": 18, "media": 3.61, "nota100": 65, "dist": {"1": 24, "2": 5, "3": 16, "4": 31, "5": 49}, "pct_pos": 64.0, "pct_neg": 23.2, "pct_neu": 12.8, "nps": 20.0, "dest_pos": [{"d": "02/02/2026", "tel": "52579", "n": 5, "r": "Excelente", "p": "14310000745285"}, {"d": "02/02/2026", "tel": "43820", "n": 5, "r": "Excelente", "p": "77100000745625"}, {"d": "02/02/2026", "tel": "98917", "n": 5, "r": "Excelente", "p": "85560000745641"}, {"d": "03/02/2026", "tel": "88438", "n": 5, "r": "Excelente", "p": "85810000746624"}, {"d": "03/02/2026", "tel": "32305", "n": 5, "r": "Excelente", "p": "12060000748898"}, {"d": "03/02/2026", "tel": "26280", "n": 5, "r": "Excelente", "p": "16340000748928"}], "dest_neg": [{"d": "02/02/2026", "tel": "74719", "n": 2, "r": "Ruim", "p": "02540000745247"}, {"d": "02/02/2026", "tel": "22703", "n": 1, "r": "Péssimo", "p": "09500000745266"}, {"d": "02/02/2026", "tel": "13668", "n": 2, "r": "Ruim", "p": "42400000745764"}, {"d": "03/02/2026", "tel": "31784", "n": 1, "r": "Péssimo", "p": "94590000747590"}, {"d": "03/02/2026", "tel": "68075", "n": 1, "r": "Péssimo", "p": "26820000748986"}, {"d": "04/02/2026", "tel": "31632", "n": 1, "r": "Péssimo", "p": "61290000751919"}, {"d": "05/02/2026", "tel": "34660", "n": 1, "r": "Péssimo", "p": "92870000754285"}, {"d": "05/02/2026", "tel": "33415", "n": 1, "r": "Péssimo", "p": "87540000754434"}], "reclamacoes": [{"d": "28/02/2026", "tel": "18585", "r": "Atendimento mais rapido", "p": "45670000803603"}, {"d": "28/02/2026", "tel": "88199", "r": "FUI IGNORADO, RECEBI MENSAGEM AUTOMÁTICA!", "p": "73040000803619"}, {"d": "25/02/2026", "tel": "61610", "r": "O serviço prestado está muito abaixo do prometido. Eu pago 500mb e não consigo ter estabilidade na internet. Toda vez dizem a mesma coisa. \"Fiz algumas configurações, poderia testar a navegação?\". Passa uns dias boa, depois tudo de novo. Tô cansada.", "p": "78830000796079"}, {"d": "24/02/2026", "tel": "17409", "r": "Bom dia", "p": "17870000789768"}, {"d": "16/02/2026", "tel": "23405", "r": "Bom dia", "p": "32330000771651"}, {"d": "08/02/2026", "tel": "58928", "r": "Não resolveu meu problema", "p": "17860000757480"}, {"d": "26/02/2026", "tel": "74842", "r": "Entrei em contato segunda feira pois estou sem Internet desde a semana passada e ficaram de entrar em contato comigo para mandar um técnico e não fizeram. Continuo sem Internet e sem resposta", "p": "48160000798678"}, {"d": "18/02/2026", "tel": "53975", "r": "Atendimento mais rapido e eficaz", "p": "91910000772771"}, {"d": "08/02/2026", "tel": "22951", "r": "Tudo péssimo atendimento", "p": "43290000757500"}, {"d": "05/02/2026", "tel": "80724", "r": "Se a Internet não voltar eu irei cancelar , vou pagar uma coisa sem usar é", "p": "94610000754939"}, {"d": "05/02/2026", "tel": "34660", "r": "Vcs dizem que o atendimento é até às 22:00 porém mandei msg ontem 20:55 e ninguém me respondeu uma palhaçada todo dia internet oscilando", "p": "92870000754285"}, {"d": "04/02/2026", "tel": "31632", "r": "Dar o suporte técnico necessário para quem é cliente. Vocês só respondem depois que solucionaram o problema, enquanto ele está ocorrendo não dar satisfação e nem um atendimento básico sequer", "p": "61290000751919"}, {"d": "02/02/2026", "tel": "74719", "r": "Atendimento", "p": "02540000745247"}]}, "Rafael": {"total_j1": 244, "total_j2": 17, "media": 4.15, "nota100": 79, "dist": {"1": 18, "2": 11, "3": 14, "4": 75, "5": 126}, "pct_pos": 82.4, "pct_neg": 11.9, "pct_neu": 5.7, "nps": 44.3, "dest_pos": [{"d": "02/02/2026", "tel": "02601", "n": 5, "r": "Excelente", "p": "34020000745524"}, {"d": "02/02/2026", "tel": "07402", "n": 5, "r": "Excelente", "p": "29140000745516"}, {"d": "02/02/2026", "tel": "24773", "n": 5, "r": "Excelente", "p": "37190000745529"}, {"d": "02/02/2026", "tel": "64723", "n": 5, "r": "Excelente", "p": "54230000745565"}, {"d": "02/02/2026", "tel": "94946", "n": 5, "r": "Excelente", "p": "34760000745526"}, {"d": "02/02/2026", "tel": "91206", "n": 5, "r": "Excelente", "p": "37020000745528"}], "dest_neg": [{"d": "02/02/2026", "tel": "03809", "n": 2, "r": "Ruim", "p": "10860000745269"}, {"d": "02/02/2026", "tel": "31784", "n": 1, "r": "Péssimo", "p": "38120000745531"}, {"d": "03/02/2026", "tel": "17640", "n": 2, "r": "Ruim", "p": "65380000746483"}, {"d": "05/02/2026", "tel": "58506", "n": 1, "r": "Péssimo", "p": "84820000754266"}, {"d": "05/02/2026", "tel": "67250", "n": 1, "r": "Péssimo", "p": "15840000754317"}, {"d": "05/02/2026", "tel": "91539", "n": 1, "r": "Péssimo", "p": "33100000754768"}, {"d": "07/02/2026", "tel": "64030", "n": 2, "r": "Ruim", "p": "74900000757211"}, {"d": "07/02/2026", "tel": "03987", "n": 1, "r": "Péssimo", "p": "84280000757224"}], "reclamacoes": [{"d": "27/02/2026", "tel": "65915", "r": "Você poderia fala pra eles vim agora colocar a internet tô esperando desde de segunda feira e nada", "p": "16060000802635"}, {"d": "25/02/2026", "tel": "26711", "r": "Bom dia", "p": "92070000791350"}, {"d": "20/02/2026", "tel": "77569", "r": "Arrumar a internet ontem hoje já tá se funcionar", "p": "98850000781713"}, {"d": "19/02/2026", "tel": "05979", "r": "Demora no atendimento e  má qualidade no atendimento", "p": "34960000778184"}, {"d": "12/02/2026", "tel": "53508", "r": "Preciso de uma Internet que funcione e não pare toda semana", "p": "97950000764313"}, {"d": "07/02/2026", "tel": "64030", "r": "Estou sem internet", "p": "74900000757211"}, {"d": "05/02/2026", "tel": "58506", "r": "Entrei em contato ontem às 20:42h...e não fui atendido...falta de respeito com o cliente...ainda mais hoje que tem vários concorrentes", "p": "84820000754266"}, {"d": "26/02/2026", "tel": "03060", "r": "Falta de internet e atendimento presencial muito demorado", "p": "55110000798056"}, {"d": "20/02/2026", "tel": "77569", "r": "Arrumar o ontem a internet hoje já tá ruim", "p": "04240000781725"}, {"d": "20/02/2026", "tel": "34856", "r": "Não resolveu meu problema e fica fazendo perguntas até não conseguir responder", "p": "52400000781565"}, {"d": "14/02/2026", "tel": "66492", "r": "Infelizmente não fui atendido em tempo hábil. No caso do nosso ponto, tem que haver uma verificação mais profunda, pois a internet tá variando demais. É vergonhoso e humilhante toda vez ficar cobrando vcs, porque toda semana é a mesma coisa. A concorrência não dorme, amanhã, talvez vcs não vão ter tanta encheção de saco. Então, procure fazer o melhor... Um abraço e um excelente carnaval a todos.", "p": "58060000771018"}, {"d": "09/02/2026", "tel": "69380", "r": "Bom-dia", "p": "29980000759326"}, {"d": "07/02/2026", "tel": "70155", "r": "Dar mais atenção aos clientes", "p": "18590000757355"}, {"d": "05/02/2026", "tel": "91539", "r": "Atendimento tá ruim..já foi melhor...\nMas pode melhorar. Blz. Assim que melhorar eu passo a nota devida tô sem internet a uma semana...\nNa próxima fatura vou ter o desconto em mora por atraso...", "p": "33100000754768"}]}, "Maria Ligia": {"total_j1": 291, "total_j2": 24, "media": 4.04, "nota100": 76, "dist": {"1": 27, "2": 12, "3": 34, "4": 66, "5": 152}, "pct_pos": 74.9, "pct_neg": 13.4, "pct_neu": 11.7, "nps": 43.0, "dest_pos": [{"d": "02/02/2026", "tel": "82373", "n": 5, "r": "Excelente", "p": "05890000745255"}, {"d": "02/02/2026", "tel": "32064", "n": 5, "r": "Excelente", "p": "14990000745287"}, {"d": "02/02/2026", "tel": "49217", "n": 5, "r": "Excelente", "p": "19450000745710"}, {"d": "02/02/2026", "tel": "79710", "n": 5, "r": "Excelente", "p": "40220000745761"}, {"d": "02/02/2026", "tel": "54240", "n": 5, "r": "Excelente", "p": "26070000745726"}, {"d": "02/02/2026", "tel": "46284", "n": 5, "r": "Excelente", "p": "47710000745776"}], "dest_neg": [{"d": "02/02/2026", "tel": "31784", "n": 1, "r": "Péssimo", "p": "30990000745517"}, {"d": "02/02/2026", "tel": "02068", "n": 1, "r": "Péssimo", "p": "22550000745716"}, {"d": "02/02/2026", "tel": "22703", "n": 1, "r": "Péssimo", "p": "33640000745744"}, {"d": "02/02/2026", "tel": "30027", "n": 2, "r": "Ruim", "p": "50110000745783"}, {"d": "03/02/2026", "tel": "59624", "n": 1, "r": "Péssimo", "p": "00460000748109"}, {"d": "07/02/2026", "tel": "52524", "n": 1, "r": "Péssimo", "p": "25510000756833"}, {"d": "07/02/2026", "tel": "61321", "n": 2, "r": "Ruim", "p": "27130000756745"}, {"d": "10/02/2026", "tel": "00904", "n": 1, "r": "Péssimo", "p": "16250000760247"}], "reclamacoes": [{"d": "21/02/2026", "tel": "10516", "r": "Demora demais para dá a resposta e na hora que dá a resposta não demora os minutos correndo para encerrar o atendimento", "p": "46950000782880"}, {"d": "21/02/2026", "tel": "93941", "r": "Estou sem internet", "p": "65320000782922"}, {"d": "21/02/2026", "tel": "15383", "r": "Ter uma forma mais rápida para atender \nQuando atender não deixar cliente esperando por horas sem resposta \nSe cliente paga 15 dias antes de vencer não tem desconto se paga com um dia de vencimento quase 2 reais de juros isto é roubo\nSinceramente faz anos que sou cliente mais de 12 anos vou procurar outra para ver os planos e atendimentos", "p": "41620000782870"}, {"d": "21/02/2026", "tel": "70550", "r": "Precisei de atendimento rápido pois a loja estava sem internet e tive que ficar aguardando a resposta de mensagens automática", "p": "86950000782741"}, {"d": "21/02/2026", "tel": "82669", "r": "Atendimento mais rápido e efica", "p": "70300000782690"}, {"d": "20/02/2026", "tel": "42642", "r": "Bom dia", "p": "99870000777593"}, {"d": "18/02/2026", "tel": "96069", "r": "Vc né enrolou por 1 horas", "p": "50410000776614"}, {"d": "12/02/2026", "tel": "62534", "r": "Ultimamente a internet está pessima ontem tentei falar várias vezes ninguém me atendeu", "p": "41300000763862"}, {"d": "26/02/2026", "tel": "96461", "r": "Já estou a 2 dias sem internet trabalho com ela até o momento nada resolvido já tem 2 dias que estou esperando o técnico vim e não vem", "p": "87030000798507"}, {"d": "24/02/2026", "tel": "88901", "r": "Resolver o problema do sinal de internet", "p": "58480000790054"}, {"d": "24/02/2026", "tel": "20771", "r": "N resolveram meu problema", "p": "18480000789769"}, {"d": "24/02/2026", "tel": "09698", "r": "Ser mais responsável,ter mais responsabilidade\n,compromisso", "p": "49160000790010"}, {"d": "21/02/2026", "tel": "83513", "r": "Vcs são ruins de mais", "p": "88390000783086"}, {"d": "21/02/2026", "tel": "40335", "r": "Comecem respondndo em tempo hábil e resolvendo o problema", "p": "59380000783049"}, {"d": "21/02/2026", "tel": "18650", "r": "Vou trocar de empresa", "p": "81280000782948"}, {"d": "21/02/2026", "tel": "77343", "r": "Caio a conexão novamente é o dia todo assim", "p": "99990000782767"}, {"d": "02/02/2026", "tel": "02068", "r": "##1f97a##", "p": "22550000745716"}]}, "Rafaella": {"total_j1": 141, "total_j2": 13, "media": 4.02, "nota100": 75, "dist": {"1": 20, "2": 4, "3": 10, "4": 26, "5": 81}, "pct_pos": 75.9, "pct_neg": 17.0, "pct_neu": 7.1, "nps": 43.3, "dest_pos": [{"d": "02/02/2026", "tel": "20490", "n": 5, "r": "Excelente", "p": "74400000745837"}, {"d": "02/02/2026", "tel": "99624", "n": 5, "r": "Excelente", "p": "18880000745948"}, {"d": "02/02/2026", "tel": "79668", "n": 5, "r": "Excelente", "p": "40830000745994"}, {"d": "02/02/2026", "tel": "63582", "n": 5, "r": "Excelente", "p": "78970000746292"}, {"d": "02/02/2026", "tel": "59051", "n": 5, "r": "Excelente", "p": "97570000746327"}, {"d": "03/02/2026", "tel": "09356", "n": 5, "r": "Excelente", "p": "94610000749492"}], "dest_neg": [{"d": "02/02/2026", "tel": "81045", "n": 1, "r": "Péssimo", "p": "72450000745833"}, {"d": "02/02/2026", "tel": "03809", "n": 1, "r": "Péssimo", "p": "05620000746125"}, {"d": "03/02/2026", "tel": "32291", "n": 1, "r": "Péssimo", "p": "42370000749827"}, {"d": "03/02/2026", "tel": "86657", "n": 1, "r": "Péssimo", "p": "51660000749850"}, {"d": "04/02/2026", "tel": "84893", "n": 1, "r": "Péssimo", "p": "93820000753768"}, {"d": "06/02/2026", "tel": "54240", "n": 1, "r": "Péssimo", "p": "50130000756225"}, {"d": "09/02/2026", "tel": "83750", "n": 1, "r": "Péssimo", "p": "13160000759991"}, {"d": "09/02/2026", "tel": "32968", "n": 1, "r": "Péssimo", "p": "92760000759940"}], "reclamacoes": [{"d": "24/02/2026", "tel": "66390", "r": "Mal atendimento estou na linha desde as 16.48", "p": "21840000791057"}, {"d": "23/02/2026", "tel": "35100", "r": "Sim tem tempo mais não resolveu o problema", "p": "42000000789169"}, {"d": "21/02/2026", "tel": "63345", "r": "Já paguei minha conta e estou sem internet", "p": "41690000783031"}, {"d": "17/02/2026", "tel": "69095", "r": "Atendimento demorado má vontade da atendente em resolver o problema, muito descaso não se mostrou engajada a resolver", "p": "08910000772524"}, {"d": "04/02/2026", "tel": "84893", "r": "Não resolveu o problema, ainda estou sem internet", "p": "93820000753768"}, {"d": "02/02/2026", "tel": "03809", "r": "Bla Bla bla", "p": "05620000746125"}, {"d": "16/02/2026", "tel": "07930", "r": "Agente fica sem internet devido voces usar o poste da cpfl ,eu tenho que tirar foto para voces,o certo e voces ir arrumar a minha internet e pronto nao ficar dificutando a vida dos cliente", "p": "43280000772158"}, {"d": "12/02/2026", "tel": "71560", "r": "Não atendeu a minha necessidade", "p": "23910000764880"}]}, "Eldo M": {"total_j1": 11, "total_j2": 0, "media": 3.82, "nota100": 70, "dist": {"1": 2, "2": 0, "3": 1, "4": 3, "5": 5}, "pct_pos": 72.7, "pct_neg": 18.2, "pct_neu": 9.1, "nps": 27.3, "dest_pos": [{"d": "08/02/2026", "tel": "02109", "n": 5, "r": "Excelente", "p": "96590000757469"}, {"d": "08/02/2026", "tel": "28561", "n": 5, "r": "Excelente", "p": "09660000757608"}, {"d": "08/02/2026", "tel": "66811", "n": 5, "r": "Excelente", "p": "89460000757650"}, {"d": "08/02/2026", "tel": "42642", "n": 5, "r": "Excelente", "p": "03230000757663"}, {"d": "20/02/2026", "tel": "84717", "n": 5, "r": "Excelente", "p": "34430000782371"}], "dest_neg": [{"d": "08/02/2026", "tel": "32232", "n": 1, "r": "Péssimo", "p": "93260000757467"}, {"d": "08/02/2026", "tel": "95401", "n": 1, "r": "Péssimo", "p": "90100000757466"}], "reclamacoes": []}, "Gabriel": {"total_j1": 187, "total_j2": 16, "media": 3.83, "nota100": 71, "dist": {"1": 25, "2": 10, "3": 18, "4": 53, "5": 81}, "pct_pos": 71.7, "pct_neg": 18.7, "pct_neu": 9.6, "nps": 29.9, "dest_pos": [{"d": "09/02/2026", "tel": "03118", "n": 5, "r": "Excelente", "p": "35960000760147"}, {"d": "10/02/2026", "tel": "94559", "n": 5, "r": "Excelente", "p": "60730000762080"}, {"d": "10/02/2026", "tel": "91336", "n": 5, "r": "Excelente", "p": "61150000762082"}, {"d": "10/02/2026", "tel": "41277", "n": 5, "r": "Excelente", "p": "23510000762251"}, {"d": "10/02/2026", "tel": "32253", "n": 5, "r": "Excelente", "p": "43750000762566"}, {"d": "10/02/2026", "tel": "07686", "n": 5, "r": "Excelente", "p": "10310000762495"}], "dest_neg": [{"d": "09/02/2026", "tel": "72320", "n": 1, "r": "Péssimo", "p": "04750000760126"}, {"d": "11/02/2026", "tel": "97626", "n": 2, "r": "Ruim", "p": "69810000763739"}, {"d": "11/02/2026", "tel": "16359", "n": 1, "r": "Péssimo", "p": "22550000763820"}, {"d": "12/02/2026", "tel": "62534", "n": 1, "r": "Péssimo", "p": "27060000764710"}, {"d": "12/02/2026", "tel": "13906", "n": 1, "r": "Péssimo", "p": "99560000764835"}, {"d": "12/02/2026", "tel": "56669", "n": 1, "r": "Péssimo", "p": "02860000764963"}, {"d": "13/02/2026", "tel": "67644", "n": 1, "r": "Péssimo", "p": "57570000770445"}, {"d": "13/02/2026", "tel": "62292", "n": 1, "r": "Péssimo", "p": "25490000770399"}], "reclamacoes": [{"d": "26/02/2026", "tel": "19110", "r": "Não foi resolvido", "p": "08950000798973"}, {"d": "24/02/2026", "tel": "29969", "r": "Não resolveram meu problema", "p": "65120000791328"}, {"d": "24/02/2026", "tel": "05002", "r": "Demora de 1h e 04min para o atendimento", "p": "27490000791288"}, {"d": "21/02/2026", "tel": "49343", "r": "Muita demora para responder o chamado aqui no whatsapp esperei quase uma hora pela resposta de vcs e nada", "p": "76340000782939"}, {"d": "20/02/2026", "tel": "66369", "r": "Olá, Boa Tarde.", "p": "44370000782012"}, {"d": "19/02/2026", "tel": "17877", "r": "Melhoras na explicação sobre o que perguntamos", "p": "47820000777729"}, {"d": "18/02/2026", "tel": "44516", "r": "120260218wamid.HBgNNTUxOTk5MjA0NDUxNhUCABIYIEFDQTkyODZBRkFFN0YxQjcxQ0Q4RDZEQTI0RTFDRTZBAA.jpg", "p": "39140000776441"}, {"d": "13/02/2026", "tel": "62292", "r": "Não precisa vir mais", "p": "25490000770399"}, {"d": "11/02/2026", "tel": "97626", "r": "Não resolve nada", "p": "69810000763739"}, {"d": "25/02/2026", "tel": "27246", "r": "Acredito que todos os clientes que vcs tem trabalham. Assim sendo, é bem chato vcs só terem atendimento tecnico em horário comercial quando a maioria dos clientes não estão em casa.\nDeixar o cliente esperando por dias para ter a internet de volta é descaso com o cliente que paga a mensalidade em dia.\nJá foram melhores na eficiência para consertar a internet que caiu.", "p": "24600000797667"}, {"d": "18/02/2026", "tel": "33356", "r": "Agilidade no suporte tecnico", "p": "47270000776457"}, {"d": "21/02/2026", "tel": "94168", "r": "Respeito.", "p": "42900000783153"}, {"d": "21/02/2026", "tel": "66333", "r": "Demora de 70 minutos para iniciar o atendimento e também o suporte ao cliente só será realizado em dias úteis deixando o cliente sem o serviço \nPor este motivo estarei cancelando o serviço", "p": "49960000782883"}, {"d": "13/02/2026", "tel": "67644", "r": "Eu tô sempre sem internet", "p": "57570000770445"}]}};
+
+function processNPS(rows) {
+  // rows: array de objetos já parseados pelo SheetJS/PapaParse
+  // Detecta as duas abas: registros com campo "Opção" = nota têm j1, sem = j2
+  const agData = {};
+  const limpa = r => (r||'').replace(/##[^#]+##\s*/g,'').trim();
+
+  rows.forEach(r => {
+    const ag = String(r['Agente']||r['agente']||'').trim();
+    const nota = parseInt(r['Opção']||r['opcao']||r['Opção']||'');
+    const resp = limpa(String(r['Resposta']||r['resposta']||''));
+    const tel  = String(r['Telefone']||r['telefone']||'').slice(-5);
+    const proto = String(r['Protocolo']||r['protocolo']||'');
+    const dt   = String(r['Data']||r['data']||'').slice(0,10);
+    const janela = String(r['__janela']||'');
+    if (!ag) return;
+    if (!agData[ag]) agData[ag] = { j1:[], j2:[] };
+    if (!isNaN(nota) && nota >= 1 && nota <= 5) {
+      agData[ag].j1.push({ d:dt, tel, n:nota, r:resp, p:proto });
+    } else if (janela === 'j2' || (!isNaN(nota))) {
+      agData[ag].j2.push({ d:dt, tel, r:resp, p:proto });
+    }
+  });
+
+  const result = {};
+  for (const [ag, d] of Object.entries(agData)) {
+    const notas = d.j1.map(x=>x.n);
+    const n = notas.length;
+    if (n === 0) continue;
+    const media = +(notas.reduce((a,b)=>a+b,0)/n).toFixed(2);
+    const dist = {};
+    for (let i=1;i<=5;i++) dist[i] = notas.filter(x=>x===i).length;
+    result[ag] = {
+      total_j1: n, total_j2: d.j2.length,
+      media, nota100: Math.round(((media-1)/4)*100),
+      dist,
+      pct_pos: +((dist[4]+dist[5])/n*100).toFixed(1),
+      pct_neg: +((dist[1]+dist[2])/n*100).toFixed(1),
+      pct_neu: +(dist[3]/n*100).toFixed(1),
+      nps: +((dist[5]-dist[1])/n*100).toFixed(1),
+      dest_pos: d.j1.filter(x=>x.n===5 && (x.r||'').length>4).slice(0,6),
+      dest_neg: d.j1.filter(x=>x.n<=2).slice(0,8),
+      reclamacoes: d.j2.filter(x=>(x.r||'').length>3 && !['.','-','Boa','Boa noite','Boa tarde','Boa tarde.','Boa noite.'].includes((x.r||'').trim())).slice(0,12)
+    };
+  }
+  return result;
+}
+
+function getNPSData() {
+  return STATE.npsData || NPS_DEMO_DATA;
+}
+
+function npsNota(v) {
+  // Converte média 1-5 para rótulo de performance
+  if (v >= 4.3) return { label:'Excelente', color:'#00C9A7' };
+  if (v >= 4.0) return { label:'Bom', color:'#3ECF8E' };
+  if (v >= 3.5) return { label:'Regular', color:'#F6A623' };
+  if (v >= 3.0) return { label:'Atenção', color:'#FF6B6B' };
+  return { label:'Crítico', color:'#E74C3C' };
+}
+
+function renderNPS() {
+  const data = getNPSData();
+  const agentes = Object.keys(data).sort();
+  const el = document.getElementById('nps-content');
+  if (!el) return;
+
+  // KPIs globais
+  const all_j1 = agentes.reduce((s,a)=>s+data[a].total_j1,0);
+  const all_j2 = agentes.reduce((s,a)=>s+data[a].total_j2,0);
+  const all_media = +(agentes.reduce((s,a)=>s+data[a].media*data[a].total_j1,0)/all_j1).toFixed(2);
+  const all_pos = +(agentes.reduce((s,a)=>s+data[a].pct_pos*data[a].total_j1,0)/all_j1).toFixed(1);
+  const all_neg = +(agentes.reduce((s,a)=>s+data[a].pct_neg*data[a].total_j1,0)/all_j1).toFixed(1);
+  const all_nps = +(agentes.reduce((s,a)=>s+data[a].nps*data[a].total_j1,0)/all_j1).toFixed(1);
+  const melhor = agentes.reduce((a,b)=>data[a].media>data[b].media?a:b);
+  const pior   = agentes.reduce((a,b)=>data[a].media<data[b].media?a:b);
+
+  const kpis = [
+    { icon:'⭐', label:'Média Geral', val: all_media.toFixed(2)+'/5', color:C.accent },
+    { icon:'✅', label:'Avaliações Positivas', val: all_pos+'%', color:C.green },
+    { icon:'❌', label:'Avaliações Negativas', val: all_neg+'%', color:C.red },
+    { icon:'📊', label:'NPS Score', val: (all_nps>0?'+':'')+all_nps, color:all_nps>=30?C.green:all_nps>=0?C.yellow:C.red },
+    { icon:'🏆', label:'Melhor Agente', val: melhor, color:C.green },
+    { icon:'⚠️', label:'Mais Atenção', val: pior, color:C.red },
+    { icon:'💬', label:'Total Avaliações', val: all_j1.toLocaleString('pt-BR'), color:C.accent },
+    { icon:'📝', label:'Reclamações (J2)', val: all_j2, color:C.orange }
+  ];
+
+  const kpiHtml = `<div class="kpi-grid" style="margin-bottom:18px">${kpis.map(k=>`
+    <div class="kpi"><div class="kpi-icon">${k.icon}</div>
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value" style="color:${k.color};font-size:${k.val.length>8?'14px':'18px'}">${k.val}</div>
+    </div>`).join('')}</div>`;
+
+  // Ranking dos agentes
+  const sorted = [...agentes].sort((a,b) => data[b].media - data[a].media);
+  const rankHtml = `
+  <div class="sec-title" style="margin-bottom:12px"><h3>🏆 Ranking NPS por Agente</h3></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:24px">
+    ${sorted.map((ag,i) => {
+      const d = data[ag];
+      const p = npsNota(d.media);
+      const stars = Math.round(d.media);
+      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border .2s"
+        onclick="npsShowAgente('${ag.replace(/'/g,'\'')}')"
+        onmouseover="this.style.borderColor='${p.color}'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:800;font-size:13px">${i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':''}<span style="color:${p.color}">${ag}</span></div>
+          <span style="background:${p.color}22;color:${p.color};border:1px solid ${p.color}44;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700">${p.label}</span>
+        </div>
+        <div style="display:flex;gap:1px;margin-bottom:8px">
+          ${'★'.repeat(stars)+'☆'.repeat(5-stars)}
+          <span style="color:${p.color};font-weight:800;font-size:15px;margin-left:6px">${d.media.toFixed(2)}</span>
+          <span style="color:var(--muted);font-size:11px;margin-left:4px">/ 5</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:11px;text-align:center;margin-bottom:8px">
+          <div style="background:${C.green}22;border-radius:6px;padding:4px">
+            <div style="color:${C.green};font-weight:700">${d.pct_pos}%</div>
+            <div style="color:var(--muted)">Positivo</div>
+          </div>
+          <div style="background:${C.yellow}22;border-radius:6px;padding:4px">
+            <div style="color:${C.yellow};font-weight:700">${d.pct_neu}%</div>
+            <div style="color:var(--muted)">Neutro</div>
+          </div>
+          <div style="background:${C.red}22;border-radius:6px;padding:4px">
+            <div style="color:${C.red};font-weight:700">${d.pct_neg}%</div>
+            <div style="color:var(--muted)">Negativo</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)">
+          <span>💬 ${d.total_j1} avaliações</span>
+          <span>📝 ${d.total_j2} reclamações</span>
+          <span style="color:${d.nps>=30?C.green:d.nps>=0?C.yellow:C.red};font-weight:700">NPS ${d.nps>0?'+':''}${d.nps}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // Distribuição gráfica de notas (barra horizontal por agente)
+  const distHtml = `
+  <div class="sec-title" style="margin-bottom:12px"><h3>📊 Distribuição de Notas por Agente</h3></div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px">
+    <div style="display:flex;gap:16px;font-size:10px;color:var(--muted);margin-bottom:12px">
+      ${['#E74C3C','#FF6B6B','#F6A623','#3ECF8E','#00C9A7'].map((c,i)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:${c};border-radius:2px;display:inline-block"></span> ${i+1}★</span>`).join('')}
+    </div>
+    ${sorted.map(ag => {
+      const d = data[ag];
+      const t = d.total_j1;
+      const cols = ['#E74C3C','#FF6B6B','#F6A623','#3ECF8E','#00C9A7'];
+      const segs = [1,2,3,4,5].map((n,i)=>{
+        const pct = (d.dist[n]||0)/t*100;
+        return pct > 0 ? `<div title="Nota ${n}: ${d.dist[n]} (${pct.toFixed(1)}%)" style="width:${pct}%;background:${cols[i]};height:100%;transition:width .4s;cursor:default"></div>` : '';
+      }).join('');
+      return `<div style="display:grid;grid-template-columns:130px 1fr 50px;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ag}</div>
+        <div style="height:18px;border-radius:4px;overflow:hidden;background:var(--panel);display:flex">${segs}</div>
+        <div style="font-size:11px;color:var(--muted);text-align:right">${t}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // Consolidado com multi-select
+  const selOptions = agentes.map(a=>`<option value="${a}">${a}</option>`).join('');
+  const consolHtml = `
+  <div class="sec-title" style="margin-bottom:12px"><h3>🔬 Consolidado por Agente(s)</h3></div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px">
+    <div style="margin-bottom:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Selecione os agentes para comparar:</div>
+        <select id="nps-select-agentes" multiple
+          style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px;min-width:200px;height:120px;outline:none"
+          onchange="npsRenderConsolidado()">
+          ${selOptions}
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button onclick="npsSelectAll(true)" style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:6px 12px;font-weight:700;font-size:11px">Todos</button>
+        <button onclick="npsSelectAll(false)" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-weight:600;font-size:11px">Limpar</button>
+      </div>
+    </div>
+    <div id="nps-consolidado-result" style="color:var(--muted);font-size:12px;text-align:center;padding:20px">
+      Selecione pelo menos um agente acima para ver a análise consolidada.
+    </div>
+  </div>`;
+
+  // Detalhe individual (aparece ao clicar no card)
+  const detalheHtml = `
+  <div id="nps-detalhe" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px">
+    <div id="nps-detalhe-content"></div>
+  </div>`;
+
+  // ── PREMIAÇÃO ──────────────────────────────────────────────────
+  const premHtml = renderPremiacaoSection(agentes, data);
+
+  el.innerHTML = kpiHtml + rankHtml + distHtml + premHtml + consolHtml + detalheHtml;
+  // Inicializar ranking de premiação e seleção
+  setTimeout(() => {
+    const ps = document.getElementById('prem-select');
+    if (ps) {
+      // Restaurar seleção anterior
+      Array.from(ps.options).forEach(o => {
+        o.selected = !window._premSelecionados || window._premSelecionados.has(o.value);
+      });
+      premAtualizarRanking();
+    }
+  }, 0);
+}
+
+/* ── PREMIAÇÃO — score combinado NPS + SAC ── */
+function calcScorePremiacao(ag, npsData) {
+  const d = npsData[ag];
+  if (!d) return null;
+
+  // Resolve nome canônico no STATE.agentes via fuzzy
+  const normS = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const sacKey = STATE.agentes ? Object.keys(STATE.agentes).find(k => {
+    const kn = normS(k), an = normS(ag);
+    return kn === an || kn.startsWith(an) || an.startsWith(kn) ||
+           kn.includes(an) || an.split(' ').every((p,i) => kn.split(' ')[i]?.startsWith(p));
+  }) : null;
+  const sac = sacKey ? STATE.agentes[sacKey] : null;
+
+  // Componentes (0-100 cada)
+  const npsScore     = d.nota100;                                              // NPS: média 1-5 → 0-100
+  const resolucao    = sac ? Math.min(100, sac.taxa_resolucao || 0)    : null; // % resolução SAC
+  const reincidencia = sac ? Math.max(0, 100 - (sac.taxa_reincidencia||0)*2) : null; // inverso
+  const transferencia= sac ? Math.max(0, 100 - (sac.taxa_transferencia||0)*3) : null; // inverso
+
+  // Volume: normalizado 0-100 relativo ao maior volume entre todos os agentes NPS
+  const todosTotal = Object.values(npsData).map(x => x.total || x.total_j1 || 0);
+  const maxTotal   = Math.max(...todosTotal, 1);
+  const volumeScore= Math.round((d.total_j1 / maxTotal) * 100);
+
+  // Pesos: resolução 35% · NPS 25% · volume 20% · anti-reinc 12% · anti-transf 8%
+  let score, completo;
+  if (sac) {
+    score = +(resolucao * 0.35 + npsScore * 0.25 + volumeScore * 0.20 + reincidencia * 0.12 + transferencia * 0.08).toFixed(1);
+    completo = true;
+  } else {
+    // Só NPS + volume disponíveis — usa proporcionalmente mas sinaliza
+    score = +(npsScore * 0.55 + volumeScore * 0.45).toFixed(1);
+    completo = false;
+  }
+
+  return {
+    ag, npsScore, resolucao, reincidencia, transferencia, volumeScore,
+    score, completo,
+    sacNome: sacKey,
+    sacScore: sac?.score ?? null,
+    totalAval: d.total_j1,
+    media: d.media,
+    nps: d.nps
+  };
+}
+
+function renderPremiacaoSection(agentes, npsData) {
+  const premios = [250, 200, 150, 100, 50];
+  const cores   = ['#FFD700','#C0C0C0','#CD7F32','#3ECF8E','#6C8EAD'];
+  const medalhas= ['🥇 Ouro','🥈 Prata','🥉 Bronze','🔩 Ferro','🥫 Lata'];
+
+  // Gera scores para todos
+  const todos = agentes.map(ag => calcScorePremiacao(ag, npsData)).filter(Boolean);
+
+  // Estado persistente: selecionados = todos por default (guardado em window)
+  if (!window._premSelecionados) window._premSelecionados = new Set(agentes);
+
+  const selOptions = agentes.map(ag => {
+    const sel = window._premSelecionados.has(ag) ? 'selected' : '';
+    return `<option value="${ag.replace(/"/g,'&quot;')}" ${sel}>${ag}</option>`;
+  }).join('');
+
+  return `
+  <div class="sec-title" style="margin-bottom:12px" id="sec-premiacao"><h3>🏅 Premiação — Score Combinado NPS + SAC</h3></div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:24px">
+
+    <!-- Explicação dos pesos -->
+    <div style="background:var(--panel);border-radius:9px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--text)">Critérios de pontuação:</strong>
+      Resolução SAC <strong style="color:var(--accent)">35%</strong> ·
+      NPS médio <strong style="color:var(--accent)">25%</strong> ·
+      Volume de Atendimentos <strong style="color:var(--accent)">20%</strong> ·
+      Anti-Reincidência <strong style="color:var(--accent)">12%</strong> ·
+      Anti-Transferência <strong style="color:var(--accent)">8%</strong>
+      <span style="margin-left:8px;color:#6C8EAD">— Agentes sem SAC carregado: NPS 55% + Volume 45%</span>
+    </div>
+
+    <!-- Seleção de participantes -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">👥 Participantes da premiação (multi-seleção):</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <select id="prem-select" multiple
+          style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px;min-width:220px;height:110px;outline:none"
+          onchange="premAtualizarRanking()">
+          ${selOptions}
+        </select>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button onclick="premSelectAll(true)" style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:6px 12px;font-weight:700;font-size:11px">Todos</button>
+          <button onclick="premSelectAll(false)" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-weight:600;font-size:11px">Limpar</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;max-width:220px">
+          Selecione apenas os agentes que<br>participam desta rodada de premiação.
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranking dinâmico -->
+    <div id="prem-ranking-wrap">
+      <!-- preenchido por premAtualizarRanking() -->
+    </div>
+  </div>`;
+}
+
+function premSelectAll(sel) {
+  const s = document.getElementById('prem-select');
+  if (!s) return;
+  Array.from(s.options).forEach(o => o.selected = sel);
+  premAtualizarRanking();
+}
+
+function premAtualizarRanking() {
+  const s = document.getElementById('prem-select');
+  const wrap = document.getElementById('prem-ranking-wrap');
+  if (!s || !wrap) return;
+
+  const selecionados = Array.from(s.selectedOptions).map(o => o.value);
+  // Atualiza cache
+  window._premSelecionados = new Set(selecionados);
+
+  const npsData = getNPSData();
+  const premios  = [250, 200, 150, 100, 50];
+  const cores    = ['#FFD700','#C0C0C0','#CD7F32','#3ECF8E','#6C8EAD'];
+  const medalhas = ['🥇 Ouro','🥈 Prata','🥉 Bronze','🔩 Ferro','🥫 Lata'];
+
+  if (!selecionados.length) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">Selecione pelo menos um participante.</div>';
+    return;
+  }
+
+  const ranking = selecionados
+    .map(ag => calcScorePremiacao(ag, npsData))
+    .filter(Boolean)
+    .sort((a,b) => b.score - a.score);
+
+  const maxScore = ranking[0]?.score || 1;
+
+  // Cards dos premiados (top 5)
+  const topCards = ranking.slice(0, 5).map((r, i) => {
+    const cor = cores[i] || '#6C8EAD';
+    const premio = premios[i] || 0;
+    const barW = (r.score / maxScore * 100).toFixed(1);
+    const sacHtml = r.completo
+      ? `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:10px;text-align:center;margin-bottom:8px">
+           <div style="background:${C.green}18;border-radius:5px;padding:3px">
+             <div style="color:${C.green};font-weight:700">${r.resolucao?.toFixed(1)}%</div>
+             <div style="color:var(--muted)">Resolução</div>
+           </div>
+           <div style="background:${C.purple}18;border-radius:5px;padding:3px">
+             <div style="color:${C.purple||'#9b59b6'};font-weight:700">${r.volumeScore}</div>
+             <div style="color:var(--muted)">Volume</div>
+           </div>
+           <div style="background:${C.yellow}18;border-radius:5px;padding:3px">
+             <div style="color:${C.yellow};font-weight:700">${r.reincidencia?.toFixed(1)}</div>
+             <div style="color:var(--muted)">Anti-Reinc</div>
+           </div>
+           <div style="background:${C.accent}18;border-radius:5px;padding:3px">
+             <div style="color:${C.accent};font-weight:700">${r.transferencia?.toFixed(1)}</div>
+             <div style="color:var(--muted)">Anti-Transf</div>
+           </div>
+         </div>`
+      : `<div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-style:italic">⚠ SAC não carregado — score calculado apenas pelo NPS</div>`;
+
+    return `
+    <div style="background:var(--panel);border:2px solid ${cor}44;border-radius:12px;padding:14px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:10px;right:12px;font-size:26px;opacity:.13;font-weight:900">${medalhas[i]}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;color:${cor};font-weight:700;margin-bottom:2px">${medalhas[i]}</div>
+          <div style="font-weight:800;font-size:14px;color:var(--text)">${r.ag}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${r.totalAval} aval. NPS · vol. ${r.volumeScore}/100 · NPS ${r.nps>0?'+':''}${r.nps}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:900;color:${cor};font-family:monospace">R$${premio}</div>
+          <div style="font-size:10px;color:var(--muted)">prêmio</div>
+        </div>
+      </div>
+
+      ${sacHtml}
+
+      <!-- Score combinado com barra -->
+      <div style="margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Score combinado</span>
+          <span style="font-size:13px;font-weight:800;color:${cor};font-family:monospace">${r.score}/100</span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div style="width:${barW}%;height:100%;background:${cor};border-radius:4px;transition:width .5s"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px">
+        <span>⭐ NPS: ${r.npsScore}/100</span>
+        ${r.sacScore !== null ? `<span>📊 Score SAC: ${r.sacScore}/100</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Tabela completa dos participantes
+  const tabelaHtml = `
+  <div style="margin-top:16px">
+    <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px">📋 Classificação completa dos participantes</div>
+    <div class="tbl-wrap">
+    <table style="width:100%">
+      <thead><tr>
+        <th>#</th><th>Agente</th><th>Resolução (35%)</th><th>NPS (25%)</th><th>Volume (20%)</th><th>Anti-Reinc (12%)</th><th>Anti-Transf (8%)</th><th>Score Final</th><th>Prêmio</th>
+      </tr></thead>
+      <tbody>
+      ${ranking.map((r,i) => {
+        const cor = cores[i] || 'var(--muted)';
+        const premio = premios[i];
+        return `<tr>
+          <td style="color:${cor};font-weight:700;text-align:center">${medalhas[i]}</td>
+          <td style="font-weight:700;color:${cor}">${r.ag}</td>
+          <td style="text-align:center;color:${C.green};font-family:monospace">${r.resolucao !== null ? r.resolucao.toFixed(1)+'%' : '—'}</td>
+          <td style="text-align:center;font-family:monospace">${r.npsScore}</td>
+          <td style="text-align:center;color:#9b59b6;font-family:monospace">${r.volumeScore}/100</td>
+          <td style="text-align:center;color:${C.yellow};font-family:monospace">${r.reincidencia !== null ? r.reincidencia.toFixed(1) : '—'}</td>
+          <td style="text-align:center;color:${C.accent};font-family:monospace">${r.transferencia !== null ? r.transferencia.toFixed(1) : '—'}</td>
+          <td style="font-weight:800;color:${cor};font-family:monospace;text-align:center">${r.score}</td>
+          <td style="font-weight:700;color:${premio?cor:'var(--muted)'};text-align:center">${premio ? 'R$'+premio : '—'}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  const topHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:6px">${topCards}</div>`;
+  wrap.innerHTML = topHtml + tabelaHtml;
+}
+
+function npsShowAgente(ag) {
+  const data = getNPSData();
+  const d = data[ag];
+  if (!d) return;
+  const p = npsNota(d.media);
+  const stars = Math.round(d.media);
+
+  // Janela 1: avaliações 1-5 com destaques
+  const j1PosHtml = d.dest_pos.length ? d.dest_pos.map(x=>`
+    <div style="background:${C.green}11;border:1px solid ${C.green}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
+      <span style="color:${C.green};font-weight:700">${'★'.repeat(x.n)}</span>
+      <span style="color:var(--muted);font-size:10px;margin-left:6px">*****${x.tel} · ${x.d}</span>
+      ${x.r ? `<div style="color:var(--text);margin-top:4px;font-style:italic">"${x.r}"</div>` : ''}
+    </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhum elogio com comentário registrado.</div>';
+
+  const j1NegHtml = d.dest_neg.length ? d.dest_neg.map(x=>`
+    <div style="background:${C.red}11;border:1px solid ${C.red}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
+      <span style="color:${C.red};font-weight:700">${'★'.repeat(x.n)}${'☆'.repeat(5-x.n)}</span>
+      <span style="color:var(--muted);font-size:10px;margin-left:6px">*****${x.tel} · ${x.d}</span>
+      ${x.r ? `<div style="color:var(--text);margin-top:4px;font-style:italic">"${x.r}"</div>` : ''}
+    </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhuma avaliação negativa com comentário.</div>';
+
+  const j2Html = d.reclamacoes.length ? d.reclamacoes.map(x=>`
+    <div style="background:${C.orange}11;border:1px solid ${C.orange}33;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted);font-size:10px">*****${x.tel} · ${x.d}</span>
+      <div style="color:var(--text);margin-top:4px">${x.r}</div>
+    </div>`).join('') : '<div style="color:var(--muted);font-size:12px">Nenhuma reclamação registrada nesta janela.</div>';
+
+  // Nota cruzada com SAC
+  const sacRef = STATE.agentes ? Object.keys(STATE.agentes).find(k => {
+    const kn = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const an = ag.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return kn.includes(an) || an.includes(kn.split(' ')[0]);
+  }) : null;
+  const sacScore = sacRef ? STATE.agentes[sacRef].score : null;
+
+  const detalheEl = document.getElementById('nps-detalhe');
+  const detalheContent = document.getElementById('nps-detalhe-content');
+  detalheEl.style.display = 'block';
+  detalheContent.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:800;font-size:17px;color:${p.color}">${ag}</div>
+        <div style="color:var(--muted);font-size:11px">Análise completa NPS · ${d.total_j1} avaliações · ${d.total_j2} reclamações</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="background:${p.color}22;color:${p.color};border:1px solid ${p.color}44;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700">${p.label}</span>
+        ${sacScore!==null?`<span style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:11px;color:var(--muted)">Score SAC: <strong style="color:var(--accent)">${sacScore}/100</strong></span>`:''}
+        <button onclick="document.getElementById('nps-detalhe').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:4px 10px;font-size:11px">✕ Fechar</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${p.color};font-size:22px;font-weight:800">${d.media.toFixed(2)}</div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase">Média</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${C.green};font-size:22px;font-weight:800">${d.pct_pos}%</div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase">Positivo (4-5★)</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${C.red};font-size:22px;font-weight:800">${d.pct_neg}%</div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase">Negativo (1-2★)</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${d.nps>=30?C.green:d.nps>=0?C.yellow:C.red};font-size:22px;font-weight:800">${d.nps>0?'+':''}${d.nps}</div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase">NPS Score</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-weight:700;font-size:12px;color:${C.green};margin-bottom:8px">🌟 Janela 1 — Destaques Positivos (nota 5)</div>
+        ${j1PosHtml}
+        <div style="font-weight:700;font-size:12px;color:${C.red};margin-top:12px;margin-bottom:8px">⚠️ Janela 1 — Avaliações Baixas (nota 1-2)</div>
+        ${j1NegHtml}
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:12px;color:${C.orange};margin-bottom:8px">📝 Janela 2 — Reclamações e Sugestões</div>
+        ${j2Html}
+      </div>
+    </div>`;
+
+  // Scroll suave até o detalhe
+  detalheEl.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function npsSelectAll(sel) {
+  const s = document.getElementById('nps-select-agentes');
+  if (!s) return;
+  Array.from(s.options).forEach(o => o.selected = sel);
+  npsRenderConsolidado();
+}
+
+function npsRenderConsolidado() {
+  const s = document.getElementById('nps-select-agentes');
+  const res = document.getElementById('nps-consolidado-result');
+  if (!s || !res) return;
+  const selecionados = Array.from(s.selectedOptions).map(o=>o.value);
+  if (!selecionados.length) {
+    res.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Selecione pelo menos um agente acima.</div>';
+    return;
+  }
+  const data = getNPSData();
+
+  // Calcular métricas consolidadas dos selecionados
+  let total_j1=0, total_j2=0, soma_media=0, total_pos=0, total_neg=0, total_neu=0, soma_nps=0;
+  const dist_total = {1:0,2:0,3:0,4:0,5:0};
+  const linhas = [];
+
+  selecionados.forEach(ag => {
+    const d = data[ag];
+    if (!d) return;
+    total_j1 += d.total_j1;
+    total_j2 += d.total_j2;
+    soma_media += d.media * d.total_j1;
+    total_pos += d.pct_pos * d.total_j1;
+    total_neg += d.pct_neg * d.total_j1;
+    total_neu += d.pct_neu * d.total_j1;
+    soma_nps  += d.nps * d.total_j1;
+    for(let i=1;i<=5;i++) dist_total[i] += (d.dist[i]||0);
+    const p = npsNota(d.media);
+    // Referência cruzada com SAC
+    const sacRef = STATE.agentes ? Object.keys(STATE.agentes).find(k => {
+      const kn = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const an = ag.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return kn.includes(an) || an.includes(kn.split(' ')[0]);
+    }) : null;
+    const sacScore = sacRef ? STATE.agentes[sacRef].score : null;
+    linhas.push({ ag, d, p, sacScore });
+  });
+
+  const med_geral = total_j1 > 0 ? +(soma_media/total_j1).toFixed(2) : 0;
+  const pct_pos_g = total_j1 > 0 ? +(total_pos/total_j1).toFixed(1) : 0;
+  const pct_neg_g = total_j1 > 0 ? +(total_neg/total_j1).toFixed(1) : 0;
+  const nps_g     = total_j1 > 0 ? +(soma_nps/total_j1).toFixed(1) : 0;
+  const perf_g    = npsNota(med_geral);
+
+  // Ordenar por média desc
+  linhas.sort((a,b) => b.d.media - a.d.media);
+
+  res.innerHTML = `
+    <!-- KPIs consolidados -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${perf_g.color};font-size:22px;font-weight:800">${med_geral.toFixed(2)}</div>
+        <div style="color:var(--muted);font-size:10px">MÉDIA CONSOLIDADA</div>
+        <div style="background:${perf_g.color}22;color:${perf_g.color};border-radius:10px;padding:2px 6px;font-size:10px;font-weight:700;margin-top:4px">${perf_g.label}</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${C.green};font-size:22px;font-weight:800">${pct_pos_g}%</div>
+        <div style="color:var(--muted);font-size:10px">POSITIVO (4-5★)</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${C.red};font-size:22px;font-weight:800">${pct_neg_g}%</div>
+        <div style="color:var(--muted);font-size:10px">NEGATIVO (1-2★)</div>
+      </div>
+      <div style="background:var(--panel);border-radius:9px;padding:11px;text-align:center">
+        <div style="color:${nps_g>=30?C.green:nps_g>=0?C.yellow:C.red};font-size:22px;font-weight:800">${nps_g>0?'+':''}${nps_g}</div>
+        <div style="color:var(--muted);font-size:10px">NPS CONSOLIDADO</div>
+      </div>
+    </div>
+
+    <!-- Tabela comparativa -->
+    <div class="tbl-wrap">
+    <table style="width:100%">
+      <thead><tr>
+        <th>Agente</th><th>Avaliações</th><th>Recl.</th><th>Média</th><th>Positivo</th><th>Negativo</th><th>NPS</th><th>Score SAC</th><th>Status NPS</th>
+      </tr></thead>
+      <tbody>
+      ${linhas.map(({ag,d,p,sacScore},i) => `
+        <tr onclick="npsShowAgente('${ag.replace(/'/g,"\'")}');document.getElementById('nps-detalhe').scrollIntoView({behavior:'smooth'})" style="cursor:pointer">
+          <td style="font-weight:700;color:${p.color}">${i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':''}<span>${ag}</span></td>
+          <td style="text-align:center">${d.total_j1}</td>
+          <td style="text-align:center">${d.total_j2}</td>
+          <td style="font-weight:800;color:${p.color};font-family:monospace">${d.media.toFixed(2)}</td>
+          <td style="color:${C.green}">${d.pct_pos}%</td>
+          <td style="color:${C.red}">${d.pct_neg}%</td>
+          <td style="color:${d.nps>=30?C.green:d.nps>=0?C.yellow:C.red};font-weight:700">${d.nps>0?'+':''}${d.nps}</td>
+          <td style="color:var(--accent)">${sacScore!==null?sacScore+'/100':'—'}</td>
+          <td><span style="background:${p.color}22;color:${p.color};border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;border:1px solid ${p.color}44">${p.label}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+
+    <!-- Distribuição de notas consolidada -->
+    <div style="margin-top:14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Distribuição de notas consolidada (${total_j1} avaliações)</div>
+      <div style="display:flex;height:22px;border-radius:8px;overflow:hidden;gap:1px">
+        ${[1,2,3,4,5].map((n,i)=>{
+          const cols=['#E74C3C','#FF6B6B','#F6A623','#3ECF8E','#00C9A7'];
+          const pct = total_j1>0 ? (dist_total[n]/total_j1*100) : 0;
+          return pct>0 ? `<div title="${n}★: ${dist_total[n]} (${pct.toFixed(1)}%)" style="width:${pct}%;background:${cols[i]};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700;min-width:2px">${pct>5?pct.toFixed(0)+'%':''}</div>` : '';
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+        ${[1,2,3,4,5].map((n,i)=>{
+          const cols=['#E74C3C','#FF6B6B','#F6A623','#3ECF8E','#00C9A7'];
+          const pct = total_j1>0 ? (dist_total[n]/total_j1*100).toFixed(1) : '0.0';
+          return `<span style="font-size:10px;color:${cols[i]}">●  ${n}★ ${dist_total[n]} (${pct}%)</span>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div style="text-align:right;margin-top:12px">
+      <span style="color:var(--muted);font-size:10px">Clique em uma linha para ver o detalhe do agente</span>
+    </div>`;
+}
+
 
 /* ════════════════════════════════════════════════════════════════
    PARTE 10 — RENDERIZAÇÃO GERAL + DADOS BASE DEMO
@@ -2440,6 +3133,7 @@ function renderAll() {
   renderCampo();
   renderClientes();
   renderGestor();
+  renderNPS();
 }
 
 function renderGestao() {
