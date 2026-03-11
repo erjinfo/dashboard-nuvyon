@@ -2972,8 +2972,15 @@ function npsShowAgente(ag) {
   detalheEl.style.display = 'block';
   detalheContent.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-weight:800;font-size:17px;color:${p.color}">${ag}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="font-weight:800;font-size:17px;color:${p.color}">${ag}</div>
+          <select id="nps-agente-select"
+            onchange="npsShowAgente(this.value)"
+            style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 10px;color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;max-width:220px">
+            ${Object.keys(getNPSData()).sort().map(a=>`<option value="${a}" ${a===ag?'selected':''}>${a}</option>`).join('')}
+          </select>
+        </div>
         <div style="color:var(--muted);font-size:11px">Análise completa NPS · ${d.total_j1} avaliações · ${d.total_j2} reclamações</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
