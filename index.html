@@ -1236,14 +1236,16 @@ function readFileAsRows(file, opts={}) {
           // Para arquivos NPS com múltiplas abas: ler todas e marcar __janela
           if (opts.multiSheet && wb.SheetNames.length > 1) {
             const allRows = [];
+            console.log('[NPS] Abas encontradas:', wb.SheetNames);
             wb.SheetNames.forEach((name, idx) => {
               const ws = wb.Sheets[name];
               const rows = XLSX.utils.sheet_to_json(ws, sheetOpts);
-              // Detectar janela pelo nome da aba ou índice
               const janelaTag = name.toLowerCase().includes('2') || name.toLowerCase().includes('reclamac') || name.toLowerCase().includes('sugest') ? 'j2' : 'j1';
+              console.log(`[NPS] Aba "${name}" → ${janelaTag} | ${rows.length} linhas | colunas:`, rows[0] ? Object.keys(rows[0]) : 'vazio');
               rows.forEach(r => { r['__janela'] = janelaTag; r['__sheet'] = name; });
               allRows.push(...rows);
             });
+            console.log('[NPS] Total rows:', allRows.length);
             resolve(allRows);
           } else {
             const ws = wb.Sheets[wb.SheetNames[0]];
@@ -3676,9 +3678,18 @@ function renderProdutividadeNPS() {
 
 function processNPS(rows) {
   // rows: array de objetos já parseados pelo SheetJS/PapaParse
-  // Detecta as duas abas: registros com campo "Opção" = nota têm j1, sem = j2
   const agData = {};
   const limpa = r => (r||'').replace(/##[^#]+##\s*/g,'').trim();
+
+  // Diagnóstico: mostrar primeiras linhas e colunas disponíveis
+  if (rows.length > 0) {
+    const j1rows = rows.filter(r => r['__janela'] !== 'j2');
+    const j2rows = rows.filter(r => r['__janela'] === 'j2');
+    console.log('[processNPS] Total:', rows.length, '| j1:', j1rows.length, '| j2:', j2rows.length);
+    console.log('[processNPS] Colunas j1:', j1rows[0] ? Object.keys(j1rows[0]) : 'nenhuma');
+    console.log('[processNPS] Colunas j2:', j2rows[0] ? Object.keys(j2rows[0]) : 'nenhuma');
+    if (j2rows[0]) console.log('[processNPS] Exemplo j2:', j2rows[0]);
+  }
 
   rows.forEach(r => {
     const ag = String(r['Agente']||r['agente']||'').trim();
