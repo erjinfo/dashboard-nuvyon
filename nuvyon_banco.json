@@ -64,9 +64,29 @@
       ],
       "role": "user",
       "criado": "11/03/2026, 16:43:33"
+    },
+    {
+      "user": "gabriela",
+      "hash": "bdc99c8dcd67cab89446590705417dcc1498fb1a84b945ac7233bafe6265304b",
+      "abas": [
+        "visao360",
+        "clientes",
+        "gestor",
+        "nps"
+      ],
+      "role": "user",
+      "criado": "11/03/2026, 17:00:54"
     }
   ],
   "logs": [
+    {
+      "ts": "11/03/2026, 17:00:21",
+      "msg": "Login: eric"
+    },
+    {
+      "ts": "11/03/2026, 17:00:21",
+      "msg": "Banco carregado do GitHub (5 usuários)"
+    },
     {
       "ts": "11/03/2026, 16:58:01",
       "msg": "GitHub indisponível — usando cache local"
@@ -136,5 +156,5 @@
       "msg": "Login: eric"
     }
   ],
-  "updated": "2026-03-11T19:58:14.373Z"
+  "updated": "2026-03-11T20:00:54.977Z"
 }
