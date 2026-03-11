@@ -1,0 +1,140 @@
+{
+  "users": [
+    {
+      "user": "eric",
+      "hash": "f51bc188a509b71cdec9878463afd23fdb44e1b5b697d61e95dc6a70e7637c41",
+      "abas": [
+        "gestao",
+        "visao360",
+        "sac",
+        "campo",
+        "clientes",
+        "gestor",
+        "nps"
+      ],
+      "role": "master",
+      "criado": "11/03/2026, 16:19:11"
+    },
+    {
+      "user": "layla",
+      "hash": "a6f43bd331ac9fda1c4c6540cb767db42d3664d3ebd7b37836ce270efb2992ab",
+      "abas": [
+        "visao360",
+        "sac",
+        "campo",
+        "clientes",
+        "gestor",
+        "nps"
+      ],
+      "role": "user",
+      "criado": "11/03/2026, 16:42:05"
+    },
+    {
+      "user": "ana",
+      "hash": "ad04a510c348f065012205979aee4157172900083a1f3f319ff314ddf26ad2d0",
+      "abas": [
+        "campo",
+        "clientes",
+        "gestor",
+        "nps"
+      ],
+      "role": "user",
+      "criado": "11/03/2026, 16:42:40"
+    },
+    {
+      "user": "edson",
+      "hash": "94b690d207b04f86ed9925192da918b11d00e37b019e643c23dbcd9e3d11ab44",
+      "abas": [
+        "visao360",
+        "sac",
+        "campo",
+        "clientes",
+        "gestor",
+        "nps"
+      ],
+      "role": "user",
+      "criado": "11/03/2026, 16:43:02"
+    },
+    {
+      "user": "financeiro",
+      "hash": "e4f818bd78be97236bb95c8cd3131b2778b1b798df2c8e8324c11f369c0c77b7",
+      "abas": [
+        "visao360",
+        "clientes"
+      ],
+      "role": "user",
+      "criado": "11/03/2026, 16:43:33"
+    }
+  ],
+  "logs": [
+    {
+      "ts": "11/03/2026, 16:58:01",
+      "msg": "GitHub indisponível — usando cache local"
+    },
+    {
+      "ts": "11/03/2026, 16:51:15",
+      "msg": "Logout: ana"
+    },
+    {
+      "ts": "11/03/2026, 16:50:57",
+      "msg": "Login: ana"
+    },
+    {
+      "ts": "11/03/2026, 16:50:50",
+      "msg": "Logout: eric"
+    },
+    {
+      "ts": "11/03/2026, 16:49:37",
+      "msg": "Banco exportado"
+    },
+    {
+      "ts": "11/03/2026, 16:43:33",
+      "msg": "Criado: financeiro | abas: visao360, clientes"
+    },
+    {
+      "ts": "11/03/2026, 16:43:33",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:43:02",
+      "msg": "Criado: edson | abas: visao360, sac, campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:43:02",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:42:41",
+      "msg": "Criado: ana | abas: campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:42:41",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:42:05",
+      "msg": "Criado: layla | abas: visao360, sac, campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:42:05",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:41:46",
+      "msg": "Login: eric"
+    },
+    {
+      "ts": "11/03/2026, 16:41:33",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:33:53",
+      "msg": "Logout: eric"
+    },
+    {
+      "ts": "11/03/2026, 16:33:47",
+      "msg": "Login: eric"
+    }
+  ],
+  "updated": "2026-03-11T19:58:14.373Z"
+}
