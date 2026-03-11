@@ -124,9 +124,250 @@ td{padding:9px}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
+<style>
+/* ── LOGIN ── */
+#login-overlay{position:fixed;inset:0;background:#080C14;z-index:9999;display:flex;align-items:center;justify-content:center}
+#login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:360px;max-width:94vw}
+#login-box h2{font-size:20px;font-weight:800;color:var(--accent);margin-bottom:4px}
+#login-box p{font-size:12px;color:var(--muted);margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.login-field input{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;outline:none;transition:border .2s}
+.login-field input:focus{border-color:var(--accent)}
+#login-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:9px;padding:12px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px;transition:opacity .2s}
+#login-btn:hover{opacity:.85}
+#login-err{color:#e74c3c;font-size:12px;text-align:center;margin-top:10px;min-height:16px}
+#admin-modal{position:fixed;inset:0;background:#000000aa;z-index:8000;display:none;align-items:center;justify-content:center}
+#admin-modal.open{display:flex}
+#admin-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:720px;max-width:96vw;max-height:88vh;overflow-y:auto}
+#admin-box h3{font-size:16px;font-weight:800;color:var(--accent);margin-bottom:18px}
+.admin-user-row{background:var(--panel);border-radius:9px;padding:14px;margin-bottom:10px;border:1px solid var(--border)}
+.tab-check-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tab-check{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:5px;padding:3px 8px;cursor:pointer;user-select:none}
+.tab-check input{accent-color:var(--accent)}
+#user-badge{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+#user-badge:hover{border-color:var(--accent);color:var(--accent)}
+</style>
 </head>
 <body>
 <div id="app">
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay">
+  <div id="login-box">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:32px;margin-bottom:8px">▸</div>
+      <h2>Nuvyon</h2>
+      <p>Inteligência Operacional — acesso restrito</p>
+    </div>
+    <div class="login-field">
+      <label>Usuário</label>
+      <input type="text" id="login-user" autocomplete="username" placeholder="seu usuário" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button id="login-btn" onclick="doLogin()">Entrar</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="admin-modal">
+  <div id="admin-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h3>⚙️ Gerenciar Usuários</h3>
+      <button onclick="closeAdmin()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">✕ Fechar</button>
+    </div>
+    <div id="admin-users-list"></div>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">➕ Novo Usuário</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <input id="new-u-user" placeholder="Usuário" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-size:12px;outline:none">
+        <input id="new-u-pass" type="password" placeholder="Senha" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-size:12px;outline:none">
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">Abas liberadas:</div>
+      <div class="tab-check-grid" id="new-u-tabs"></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+        <button onclick="adminAddUser()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:12px;cursor:pointer">Criar Usuário</button>
+        <span id="admin-msg" style="font-size:12px;color:var(--accent)"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   AUTENTICAÇÃO NUVYON — Client-side SHA-256
+   Segurança básica para controle de acesso entre usuários não
+   técnicos. Para produção real migrar para servidor (v4.0).
+══════════════════════════════════════════════════════════════ */
+const ABAS = [
+  { id:'gestao',   label:'📊 Gestão Geral' },
+  { id:'visao360', label:'🔍 Visão 360' },
+  { id:'sac',      label:'🎧 Auditoria SAC' },
+  { id:'campo',    label:'🔧 Qualidade Técnica' },
+  { id:'clientes', label:'🩺 Saúde do Cliente' },
+  { id:'gestor',   label:'⚖️ Gestor Justo' },
+  { id:'nps',      label:'⭐ NPS Pesquisa' },
+];
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function loadUsers() {
+  try { return JSON.parse(localStorage.getItem('nuvyon_users')) || null; } catch { return null; }
+}
+function saveUsers(u) { localStorage.setItem('nuvyon_users', JSON.stringify(u)); }
+
+let SESSION = null;
+
+async function initAuth() {
+  let users = loadUsers();
+  if (!users) {
+    // Primeiro acesso: criar usuário master padrão
+    users = [{ user:'eric', hash: await sha256('eric2024'), abas: ABAS.map(a=>a.id), role:'master' }];
+    saveUsers(users);
+  }
+  // Sobrepor showTab após o DOM estar pronto
+  const origShowTab = window.showTab;
+  if (origShowTab) {
+    window.showTab = function(t) {
+      if (SESSION && !SESSION.abas.includes(t)) return;
+      origShowTab(t);
+    };
+  }
+}
+
+async function doLogin() {
+  const u = (document.getElementById('login-user').value||'').trim().toLowerCase();
+  const p = document.getElementById('login-pass').value || '';
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!u||!p) { err.textContent='Preencha usuário e senha.'; return; }
+  const h = await sha256(p);
+  const users = loadUsers()||[];
+  const found = users.find(x => x.user.toLowerCase()===u && x.hash===h);
+  if (!found) { err.textContent='❌ Usuário ou senha inválidos.'; return; }
+  SESSION = found;
+  document.getElementById('login-overlay').style.display = 'none';
+  applySession();
+}
+
+function applySession() {
+  if (!SESSION) return;
+  // Badge no topbar
+  let badge = document.getElementById('user-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'user-badge';
+    badge.onclick = () => SESSION.role==='master' ? openAdmin() : doLogout();
+    const btns = document.querySelector('#topbar > div:last-child');
+    if (btns) btns.insertBefore(badge, btns.firstChild);
+  }
+  badge.innerHTML = `👤 <strong>${SESSION.user}</strong>${SESSION.role==='master'?' <span style="color:var(--accent);font-size:10px">★ Master</span>':''} <span style="color:var(--muted);font-size:10px;margin-left:4px">${SESSION.role==='master'?'⚙️':'🚪 Sair'}</span>`;
+  badge.title = SESSION.role==='master'?'Gerenciar usuários':'Clique para sair';
+  // Abas
+  ABAS.forEach(aba => {
+    const btn = document.getElementById('tab-'+aba.id);
+    if (btn) btn.style.display = SESSION.abas.includes(aba.id) ? '' : 'none';
+  });
+  // Ir para primeira aba permitida
+  const first = SESSION.abas[0];
+  if (first && typeof showTab === 'function') showTab(first);
+}
+
+function doLogout() {
+  if (!confirm('Deseja sair?')) return;
+  SESSION = null;
+  location.reload();
+}
+
+// ── ADMIN ──
+function openAdmin() {
+  if (!SESSION||SESSION.role!=='master') return;
+  renderAdminUsers();
+  renderNewUserTabs();
+  document.getElementById('admin-modal').classList.add('open');
+}
+function closeAdmin() { document.getElementById('admin-modal').classList.remove('open'); }
+
+function renderAdminUsers() {
+  const users = loadUsers()||[];
+  const el = document.getElementById('admin-users-list');
+  el.innerHTML = users.map((u,i) => `
+    <div class="admin-user-row">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700;color:var(--text);font-size:13px">${u.user}</span>
+          ${u.role==='master'?'<span style="background:var(--accent)22;color:var(--accent);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">master</span>':'<span style="background:var(--panel);color:var(--muted);border-radius:4px;padding:1px 7px;font-size:10px">usuário</span>'}
+        </div>
+        ${u.role!=='master'?`<button onclick="adminDelUser(${i})" style="background:#e74c3c22;color:#e74c3c;border:1px solid #e74c3c33;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 Remover</button>`:''}
+      </div>
+      <div class="tab-check-grid">
+        ${ABAS.map(aba=>`<label class="tab-check"><input type="checkbox" ${u.abas.includes(aba.id)?'checked':''} ${u.role==='master'?'disabled':''} onchange="adminToggleAba(${i},'${aba.id}',this.checked)">${aba.label}</label>`).join('')}
+      </div>
+      ${u.role!=='master'?`<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <input id="rp${i}" type="password" placeholder="Nova senha" style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;width:160px">
+        <button onclick="adminResetPass(${i})" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">🔑 Alterar senha</button>
+      </div>`:''}
+    </div>`).join('');
+}
+
+function renderNewUserTabs() {
+  document.getElementById('new-u-tabs').innerHTML = ABAS.map(aba=>
+    `<label class="tab-check"><input type="checkbox" value="${aba.id}" checked>${aba.label}</label>`).join('');
+}
+
+function adminToggleAba(idx, abaId, checked) {
+  const users = loadUsers()||[];
+  if (!users[idx]) return;
+  if (checked) { if (!users[idx].abas.includes(abaId)) users[idx].abas.push(abaId); }
+  else { users[idx].abas = users[idx].abas.filter(a=>a!==abaId); }
+  saveUsers(users);
+}
+
+function adminDelUser(idx) {
+  const users = loadUsers()||[];
+  if (!users[idx]||users[idx].role==='master') return;
+  if (!confirm(`Remover "${users[idx].user}"?`)) return;
+  users.splice(idx,1); saveUsers(users); renderAdminUsers();
+}
+
+async function adminResetPass(idx) {
+  const users = loadUsers()||[];
+  const inp = document.getElementById('rp'+idx);
+  if (!inp||!inp.value) { showAdminMsg('❌ Digite a nova senha'); return; }
+  users[idx].hash = await sha256(inp.value);
+  saveUsers(users); inp.value=''; showAdminMsg('✅ Senha alterada!');
+}
+
+async function adminAddUser() {
+  const u = (document.getElementById('new-u-user').value||'').trim().toLowerCase();
+  const p = document.getElementById('new-u-pass').value||'';
+  if (!u||!p) { showAdminMsg('❌ Preencha usuário e senha'); return; }
+  const users = loadUsers()||[];
+  if (users.find(x=>x.user===u)) { showAdminMsg('❌ Usuário já existe'); return; }
+  const abas = Array.from(document.querySelectorAll('#new-u-tabs input:checked')).map(el=>el.value);
+  if (!abas.length) { showAdminMsg('❌ Selecione ao menos uma aba'); return; }
+  users.push({ user:u, hash: await sha256(p), abas, role:'user' });
+  saveUsers(users);
+  document.getElementById('new-u-user').value='';
+  document.getElementById('new-u-pass').value='';
+  renderAdminUsers(); renderNewUserTabs(); showAdminMsg('✅ Usuário criado!');
+}
+
+function showAdminMsg(msg) {
+  const el = document.getElementById('admin-msg');
+  el.textContent = msg;
+  setTimeout(()=>el.textContent='', 3000);
+}
+
+initAuth();
+</script>
 
 <!-- TOP BAR -->
 <div id="topbar">
@@ -642,6 +883,9 @@ function processOS(rows) {
     const motivo  = normalizeKey(r, 'motivos_fechamento', 'motivo_fechamento', 'motivo');
     const motivoLow = motivo.toLowerCase();
     const desc    = normalizeKey(r, 'descricao_fechamento', 'descricao fechamento', 'descricao', 'observacao').trim();
+    const descAb  = normalizeKey(r, 'descricao_abertura', 'descricao abertura', 'historico', 'obs_abertura', 'problema').trim();
+    const numOs   = normalizeKey(r, 'numero_ordem', 'num_os', 'numero_os', 'protocolo', 'id_os').trim();
+    const cliente = normalizeKey(r, 'nome_razaosocial', 'nome_razao_social', 'cliente', 'nome').trim();
     const hiStr   = normalizeKey(r, 'hora_inicio_executado', 'hora_inicio', 'hora inicio');
     const hfStr   = normalizeKey(r, 'hora_termino_executado', 'hora_termino', 'hora termino');
     const tecs    = normalizeKey(r, 'tecnicos', 'tecnico', 'técnico', 'nome_tecnico').split(',').map(t => t.trim()).filter(Boolean);
@@ -672,12 +916,76 @@ function processOS(rows) {
     const genericWords = ['ok', 'pronto', 'resolvido', 'concluido', 'feito', 'resolveu', 'ok ok', 'sim', 'concluído'];
     const isGen = desc.length < 15 || (desc.length < 35 && genericWords.some(w => descLow === w || descLow.startsWith(w + ' ')));
 
+    // ── Análise de coerência dos 3 campos ──
+    const coerencia = (function() {
+      if (!descAb && !desc && !motivo) return { ok: true, nivel: 'sem_dados' };
+
+      const tok = s => (s||'').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w => w.length > 3
+          && !['para','com','que','uma','isso','este','esta','nao','sem','foi','ser','por','mais','como'].includes(w));
+
+      // Palavras-chave dos 3 textos
+      const wordsAb   = new Set(tok(descAb));
+      const wordsFech = new Set(tok(desc));
+      const wordsMot  = new Set(tok(motivo));
+
+      // Grupos semânticos de motivos para validação
+      const gruposMot = {
+        sinal:     /sem sinal|queda|instab|oscil|lentid|velocidade|internet/i,
+        equip:     /troca|equipamento|roteador|onu|cabo|fibra|splitter/i,
+        instalac:  /instalac|nova|mudanca|migrac/i,
+        reincid:   /reincid|retorno|revisit/i,
+        config:    /configur|senha|wi.?fi|ssid|acesso/i,
+        financ:    /cobranc|pagament|boleto|fatura|cancelamento/i,
+        suporte:   /suporte|atendimento|reclamac|demora/i,
+      };
+
+      // Detectar grupo do motivo
+      const grupoMot = Object.entries(gruposMot).find(([,re]) => re.test(motivo))?.[0] || null;
+
+      // Overlap abertura × fechamento
+      const overlapFech = wordsAb.size > 0 && wordsFech.size > 0
+        ? [...wordsAb].filter(w => wordsFech.has(w)).length / Math.max(wordsAb.size, 1)
+        : null;
+
+      // Overlap fechamento × motivo (léxico)
+      const overlapMot = wordsFech.size > 0 && wordsMot.size > 0
+        ? [...wordsFech].filter(w => wordsMot.has(w)).length / Math.max(wordsMot.size, 1)
+        : null;
+
+      // Validação semântica: descrição fechamento faz sentido com grupo do motivo?
+      const grupoOkFech = grupoMot ? gruposMot[grupoMot].test(desc) : true;
+
+      // Problemas detectados
+      const problemas = [];
+      if (descAb && desc && overlapFech !== null && overlapFech < 0.08 && descAb.length > 20 && desc.length > 15)
+        problemas.push('Abertura ≠ Fechamento');
+      if (desc && motivo && !grupoOkFech && desc.length > 10)
+        problemas.push('Fechamento ≠ Motivo');
+      if (motivo && desc && overlapMot !== null && overlapMot === 0 && wordsMot.size > 1 && desc.length > 10)
+        problemas.push('Motivo sem respaldo na descrição');
+      if (desc && descAb && desc.toLowerCase().trim() === descAb.toLowerCase().trim())
+        problemas.push('Fechamento = cópia da abertura');
+
+      return {
+        ok:       problemas.length === 0,
+        nivel:    problemas.length === 0 ? 'ok' : problemas.length >= 2 ? 'grave' : 'alerta',
+        problemas,
+        descAb:   descAb.slice(0,120),
+        descFech: desc.slice(0,120),
+        motivo:   motivo.slice(0,80),
+        numOs, cliente
+      };
+    })();
+
     tecs.forEach(t => {
-      if (!tMap[t]) tMap[t] = { os: 0, reinc: 0, reincReal: 0, rapidas: 0, gen: 0, incons: 0, descs: [] };
+      if (!tMap[t]) tMap[t] = { os: 0, reinc: 0, reincReal: 0, rapidas: 0, gen: 0, incons: 0, descs: [], osIncoer: [] };
       tMap[t].os++;
       if (isReincTipo) tMap[t].reinc++;
       if (isRapida) tMap[t].rapidas++;
       if (isGen) { tMap[t].gen++; if (desc) tMap[t].descs.push(desc); }
+      if (!coerencia.ok) tMap[t].osIncoer.push(coerencia);
       if (isIncons) tMap[t].incons++;
     });
   });
@@ -707,9 +1015,11 @@ function processOS(rows) {
     // nota comunicação assertiva
     const notaComunicacao = v.descs.length > 0 ? 2 : clamp15b(score / 20);
 
+    const taxaIncoer = +((v.osIncoer.length / v.os) * 100).toFixed(1);
     tecnicos[k] = { os: v.os, reinc: v.reinc, reincReal: v.reincReal, rapidas: v.rapidas, gen: v.gen,
       taxa_r, taxa_reinc_real, taxa_rap, taxa_gen, score, flag, v: verd,
-      notaComprometimento, notaComunicacao, descs: v.descs.slice(0, 3) };
+      notaComprometimento, notaComunicacao, descs: v.descs.slice(0, 3),
+      osIncoer: v.osIncoer.slice(0, 20), taxaIncoer };
   });
 
   // Saúde de clientes via OS
@@ -1252,6 +1562,7 @@ function renderCampo() {
     { icon:'🔁', label:'Reinc. Tipo', value:t.reinc_os||0, color:C.red, sub:'campo tipo_os' },
     { icon:'⏰', label:'Reinc. Real ≤10d', value:list.reduce((a,[,v])=>a+v.reincReal,0), color:C.orange, sub:'mesmo cliente' },
     { icon:'⚠', label:'Inconsistências', value:t.incons||0, color:C.yellow },
+    { icon:'🔍', label:'OS Incoerentes', value:list.reduce((a,[,v])=>a+(v.osIncoer?.length||0),0), color:C.orange, sub:'abertura/fechamento/motivo' },
     { icon:'🚨', label:'Desligar', value:list.filter(([,v])=>v.v==='Desligar').length, color:C.red },
     { icon:'⭐', label:'Elogio', value:list.filter(([,v])=>v.flag==='Elogio').length, color:C.green },
   ];
@@ -1311,6 +1622,109 @@ function renderCampo() {
   window._campoFilter = 'Todos';
   window._campoSort   = 'score';
   renderCampoTable();
+  renderCoerenciaPanel();
+}
+
+function renderCoerenciaPanel() {
+  // Montar ou atualizar painel de coerência
+  let panel = document.getElementById('coerencia-panel');
+  if (!panel) {
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'card';
+    cardDiv.style.marginBottom = '18px';
+    cardDiv.id = 'coerencia-panel-wrap';
+    cardDiv.innerHTML = `
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <h3>🔍 Coerência: Abertura × Fechamento × Motivo</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="coer-tecnico-select" onchange="renderCoerenciaPanel()"
+            style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer">
+            <option value="">Todos os técnicos</option>
+          </select>
+          <select id="coer-nivel-select" onchange="renderCoerenciaPanel()"
+            style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer">
+            <option value="">Todos os níveis</option>
+            <option value="grave">🔴 Grave</option>
+            <option value="alerta">🟡 Alerta</option>
+          </select>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:12px">OS onde a descrição de abertura, fechamento e motivo apresentam inconsistências semânticas — indica registro incorreto ou atendimento sem diagnóstico real.</p>
+      <div id="coerencia-panel"></div>`;
+    // Inserir após o campo-alertas
+    const alertasEl = document.getElementById('campo-alertas');
+    alertasEl.parentNode.insertBefore(cardDiv, alertasEl.nextSibling);
+    panel = document.getElementById('coerencia-panel');
+  }
+
+  const list = Object.entries(STATE.tecnicos).filter(([,v]) => v.os >= 2 && v.osIncoer?.length > 0);
+  if (!list.length) {
+    panel.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">Nenhuma incoerência detectada, ou descricao_abertura não está presente no arquivo OS.</div>';
+    // Preencher select de técnicos
+    const sel = document.getElementById('coer-tecnico-select');
+    if (sel) sel.innerHTML = '<option value="">Todos os técnicos</option>';
+    return;
+  }
+
+  // Popular select de técnicos
+  const sel = document.getElementById('coer-tecnico-select');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos os técnicos</option>' +
+      list.map(([n,v]) => `<option value="${n}" ${n===cur?'selected':''}>${n} (${v.osIncoer.length} OS)</option>`).join('');
+  }
+
+  const filtTec   = document.getElementById('coer-tecnico-select')?.value || '';
+  const filtNivel = document.getElementById('coer-nivel-select')?.value   || '';
+
+  // Construir lista de OS incoerentes
+  let osAll = [];
+  list.forEach(([tecnico, v]) => {
+    if (filtTec && tecnico !== filtTec) return;
+    v.osIncoer.forEach(os => {
+      if (filtNivel && os.nivel !== filtNivel) return;
+      osAll.push({ tecnico, ...os });
+    });
+  });
+
+  if (!osAll.length) {
+    panel.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">Nenhuma OS encontrada para o filtro selecionado.</div>';
+    return;
+  }
+
+  // Ordenar: graves primeiro
+  osAll.sort((a,b) => (b.nivel==='grave'?2:1) - (a.nivel==='grave'?2:1));
+
+  const rows = osAll.map(os => {
+    const cor   = os.nivel === 'grave' ? C.red : C.yellow;
+    const badge = os.nivel === 'grave'
+      ? `<span style="background:${C.red}22;color:${C.red};border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">🔴 Grave</span>`
+      : `<span style="background:${C.yellow}22;color:${C.yellow};border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">🟡 Alerta</span>`;
+    const probs = os.problemas.map(p =>
+      `<span style="background:var(--panel);border:1px solid ${cor}44;border-radius:4px;padding:1px 5px;font-size:10px;color:${cor}">${p}</span>`
+    ).join(' ');
+    return `<tr>
+      <td style="white-space:nowrap">${badge}</td>
+      <td style="font-weight:700;color:var(--text);font-size:12px">${os.tecnico}</td>
+      <td style="font-size:11px;color:var(--muted)">${os.numOs || '—'}</td>
+      <td style="font-size:11px;color:var(--text);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${os.descAb}">${os.descAb || '—'}</td>
+      <td style="font-size:11px;color:var(--text);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${os.descFech}">${os.descFech || '—'}</td>
+      <td style="font-size:11px;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px" title="${os.motivo}">${os.motivo || '—'}</td>
+      <td>${probs}</td>
+    </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${osAll.length} OS incoerentes exibidas · ${osAll.filter(o=>o.nivel==='grave').length} graves · ${osAll.filter(o=>o.nivel==='alerta').length} alertas</div>
+    <div class="tbl-wrap">
+    <table style="width:100%">
+      <thead><tr>
+        <th>Nível</th><th>Técnico</th><th>OS</th>
+        <th>Descrição Abertura</th><th>Descrição Fechamento</th><th>Motivo</th><th>Problema</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>`;
 }
 
 function setCampoFilter(f, btn) {
