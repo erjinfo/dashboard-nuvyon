@@ -185,5 +185,5 @@ O SAC não contém coluna de cliente. O vínculo é feito em cascata:
 
 ## Contato
 
-Desenvolvido por **ERJ Informática**
+Desenvolvido por **Eng. Erc Jonas**
 📧 erj.informatica@gmail.com
