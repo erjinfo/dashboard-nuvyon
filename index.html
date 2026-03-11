@@ -593,11 +593,12 @@ function showAdminMsg(msg) {
 }
 
 /* ── Export / Import banco ── */
-function dbExport() {
-  const data = { users: dbLoad(), logs: JSON.parse(localStorage.getItem('nuvyon_logs')||'[]'), ts: new Date().toLocaleString('pt-BR') };
+async function dbExport() {
+  const users = _USERS_CACHE.length ? _USERS_CACHE : JSON.parse(localStorage.getItem(DB_KEY)||'[]');
+  const data = { users, logs: JSON.parse(localStorage.getItem('nuvyon_logs')||'[]'), ts: new Date().toLocaleString('pt-BR') };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-  a.download = `nuvyon_banco_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = 'nuvyon_banco_' + new Date().toISOString().slice(0,10) + '.json';
   a.click(); dbLog('Banco exportado');
 }
 function dbImport() {
@@ -1230,8 +1231,24 @@ function readFileAsRows(file, opts={}) {
       fr.onload = ev => {
         try {
           const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          resolve(XLSX.utils.sheet_to_json(ws, { defval: '', raw: opts.raw !== false }));
+          const sheetOpts = { defval: '', raw: opts.raw !== false };
+
+          // Para arquivos NPS com múltiplas abas: ler todas e marcar __janela
+          if (opts.multiSheet && wb.SheetNames.length > 1) {
+            const allRows = [];
+            wb.SheetNames.forEach((name, idx) => {
+              const ws = wb.Sheets[name];
+              const rows = XLSX.utils.sheet_to_json(ws, sheetOpts);
+              // Detectar janela pelo nome da aba ou índice
+              const janelaTag = name.toLowerCase().includes('2') || name.toLowerCase().includes('reclamac') || name.toLowerCase().includes('sugest') ? 'j2' : 'j1';
+              rows.forEach(r => { r['__janela'] = janelaTag; r['__sheet'] = name; });
+              allRows.push(...rows);
+            });
+            resolve(allRows);
+          } else {
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(ws, sheetOpts));
+          }
         } catch(e) { reject(e); }
       };
       fr.onerror = reject;
@@ -1725,7 +1742,7 @@ async function handleFile(tipo, input) {
   document.getElementById('upload-progress').textContent = `Lendo ${file.name}...`;
 
   try {
-    const rows = await readFileAsRows(file, { raw: tipo !== 'nps' && tipo !== 'prod' });
+    const rows = await readFileAsRows(file, { raw: tipo !== 'nps' && tipo !== 'prod', multiSheet: tipo === 'nps' });
     pendingFiles[tipo] = rows;
     if (tipo === 'nps') {
       const el = document.getElementById('slot-nps-name');
@@ -3674,9 +3691,10 @@ function processNPS(rows) {
     const janela = String(r['__janela']||'');
     if (!ag) return;
     if (!agData[ag]) agData[ag] = { j1:[], j2:[] };
-    if (!isNaN(nota) && nota >= 1 && nota <= 5) {
+    const isJ2 = janela === 'j2' || String(r['__sheet']||'').toLowerCase().includes('2');
+    if (!isJ2 && !isNaN(nota) && nota >= 1 && nota <= 5) {
       agData[ag].j1.push({ d:dt, tel, n:nota, r:resp, p:proto });
-    } else if (janela === 'j2' || (!isNaN(nota))) {
+    } else if (isJ2 || (isNaN(nota) && resp.length > 2)) {
       agData[ag].j2.push({ d:dt, tel, r:resp, p:proto });
     }
   });
