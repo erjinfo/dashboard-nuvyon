@@ -655,9 +655,7 @@ function loginDiag() {
 }
 
 async function loginReset() {
-  if (!confirm('Isso apaga TODOS os usuários e recria só o master padrão (eric / eric2024).
-
-Confirmar?')) return;
+  if (!confirm('Isso apaga TODOS os usuários e recria só o master padrão (eric / eric2024).\n\nConfirmar?')) return;
   localStorage.removeItem(DB_KEY);
   localStorage.removeItem('nuvyon_users');
   localStorage.removeItem('nuvyon_logs');
@@ -700,9 +698,7 @@ async function ghTestAndSave() {
     if (!r.ok) throw new Error('Erro ' + r.status);
     const repoData = await r.json();
     if (!repoData.private) {
-      if (!confirm('⚠ Este repositório é PÚBLICO. Os dados de usuários ficarão visíveis para todos.
-
-Deseja continuar mesmo assim?')) return;
+      if (!confirm('⚠ Este repositório é PÚBLICO. Os dados de usuários ficarão visíveis para todos.\n\nDeseja continuar mesmo assim?')) return;
     }
     // Salvar config
     ghSetConfig({ owner, repo, token });
