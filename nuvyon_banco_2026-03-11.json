@@ -1,0 +1,54 @@
+{
+  "users": {},
+  "logs": [
+    {
+      "ts": "11/03/2026, 16:43:33",
+      "msg": "Criado: financeiro | abas: visao360, clientes"
+    },
+    {
+      "ts": "11/03/2026, 16:43:33",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:43:02",
+      "msg": "Criado: edson | abas: visao360, sac, campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:43:02",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:42:41",
+      "msg": "Criado: ana | abas: campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:42:41",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:42:05",
+      "msg": "Criado: layla | abas: visao360, sac, campo, clientes, gestor, nps"
+    },
+    {
+      "ts": "11/03/2026, 16:42:05",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:41:46",
+      "msg": "Login: eric"
+    },
+    {
+      "ts": "11/03/2026, 16:41:33",
+      "msg": "Falha ao gravar no GitHub: GitHub PUT 403: {\n  \"message\": \"Resource not accessible by personal access token\",\n  \"documentation_url\": \"https://docs.github.com/rest/repos/contents#create-or-update-file-contents\",\n  \"status\": \"403\"\n}\n"
+    },
+    {
+      "ts": "11/03/2026, 16:33:53",
+      "msg": "Logout: eric"
+    },
+    {
+      "ts": "11/03/2026, 16:33:47",
+      "msg": "Login: eric"
+    }
+  ],
+  "ts": "11/03/2026, 16:49:37"
+}
