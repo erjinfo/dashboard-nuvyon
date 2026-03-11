@@ -1529,7 +1529,10 @@ function openModal(tipo, nome) {
     } else {
       if (c.key === 'comprometimento') nota = safeNota(dados.notaComprometimento || (5 - dados.reincReal * 0.7));
       if (c.key === 'comunicacao')     nota = safeNota(dados.descs?.length > 0 ? 2 : dados.score / 20);
-      if (c.key === 'resultados')      nota = safeNota(dados.score / 20);
+      if (c.key === 'resultados') {
+        const txR = (dados.reinc || 0) / Math.max(1, dados.os || 1);
+        nota = txR > 0.30 ? 1 : txR > 0.20 ? 2 : safeNota(dados.score / 20);
+      }
       if (c.key === 'adaptabilidade')  nota = safeNota(dados.flag === 'Elogio' ? 5 : dados.flag === 'Alto Risco' ? 1 : 3);
     }
     const motivos = [];
@@ -1554,21 +1557,51 @@ function openModal(tipo, nome) {
       }
     } else {
       if (c.key === 'comprometimento') {
-        if (dados.reincReal > 0) motivos.push(`⚠ ${dados.reincReal} clientes retornaram em ≤10 dias após visita deste técnico — indica problema não resolvido na raiz.`);
-        else if (nota >= 4) motivos.push(`✅ Nenhuma reincidência real registrada (retornos ≤10 dias). Clientes atendidos não precisaram de nova visita — evidência de comprometimento com a solução definitiva.`);
+        const reinc45 = dados.reinc || 0;   // reinc por tipo_os (inclui revisitas até 45d)
+        const reincReal = dados.reincReal || 0; // retornos ≤10d
+        const totalOS   = dados.os || 1;
+        const taxaReinc45 = +((reinc45 / totalOS) * 100).toFixed(1);
+        if (reincReal > 0) {
+          motivos.push(`⚠ ${reincReal} retorno(s) em ≤10 dias detectado(s) em ${totalOS} OS — indica problema não resolvido na raiz. Adicionalmente, ${reinc45} OS foram classificadas como reincidência no período (até 45 dias), representando ${taxaReinc45}% do total. Técnicos com reincidência elevada geram clientes menos saudáveis para a Nuvyon e aumentam o custo operacional.`);
+        } else if (reinc45 === 0) {
+          motivos.push(`✅ Nenhuma reincidência registrada em ${totalOS} OS no período analisado — nem retorno imediato (≤10 dias) nem revisita por falha (até 45 dias). Perfil de técnico caprichoso: executa o serviço de forma definitiva, contribuindo diretamente para clientes mais saudáveis e menor custo operacional para a Nuvyon.`);
+        } else {
+          motivos.push(`⚠ Nenhum retorno imediato (≤10 dias), porém ${reinc45} OS reincidentes no período de até 45 dias (${taxaReinc45}% do total de ${totalOS} OS). Isso indica que parte dos atendimentos foi revisitada por falha não resolvida — mesmo sem urgência crítica, compromete a qualidade percebida e a saúde do cliente.`);
+        }
       }
       if (c.key === 'comunicacao') {
         if (dados.descs?.length > 0) motivos.push(`⚠ Exemplos de descrições genéricas encontradas: "${dados.descs[0]}". Relatórios incompletos dificultam rastreabilidade.`);
         else if (nota >= 4) motivos.push(`✅ Descrições de fechamento detalhadas e informativas em ${dados.os} OS. Nenhuma descrição genérica detectada — facilita rastreabilidade e diagnóstico futuro.`);
       }
       if (c.key === 'resultados') {
-        if (nota >= 4) motivos.push(`✅ ${dados.os} OS executadas com score ${dados.score}/100. Taxa de reincidência por tipo: ${dados.taxa_r}% — performance acima da média.`);
-        else motivos.push(`${dados.os} OS executadas com score ${dados.score}/100. Taxa de reincidência: ${dados.taxa_r}%.`);
+        const osTotal    = dados.os || 0;
+        const reincTotal = dados.reinc || 0;
+        const txRpct     = dados.taxa_r || 0;  // taxa_r = (reinc/os)*100
+        if (txRpct > 30) {
+          motivos.push(`🚨 ${reincTotal} reincidências em ${osTotal} OS — ${txRpct}% dos serviços executados retornaram como chamado reincidente. Acima de 30%, o técnico gera mais custo do que entrega. Score: ${dados.score}/100. Resultado insuficiente: requer intervenção imediata de gestão.`);
+        } else if (txRpct > 20) {
+          motivos.push(`⚠ ${reincTotal} reincidências em ${osTotal} OS (${txRpct}%). Entre 20% e 30% dos atendimentos precisaram ser refeitos — impacto direto na satisfação do cliente e na eficiência operacional. Score: ${dados.score}/100. Atenção necessária.`);
+        } else if (nota >= 4) {
+          motivos.push(`✅ ${reincTotal} reincidências em ${osTotal} OS (${txRpct}%) — abaixo do limiar crítico. Score ${dados.score}/100 reflete desempenho consistente: a maior parte dos atendimentos é resolvida sem necessidade de retorno, contribuindo para clientes saudáveis e menor custo operacional.`);
+        } else {
+          motivos.push(`${reincTotal} reincidências em ${osTotal} OS (${txRpct}%). Score: ${dados.score}/100. Desempenho dentro do aceitável, mas com espaço de melhora na resolução definitiva dos chamados.`);
+        }
       }
       if (c.key === 'adaptabilidade') {
-        if (nota >= 4 || dados.flag === 'Elogio') motivos.push(`✅ Técnico classificado como "${dados.flag}". Executa diferentes tipos de OS com qualidade consistente, sem padrão de falhas repetitivas. Adaptação verificada em ${dados.os} ordens de serviço.`);
-        else if (dados.flag === 'Alto Risco') motivos.push(`⚠ Padrão recorrente de falhas identificado: ${dados.taxa_reinc_real}% de reincidências reais e ${dados.taxa_gen}% de descrições genéricas. Necessita acompanhamento próximo e treinamento específico em diagnóstico técnico.`);
-        else motivos.push(`Desempenho moderado: score ${dados.score}/100, flag "${dados.flag}". Taxa de reincidência real de ${dados.taxa_reinc_real}% indica que alguns atendimentos precisam ser revisitados. Pode se beneficiar de treinamento em novos tipos de OS.`);
+        const reinc45    = dados.reinc || 0;
+        const reincReal  = dados.reincReal || 0;
+        const totalOS    = dados.os || 1;
+        const taxaR45    = +((reinc45 / totalOS) * 100).toFixed(1);
+        const taxaRReal  = dados.taxa_reinc_real || 0;
+        if (reincReal === 0 && reinc45 === 0) {
+          motivos.push(`✅ Técnico classificado como "${dados.flag}". Nenhuma revisita por falha registrada no período — nem retorno em ≤10 dias nem reincidência de até 45 dias em ${totalOS} OS. Demonstra alta capacidade de diagnóstico e resolução definitiva, adaptando-se a diferentes tipos de chamado sem gerar retorno operacional.`);
+        } else if (reincReal === 0 && reinc45 > 0) {
+          motivos.push(`⚠ Sem retornos imediatos (≤10 dias), mas ${reinc45} OS reincidentes até 45 dias (${taxaR45}% de ${totalOS} OS). Embora o técnico resolva o urgente, parte dos atendimentos é revisitada dentro do período analisado — indica adaptação parcial a diferentes cenários ou diagnóstico impreciso em situações mais complexas.`);
+        } else if (dados.flag === 'Alto Risco') {
+          motivos.push(`⚠ Padrão de falhas recorrentes: ${reincReal} retorno(s) em ≤10 dias e ${reinc45} reincidências até 45 dias (${taxaR45}% de ${totalOS} OS). Taxa de descrições genéricas: ${dados.taxa_gen}%. O alto índice de revisitas indica dificuldade em adaptar o diagnóstico a diferentes tipos de OS — exige acompanhamento próximo e treinamento específico.`);
+        } else {
+          motivos.push(`Desempenho moderado: score ${dados.score}/100. ${reincReal} retorno(s) ≤10 dias e ${reinc45} reincidências até 45 dias (${taxaR45}% de ${totalOS} OS). Há espaço para melhora na capacidade de resolver diferentes tipos de chamado de forma definitiva, reduzindo revisitas.`);
+        }
       }
     }
     return { ...c, nota, comentario: motivos.join(' ') };
