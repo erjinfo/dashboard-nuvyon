@@ -147,6 +147,33 @@ td{padding:9px}
 .tab-check input{accent-color:var(--accent)}
 #user-badge{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
 #user-badge:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── NPS INTELLIGENCE v3.7 ── */
+.npi-top3-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:700px){.npi-top3-grid{grid-template-columns:1fr}}
+.npi-podium{border-radius:14px;padding:20px 18px;position:relative;overflow:hidden;transition:transform .2s;cursor:default}
+.npi-podium:hover{transform:translateY(-3px)}
+.npi-podium-crown{font-size:32px;text-align:center;margin-bottom:6px;line-height:1}
+.npi-podium-name{font-size:14px;font-weight:800;text-align:center;margin-bottom:4px}
+.npi-podium-nps{font-size:34px;font-weight:900;text-align:center;font-family:monospace;line-height:1;margin:8px 0}
+.npi-podium-pills{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.npi-pill{border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;border:1px solid}
+.npi-rank-table{width:100%;border-collapse:collapse;font-size:13px}
+.npi-rank-table thead tr{background:var(--panel)}
+.npi-rank-table th{padding:9px 12px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+.npi-rank-table td{padding:10px 12px;border-bottom:1px solid #1E2A4018;vertical-align:middle}
+.npi-rank-table tbody tr{transition:background .15s}
+.npi-rank-table tbody tr:hover{background:var(--panel)}
+.npi-score-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:4px;width:80px}
+.npi-score-fill{height:100%;border-radius:3px;transition:width .5s}
+.npi-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;border:1px solid;white-space:nowrap}
+.npi-alerta{background:#f4a42922;color:var(--yellow);border-color:#f4a42955}
+.npi-treinamento{background:#f0525222;color:var(--red);border-color:#f0525255;animation:npi-pulse 2s ease-in-out infinite}
+.npi-destaque{background:#00C9A722;color:var(--accent);border-color:#00C9A755}
+.npi-ok{background:#10B98122;color:var(--green);border-color:#10B98155}
+@keyframes npi-pulse{0%,100%{opacity:1}50%{opacity:.65}}
+.npi-regular{background:var(--panel);color:var(--muted);border-color:var(--border)}
+.npi-section-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px}
 </style>
 </head>
 <body>
@@ -252,13 +279,16 @@ td{padding:9px}
    Fix: interceptação de showTab via window.onload (após todo JS)
 ══════════════════════════════════════════════════════════════ */
 const ABAS = [
-  { id:'gestao',   label:'📊 Gestão Geral' },
-  { id:'visao360', label:'🔍 Visão 360' },
-  { id:'sac',      label:'🎧 Auditoria SAC' },
-  { id:'campo',    label:'🔧 Qualidade Técnica' },
-  { id:'clientes', label:'🩺 Saúde do Cliente' },
-  { id:'gestor',   label:'⚖️ Gestor Justo' },
-  { id:'nps',      label:'⭐ NPS Pesquisa' },
+  { id:'gestao',        label:'📊 Gestão Geral' },
+  { id:'visao360',      label:'🔍 Visão 360' },
+  { id:'sac',           label:'🎧 Auditoria SAC' },
+  { id:'campo',         label:'🔧 Qualidade Técnica' },
+  { id:'clientes',      label:'🩺 Saúde do Cliente' },
+  { id:'gestor',        label:'⚖️ Gestor Justo' },
+  { id:'nps',           label:'⭐ NPS Pesquisa' },
+  { id:'cancelamentos', label:'🚫 Cancelamentos' },
+  { id:'despacho',      label:'🚀 Despacho Inteligente' },
+  { id:'infra',         label:'📡 Análise Infra' },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -428,35 +458,46 @@ async function doLogin() {
   }
 }
 
-/* ── Aplicar sessão ── */
+/* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
 function applySession() {
   if (!SESSION) return;
-  // Badge no topbar
+
+  // 1. Badge de usuário no topbar
   let badge = document.getElementById('user-badge');
   if (!badge) {
     badge = document.createElement('div');
     badge.id = 'user-badge';
+    badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap';
+    badge.addEventListener('mouseenter', () => { badge.style.borderColor='var(--accent)'; badge.style.color='var(--accent)'; });
+    badge.addEventListener('mouseleave', () => { badge.style.borderColor='var(--border)'; badge.style.color='var(--muted)'; });
     const btns = document.querySelector('#topbar > div:last-child');
     if (btns) btns.insertBefore(badge, btns.firstChild);
   }
   const isMaster = SESSION.role === 'master';
-  badge.innerHTML = `👤 <strong style="color:var(--text)">${SESSION.user}</strong> ${isMaster?'<span style="color:var(--accent);font-size:10px">★ Admin</span>':''}`;
-  badge.title = isMaster ? 'Gerenciar usuários' : SESSION.user;
+  badge.innerHTML = '👤 <strong style="color:var(--text)">' + SESSION.user + '</strong>'
+    + (isMaster ? ' <span style="background:var(--accent);color:#000;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800">MASTER</span>' : '');
+  badge.title = isMaster ? 'Clique para gerenciar usuários' : SESSION.user;
   badge.onclick = isMaster ? openAdmin : null;
   badge.style.cursor = isMaster ? 'pointer' : 'default';
 
-  // Mostrar/ocultar abas
-  ABAS.forEach(a => {
-    const btn = document.getElementById('tab-'+a.id);
-    if (btn) btn.style.display = SESSION.abas.includes(a.id) ? '' : 'none';
-  });
-  // Botão logoff sempre visível
-  const lo = document.getElementById('tab-logoff');
-  if (lo) lo.style.display = '';
+  // 2. Mostrar tabbar e reconstruir via RBAC
+  const tabbar = document.getElementById('tabbar');
+  if (tabbar) tabbar.style.display = '';
+  const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
+  MenuRBAC.build(abasAutorizadas);
 
-  // Navegar para primeira aba permitida
-  const first = SESSION.abas[0];
-  if (first && _showTabOrig) _showTabOrig(first);
+  // 3. Garantir que painéis de conteúdo não-autorizados ficam ocultos
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.remove('active');
+    el.style.display = '';
+  });
+
+  // 4. Navegar para primeira aba autorizada
+  const first = MenuRBAC.firstAllowed(abasAutorizadas);
+  if (_showTabOrig) {
+    _showTabOrig(first);
+    MenuRBAC.activate(first);
+  }
 }
 
 /* ── Logoff ── */
@@ -752,19 +793,64 @@ async function ghTestAndSave() {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   RBAC v3.7 — Menu dinâmico gerado por JS baseado em SESSION.abas
+═══════════════════════════════════════════════════════════════ */
+const MenuRBAC = {
+  /** Reconstrói o #tabbar inteiro com base nas abas autorizadas */
+  build(abasAutorizadas) {
+    const tabbar = document.getElementById('tabbar');
+    if (!tabbar) return;
+    tabbar.innerHTML = '';
+    ABAS.forEach(aba => {
+      if (!abasAutorizadas.includes(aba.id)) return;
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.id = 'tab-' + aba.id;
+      btn.textContent = aba.label;
+      btn.onclick = () => window.showTab(aba.id);
+      tabbar.appendChild(btn);
+    });
+    // Botão logoff sempre no fim
+    const lo = document.createElement('button');
+    lo.className = 'tab-btn';
+    lo.id = 'tab-logoff';
+    lo.textContent = '🚪 Sair';
+    lo.title = 'Sair do sistema';
+    lo.style.cssText = 'margin-left:auto;color:#e74c3c;border-bottom-color:transparent';
+    lo.onclick = doLogout;
+    tabbar.appendChild(lo);
+  },
+  /** Ativa visualmente o botão da aba corrente */
+  activate(id) {
+    document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tab-' + id);
+    if (btn) btn.classList.add('active');
+  },
+  /** Retorna a primeira aba autorizada */
+  firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
+};
+
 /* ── INIT: após TODO o JavaScript do app carregar ── */
 window.addEventListener('load', async () => {
   await initDB();
-  // Capturar showTab AGORA (após todo o JS estar definido)
+
+  // Capturar showTab ORIGINAL (definida no segundo <script>)
   _showTabOrig = window.showTab;
+
+  // Substituir showTab por versão RBAC-aware
   window.showTab = function(t) {
     if (t === 'logoff') { doLogout(); return; }
-    if (SESSION && !SESSION.abas.includes(t)) return; // bloquear aba não permitida
+    if (!SESSION) return;
+    const abasOk = SESSION.role === 'master' ? ABAS.map(a => a.id) : (SESSION.abas || []);
+    if (!abasOk.includes(t)) return;
     if (_showTabOrig) _showTabOrig(t);
+    MenuRBAC.activate(t);
   };
-  // Ocultar logoff até login
-  const lo = document.getElementById('tab-logoff');
-  if (lo) lo.style.display = 'none';
+
+  // Ocultar tabbar inteiro até o login — será reconstruído pelo applySession
+  const tabbar = document.getElementById('tabbar');
+  if (tabbar) tabbar.style.display = 'none';
 });
 </script>
 
@@ -790,6 +876,8 @@ window.addEventListener('load', async () => {
   <button class="tab-btn" onclick="showTab('clientes')" id="tab-clientes">🩺 Saúde do Cliente</button>
   <button class="tab-btn" onclick="showTab('gestor')" id="tab-gestor">⚖️ Gestor Justo</button>
   <button class="tab-btn" onclick="showTab('nps')" id="tab-nps">⭐ NPS Pesquisa</button>
+  <button class="tab-btn" onclick="showTab('cancelamentos')" id="tab-cancelamentos">🚫 Cancelamentos</button>
+  <button class="tab-btn" onclick="showTab('infra')" id="tab-infra">📡 Análise Infra</button>
   <button class="tab-btn" id="tab-logoff" onclick="doLogout()" style="margin-left:auto;color:#e74c3c;border-bottom-color:transparent" title="Sair do sistema">🚪 Sair</button>
 </div>
 
@@ -978,6 +1066,33 @@ window.addEventListener('load', async () => {
     </div>
   </div>
 
+  <!-- ══════ ABA CANCELAMENTOS ══════ -->
+  <div class="tab-content" id="tab-content-cancelamentos">
+    <div id="cancelamentos-content">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">
+        Carregue o arquivo de OS Abertas para ver a análise de cancelamentos.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ ABA DESPACHO INTELIGENTE ══════ -->
+  <div class="tab-content" id="tab-content-despacho">
+    <div id="despacho-content">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">
+        Carregue o arquivo <strong>OS Abertas</strong> para ativar o Despacho Inteligente.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ ABA INFRA ══════ -->
+  <div class="tab-content" id="tab-content-infra">
+    <div id="infra-content">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">
+        Carregue o Relatório de Sinais para ver a análise de infraestrutura.
+      </div>
+    </div>
+  </div>
+
 </div><!-- #main -->
 
 <!-- FOOTER -->
@@ -1054,6 +1169,36 @@ window.addEventListener('load', async () => {
         </div>
         <div class="upload-slot-status" id="slot-prod-icon">○</div>
       </div>
+      <div class="upload-slot" id="slot-osab">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile('osab',this)">
+        <div class="upload-slot-icon">🚫</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">OS Abertas / Cancelamentos</div>
+          <div class="upload-slot-hint">relatorio-de-ordens-de-servico-abertas*.xlsx</div>
+          <div class="upload-slot-file" id="slot-osab-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-osab-icon">○</div>
+      </div>
+      <div class="upload-slot" id="slot-sinais">
+        <input type="file" accept=".xlsx,.xls" onchange="handleFile('sinais',this)">
+        <div class="upload-slot-icon">📡</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">Relatório de Sinais ONU</div>
+          <div class="upload-slot-hint">RelatórioSinais*.xlsx</div>
+          <div class="upload-slot-file" id="slot-sinais-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-sinais-icon">○</div>
+      </div>
+      <div class="upload-slot" id="slot-agentes">
+        <input type="file" accept=".csv,.xlsx,.xls" onchange="handleFile('agentes',this)">
+        <div class="upload-slot-icon">👥</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">Cadastro de Agentes NPS</div>
+          <div class="upload-slot-hint">agente.csv — colunas: Cod.; Agente</div>
+          <div class="upload-slot-file" id="slot-agentes-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-agentes-icon">○</div>
+      </div>
     </div>
     <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
     <div style="display:flex;gap:10px">
@@ -1129,8 +1274,10 @@ const STATE = {
   cruzados: [], totais: {},
   sacRows: [], protocoloLinks: [],
   rawNPS: null, npsData: null,
+  rawOSAb: null, rawSinais: null, rawOSAbertas: null,
+  rawAgentes: null, agenteMap: {}, // { cod -> nomeReal }
   nomes: { os: null, at: null, sac: null },
-  loaded: { os: false, at: false, sac: false }
+  loaded: { os: false, at: false, sac: false, nps: false, osab: false, sinais: false, agentes: false }
 };
 
 // Instâncias de gráficos (necessário declarar globalmente para destroyChart/mkChart)
@@ -1727,7 +1874,7 @@ function cruzarSACAtendimento(sacRows, atRows, cliMapOS) {
 /* ════════════════════════════════════════════════════════════════
    PARTE 5 — UPLOAD E APLICAÇÃO DOS DADOS
 ════════════════════════════════════════════════════════════════ */
-const pendingFiles = { os: null, at: null, sac: null, prod: null };
+const pendingFiles = { os: null, at: null, sac: null, prod: null, osab: null, sinais: null, agentes: null };
 
 async function handleFile(tipo, input) {
   const file = input.files[0];
@@ -1827,6 +1974,15 @@ function aplicarDados() {
     }
 
     STATE.totais.clientes_risco = STATE.clientes.filter(c => c.risco !== 'Baixo').length;
+
+    // Novos arquivos v3.6
+    if (pendingFiles.osab)   { STATE.rawOSAb  = pendingFiles.osab;   STATE.rawOSAbertas = pendingFiles.osab; STATE.loaded.osab = true; }
+    if (pendingFiles.sinais)  { STATE.rawSinais  = pendingFiles.sinais;  STATE.loaded.sinais  = true; }
+    if (pendingFiles.agentes) {
+      STATE.rawAgentes = pendingFiles.agentes;
+      STATE.agenteMap  = NPSIntelligence.buildAgenteMap(pendingFiles.agentes);
+      STATE.loaded.agentes = true;
+    }
 
     closeUpload();
     renderAll();
@@ -3483,6 +3639,9 @@ function showTab(t) {
   if (t === 'gestor') renderGestor();
   if (t === 'nps') renderNPS();
   if (t === 'visao360') renderVisao360();
+  if (t === 'cancelamentos') renderCancelamentos();
+  if (t === 'despacho') renderDespacho();
+  if (t === 'infra') renderInfra();
 }
 
 function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
@@ -3532,6 +3691,356 @@ function processProdutividade(rows) {
 }
 
 function getProdData() { return STATE.prodData || {}; }
+
+/* ═══════════════════════════════════════════════════════════════
+   NUVYON v3.7 — NPSIntelligence
+   Ranking de Performance Composto: agente.csv × NPS × SAC
+   Regras:
+     Promotores  = notas 4 e 5
+     Neutros     = nota 3
+     Detratores  = notas 1 e 2
+     NPS Score   = ((Promotores − Detratores) / Total) × 100
+     Alerta      = NPS < 50 AND volume SAC > 200 atendimentos
+═══════════════════════════════════════════════════════════════ */
+const NPSIntelligence = {
+
+  /* ── 1. Dicionário código → nome real ─────────────────────── */
+  buildAgenteMap(rows) {
+    const map = {};
+    if (!rows) return map;
+    rows.forEach(r => {
+      // aceita cabeçalhos: "Cod.", "Cod", "cod", "COD"
+      const cod  = String(r['Cod.']  || r['Cod']   || r['cod']   || r['COD']   || '').trim();
+      const nome = String(r['Agente']|| r['agente']|| r['AGENTE']|| '').trim();
+      if (cod && nome) map[cod] = nome;
+    });
+    return map;
+  },
+
+  /* ── 2. Resolver código → nome (com fallback) ─────────────── */
+  resolveAgent(codOrName, map) {
+    if (!codOrName) return null;
+    const raw = String(codOrName).trim();
+    if (map[raw]) return map[raw];
+    // case-insensitive + strip pontuação
+    const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const rawN = norm(raw);
+    for (const [cod, nome] of Object.entries(map)) {
+      if (norm(cod) === rawN) return nome;
+    }
+    // sem mapa: retorna o próprio valor (compatibilidade retroativa)
+    return raw;
+  },
+
+  /* ── 3. NPS canônico (fórmula padrão Bain) ────────────────── */
+  calcNPS(notas) {
+    const total = notas.length;
+    if (!total) return { nps: null, promotores: 0, neutros: 0, detratores: 0, total: 0, pctPro: 0, pctNeu: 0, pctDet: 0 };
+    const promotores = notas.filter(n => n >= 4).length;   // 4 e 5
+    const neutros    = notas.filter(n => n === 3).length;
+    const detratores = notas.filter(n => n <= 2).length;   // 1 e 2
+    const nps = ((promotores - detratores) / total) * 100;
+    return {
+      nps:  Math.round(nps),
+      promotores, neutros, detratores, total,
+      pctPro: +(promotores / total * 100).toFixed(1),
+      pctNeu: +(neutros    / total * 100).toFixed(1),
+      pctDet: +(detratores / total * 100).toFixed(1),
+    };
+  },
+
+  /* ── 4. Processar rawNPS com mapeamento de agentes ─────────── */
+  processWithMap(rawNPS, agenteMap) {
+    if (!rawNPS || !rawNPS.length) return {};
+    const hasMap = Object.keys(agenteMap || {}).length > 0;
+    const perAg  = {}; // { nomeResolvido -> { notas[], recl[] } }
+
+    rawNPS.forEach(r => {
+      const notaRaw = r['Opção'] || r['opcao'] || r['Opção'] || r['Nota'] || r['nota'] || '';
+      const nota    = parseInt(notaRaw);
+      // coluna "Resposta" = código do agente quando há mapa; nome direto sem mapa
+      const respRaw = String(r['Resposta'] || r['resposta'] || r['Agente'] || r['agente'] || '').trim();
+      const janela  = String(r['__janela'] || '');
+      const sheet   = String(r['__sheet']  || '').toLowerCase();
+
+      const nome = hasMap
+        ? NPSIntelligence.resolveAgent(respRaw, agenteMap)
+        : (String(r['Agente'] || r['agente'] || respRaw || '')).trim();
+
+      if (!nome) return;
+      if (!perAg[nome]) perAg[nome] = { notas: [], recl: [] };
+
+      const isJ2 = janela === 'j2' || sheet.includes('2');
+      if (!isJ2 && !isNaN(nota) && nota >= 1 && nota <= 5) {
+        perAg[nome].notas.push(nota);
+      } else if (isJ2 && respRaw.length > 2) {
+        perAg[nome].recl.push(respRaw);
+      }
+    });
+
+    const result = {};
+    for (const [ag, d] of Object.entries(perAg)) {
+      if (!d.notas.length) continue;
+      const stats = NPSIntelligence.calcNPS(d.notas);
+      result[ag] = {
+        ...stats,
+        media:       +(d.notas.reduce((a,b)=>a+b,0) / d.notas.length).toFixed(2),
+        reclamacoes: d.recl.length,
+      };
+    }
+    return result;
+  },
+
+  /* ── 5. Cruzamento com SAC → Ranking com Status ────────────── */
+  buildRanking(npsMap) {
+    const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+
+    // Indexar volume SAC por nome
+    const volSACPorNome = {};
+
+    // Fonte 1: STATE.agentes (já processado por processSAC)
+    if (STATE.agentes) {
+      for (const [ag, d] of Object.entries(STATE.agentes)) {
+        volSACPorNome[norm(ag)] = (volSACPorNome[norm(ag)] || 0) + (d.total || 0);
+      }
+    }
+    // Fonte 2: STATE.rawAT (fallback granular)
+    (STATE.rawAT || []).forEach(r => {
+      const ag = String(r['usuario']||r['agente']||r['Agente']||r['Usuario']||r['operador']||'').trim();
+      if (ag) { const k = norm(ag); volSACPorNome[k] = (volSACPorNome[k] || 0) + 1; }
+    });
+
+    // Montar entradas
+    const entries = Object.entries(npsMap).map(([nome, d]) => {
+      const nN = norm(nome);
+      // busca exata primeiro, depois fuzzy
+      let vol = volSACPorNome[nN] || 0;
+      if (!vol) {
+        const hit = Object.keys(volSACPorNome).find(k => k.includes(nN) || nN.includes(k));
+        if (hit) vol = volSACPorNome[hit];
+      }
+
+      // Status de Qualidade
+      let status;
+      if      (d.nps >= 70)              status = 'DESTAQUE';
+      else if (d.nps >= 50)              status = 'BOM';
+      else if (d.nps < 50 && vol > 200)  status = 'ALERTA_TREINAMENTO';
+      else if (d.nps < 30)               status = 'ATENCAO';
+      else                               status = 'REGULAR';
+
+      return { nome, ...d, volSAC: vol, status };
+    });
+
+    entries.sort((a, b) => (b.nps !== a.nps ? b.nps - a.nps : b.total - a.total));
+    return entries.map((e, i) => ({ ...e, rank: i + 1 }));
+  },
+
+  /* ── 6. Helpers visuais ────────────────────────────────────── */
+  npsColor(score) {
+    if (score >= 70) return '#00C9A7';
+    if (score >= 50) return '#10B981';
+    if (score >= 30) return '#F4A429';
+    if (score >= 0)  return '#F97316';
+    return '#F05252';
+  },
+
+  statusBadge(status) {
+    const MAP = {
+      DESTAQUE:          ['⭐ Destaque',         'npi-destaque'],
+      BOM:               ['✅ Bom',              'npi-ok'],
+      ALERTA_TREINAMENTO:['🚨 Alerta Treinamento','npi-treinamento'],
+      ATENCAO:           ['⚠ Atenção',           'npi-alerta'],
+      REGULAR:           ['— Regular',           'npi-regular'],
+    };
+    const [txt, cls] = MAP[status] || MAP.REGULAR;
+    return `<span class="npi-badge ${cls}">${txt}</span>`;
+  },
+
+  /* ── 7. Render completo da seção ───────────────────────────── */
+  render() {
+    const el = document.getElementById('npi-section');
+    if (!el) return;
+
+    const agenteMap = STATE.agenteMap  || {};
+    const rawNPS    = STATE.rawNPS     || null;
+    const hasMap    = Object.keys(agenteMap).length > 0;
+
+    if (!rawNPS || !rawNPS.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Carregue a pesquisa NPS para ativar o Ranking de Performance Composto.</div>';
+      return;
+    }
+
+    // Processar com mapa (se disponível) ou reconverter STATE.npsData existente
+    let npsMap;
+    if (hasMap) {
+      npsMap = NPSIntelligence.processWithMap(rawNPS, agenteMap);
+    } else {
+      // Fallback: reconstituir a partir de STATE.npsData (dist → array de notas)
+      const src = STATE.npsData || getNPSData();
+      npsMap = {};
+      for (const [ag, v] of Object.entries(src)) {
+        const notas = Object.entries(v.dist || {})
+          .flatMap(([n, cnt]) => Array(cnt).fill(parseInt(n)));
+        if (!notas.length) continue;
+        const stats = NPSIntelligence.calcNPS(notas);
+        npsMap[ag] = { ...stats, media: v.media, reclamacoes: v.total_j2 };
+      }
+    }
+
+    if (!Object.keys(npsMap).length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Nenhum agente encontrado nos dados NPS.</div>';
+      return;
+    }
+
+    const ranking = NPSIntelligence.buildRanking(npsMap);
+
+    /* ── KPIs globais ── */
+    const tot  = ranking.reduce((s,a)=>s+a.total,0);
+    const prom = ranking.reduce((s,a)=>s+a.promotores,0);
+    const det  = ranking.reduce((s,a)=>s+a.detratores,0);
+    const npsG = tot > 0 ? Math.round((prom-det)/tot*100) : 0;
+    const alertas = ranking.filter(a=>a.status==='ALERTA_TREINAMENTO').length;
+    const corG = NPSIntelligence.npsColor(npsG);
+
+    const kpiBlock = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[
+        ['🎯 NPS Global',    (npsG>=0?'+':'')+npsG, corG],
+        ['💬 Avaliações',    tot.toLocaleString('pt-BR'), '#00C9A7'],
+        ['👥 Agentes',       ranking.length, '#00C9A7'],
+        ['🚨 Alertas Treino',alertas, alertas>0?'#F05252':'#10B981'],
+      ].map(([l,v,c])=>`
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${c};font-family:monospace">${v}</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:3px">${l}</div>
+        </div>`).join('')}
+    </div>`;
+
+    /* ── Top 3 Pódio ── */
+    const CROWNS   = ['🥇','🥈','🥉'];
+    const PODIUM_STYLE = [
+      'border:2px solid #F4A42966;background:linear-gradient(135deg,#1a120000,#120900)',
+      'border:2px solid #9CA3AF44;background:linear-gradient(135deg,#11182000,#0d1117)',
+      'border:2px solid #CD7F3244;background:linear-gradient(135deg,#12090000,#0a0600)',
+    ];
+    const top3 = ranking.slice(0, Math.min(3, ranking.length));
+
+    const podiumBlock = `
+    <div style="margin-bottom:24px">
+      <div class="sec-title" style="margin-bottom:14px"><h3>🏆 Top 3 — Performance NPS</h3></div>
+      <div class="npi-top3-grid">
+        ${top3.map((ag, i) => {
+          const cor  = NPSIntelligence.npsColor(ag.nps);
+          const sign = ag.nps >= 0 ? '+' : '';
+          return `
+          <div class="npi-podium" style="${PODIUM_STYLE[i]||PODIUM_STYLE[2]}">
+            <div class="npi-podium-crown">${CROWNS[i]}</div>
+            <div class="npi-podium-name" style="color:${cor}">${ag.nome}</div>
+            <div class="npi-podium-nps" style="color:${cor}">${sign}${ag.nps}</div>
+            <div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:.05em">NPS SCORE</div>
+            <div class="npi-podium-pills">
+              <span class="npi-pill" style="background:#10B98122;color:#10B981;border-color:#10B98155">🟢 ${ag.pctPro}% Prom.</span>
+              <span class="npi-pill" style="background:#F4A42922;color:#F4A429;border-color:#F4A42955">🟡 ${ag.pctNeu}% Neu.</span>
+              <span class="npi-pill" style="background:#F0525222;color:#F05252;border-color:#F0525255">🔴 ${ag.pctDet}% Det.</span>
+            </div>
+            <div style="margin-top:10px;text-align:center">${NPSIntelligence.statusBadge(ag.status)}</div>
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+              <div><div style="font-size:15px;font-weight:800;color:#10B981">${ag.promotores}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase">Prom.</div></div>
+              <div><div style="font-size:15px;font-weight:800;color:#F4A429">${ag.neutros}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase">Neu.</div></div>
+              <div><div style="font-size:15px;font-weight:800;color:#F05252">${ag.detratores}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase">Det.</div></div>
+            </div>
+            <div style="margin-top:8px;background:var(--border);border-radius:3px;height:4px;overflow:hidden">
+              <div style="height:100%;border-radius:3px;background:${cor};width:${Math.max(0,Math.min(100,(ag.nps+100)/2))}%;transition:width .6s"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+    /* ── Tabela Ranking Completo ── */
+    const tableRows = ranking.map(ag => {
+      const cor  = NPSIntelligence.npsColor(ag.nps);
+      const sign = ag.nps >= 0 ? '+' : '';
+      const barW = Math.max(0, Math.min(100, (ag.nps + 100) / 2));
+      const rk   = ag.rank <= 3 ? CROWNS[ag.rank-1] : `<span style="color:var(--muted)">#${ag.rank}</span>`;
+      return `
+      <tr>
+        <td style="font-size:14px;font-weight:800;text-align:center">${rk}</td>
+        <td>
+          <div style="font-weight:700;color:var(--text)">${ag.nome}</div>
+          ${hasMap?'<div style="font-size:10px;color:var(--accent)">✅ via cadastro</div>':''}
+        </td>
+        <td>
+          <div style="font-size:16px;font-weight:800;color:${cor};font-family:monospace">${sign}${ag.nps}</div>
+          <div class="npi-score-bar"><div class="npi-score-fill" style="width:${barW}%;background:${cor}"></div></div>
+        </td>
+        <td style="text-align:center">
+          <div style="font-weight:700;color:#10B981">${ag.promotores}</div>
+          <div style="font-size:10px;color:var(--muted)">${ag.pctPro}%</div>
+        </td>
+        <td style="text-align:center">
+          <div style="font-weight:700;color:#F4A429">${ag.neutros}</div>
+          <div style="font-size:10px;color:var(--muted)">${ag.pctNeu}%</div>
+        </td>
+        <td style="text-align:center">
+          <div style="font-weight:700;color:#F05252">${ag.detratores}</div>
+          <div style="font-size:10px;color:var(--muted)">${ag.pctDet}%</div>
+        </td>
+        <td style="text-align:center">
+          <div style="font-weight:700;color:var(--text)">${ag.total}</div>
+          ${ag.volSAC>0?`<div style="font-size:10px;color:var(--muted)">${ag.volSAC} SAC</div>`:''}
+        </td>
+        <td>${NPSIntelligence.statusBadge(ag.status)}</td>
+        <td style="font-size:11px">${ag.reclamacoes>0?`<span style="color:#F97316">📝 ${ag.reclamacoes}</span>`:'—'}</td>
+      </tr>`;
+    }).join('');
+
+    const tableBlock = `
+    <div class="sec-title" style="margin-bottom:12px"><h3>📋 Ranking Completo de Performance</h3></div>
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--border)">
+      <table class="npi-rank-table">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:44px">Rank</th>
+            <th>Agente (Nome Real)</th>
+            <th>Score NPS<br><small style="font-weight:400;color:var(--muted)">((Prom−Det)÷Total)×100</small></th>
+            <th style="text-align:center">Promotores<br><small style="font-weight:400;color:var(--muted)">Notas 4–5</small></th>
+            <th style="text-align:center">Neutros<br><small style="font-weight:400;color:var(--muted)">Nota 3</small></th>
+            <th style="text-align:center">Detratores<br><small style="font-weight:400;color:var(--muted)">Notas 1–2</small></th>
+            <th style="text-align:center">Volume<br><small style="font-weight:400;color:var(--muted)">Aval. / SAC</small></th>
+            <th>Status Qualidade</th>
+            <th>Reclamações</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+
+    /* ── Alerta de Treinamento ── */
+    const alertBlock = alertas > 0 ? `
+    <div class="alert-badge warn" style="margin-top:14px">
+      <span>⚠</span>
+      <div>
+        <strong>${alertas} agente(s) com Alerta de Treinamento</strong> —
+        NPS abaixo de 50 com mais de 200 atendimentos no SAC.
+        Recomenda-se revisão de qualidade e sessão de coaching individual.
+      </div>
+    </div>` : '';
+
+    /* ── Indicador de fonte ── */
+    const sourceTag = hasMap
+      ? `<div style="font-size:10px;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:6px">
+           <span>✅</span>
+           <span>Cadastro de agentes ativo — <strong>${Object.keys(agenteMap).length}</strong> código(s) mapeados para nomes reais</span>
+         </div>`
+      : `<div style="font-size:10px;color:var(--yellow);margin-bottom:14px;background:#f4a42911;border:1px solid #f4a42933;border-radius:7px;padding:8px 12px;display:flex;align-items:center;gap:6px">
+           <span>⚠</span>
+           <span>Sem <strong>agente.csv</strong> — usando nomes do arquivo NPS diretamente. Carregue o cadastro para ativar o mapeamento por código.</span>
+         </div>`;
+
+    el.innerHTML = sourceTag + kpiBlock + podiumBlock + tableBlock + alertBlock;
+  }
+};
 
 function normAgenteFuzzy(name, pool) {
   const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
@@ -3887,8 +4396,10 @@ function renderNPS() {
     <div id="nps-prod-panel"><div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">Carregue o Relatório de Produtividade para ver este painel.</div></div>
   </div>`;
 
-  el.innerHTML = kpiHtml + rankHtml + distHtml + prodHtml + premHtml + consolHtml + detalheHtml;
-  setTimeout(() => renderProdutividadeNPS(), 0);
+  // ── NPS Intelligence: seção de ranking composto ──
+  const npiHtml = '<div class="npi-section-wrap"><div class="sec-title" style="margin-bottom:8px"><h3>🧠 NPS Intelligence — Ranking por Performance</h3></div><div id="npi-section"><div style="color:var(--muted);font-size:12px;padding:12px 0">Processando...</div></div></div>';
+  el.innerHTML = npiHtml + kpiHtml + rankHtml + distHtml + prodHtml + premHtml + consolHtml + detalheHtml;
+  setTimeout(() => { renderProdutividadeNPS(); NPSIntelligence.render(); }, 0);
   // Inicializar ranking de premiação e seleção
   setTimeout(() => {
     const ps = document.getElementById('prem-select');
@@ -4465,6 +4976,9 @@ function renderAll() {
   renderClientes();
   renderGestor();
   renderNPS();
+  renderCancelamentos();
+  renderDespacho();
+  renderInfra();
 }
 
 function renderGestao() {
@@ -5154,6 +5668,676 @@ function carregarRestoDados() {
 }
 
 carregarDemoData();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   NUVYON v3.7 — ENGINES (DispatchEngine + InfraEngine)
+═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   NUVYON v3.7 — DispatchEngine (Despacho Inteligente)
+═══════════════════════════════════════════════════════════════ */
+const DispatchEngine = {
+  /* Tabela de pesos por tipo/descrição de OS */
+  PESOS: [
+    { pts:100, test: s => /fibra sem sinal|sem sinal fibra|reincid/i.test(s) },
+    { pts: 90, test: s => /premium|corporativ|empresa|cnpj/i.test(s) },
+    { pts: 70, test: s => /ativac|migrac|instalac|nova instal/i.test(s) },
+    { pts: 50, test: s => /infanci|radio|fibra com sinal|sinal fraco|instabilidade/i.test(s) },
+    { pts: 20, test: s => /retir|cancel|rescis|devolu|logistic/i.test(s) },
+  ],
+
+  score(os) {
+    const haystack = ((os.tipo || '') + ' ' + (os.desc_ab || '')).toLowerCase();
+    for (const p of this.PESOS) {
+      if (p.test(haystack)) return p.pts;
+    }
+    return 30; // default OS sem classificação
+  },
+
+  labelPrioridade(pts) {
+    if (pts >= 100) return { label:'URGENTE',  cor:'var(--red)',    bg:'#2a0000' };
+    if (pts >= 90)  return { label:'CRÍTICO',  cor:'#a855f7',      bg:'#1a0030' };
+    if (pts >= 70)  return { label:'ALTA',     cor:'var(--orange)', bg:'#1a0800' };
+    if (pts >= 50)  return { label:'MÉDIA',    cor:'var(--yellow)', bg:'#1a1400' };
+    return               { label:'BAIXA',     cor:'var(--muted)',  bg:'transparent' };
+  },
+
+  /**
+   * Recebe array raw de OS abertas, normaliza, pontua e agrupa
+   * por cidade+bairro em blocos de MAX_CLUSTER OS.
+   */
+  MAX_CLUSTER: 6,
+
+  process(rawRows) {
+    if (!rawRows || !rawRows.length) return [];
+    const nk = (r, ...ks) => {
+      for (const k of ks) {
+        for (const rk of Object.keys(r)) {
+          if (rk.toLowerCase().replace(/[^a-z0-9]/g,'') === k.toLowerCase().replace(/[^a-z0-9]/g,'')) {
+            const v = r[rk];
+            if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+          }
+        }
+      }
+      return '';
+    };
+
+    // Normalizar
+    const os = rawRows.map(r => ({
+      id:      nk(r,'id_ordem_servico','id_os','numero_ordem_servico','numero_os'),
+      cod:     nk(r,'codigo_cliente','cod_cliente'),
+      nome:    nk(r,'nome_razaosocial','nome','Nome Cliente'),
+      tipo:    nk(r,'tipo_ordem_servico','tipo'),
+      desc_ab: nk(r,'descricao_abertura','descricao_ab'),
+      data:    nk(r,'data_inicio_programado','data_programado','data_abertura','data'),
+      prior:   nk(r,'prioridade','Prioridade'),
+      bairro:  nk(r,'bairro','Bairro') || 'Sem Bairro',
+      cidade:  nk(r,'cidade','Cidade') || 'Sem Cidade',
+      status:  nk(r,'status','Status'),
+      tec:     nk(r,'tecnicos','tecnico'),
+      end:     nk(r,'endereco','Endereco'),
+    })).filter(r => r.nome || r.id);
+
+    // Pontuar
+    os.forEach(o => { o._pts = DispatchEngine.score(o); });
+
+    // Agrupar por cidade+bairro, ordenado por pontuação desc dentro de cada grupo
+    const grupos = {};
+    os.forEach(o => {
+      const key = (o.cidade + '||' + o.bairro).toLowerCase();
+      if (!grupos[key]) grupos[key] = { cidade: o.cidade, bairro: o.bairro, os: [] };
+      grupos[key].os.push(o);
+    });
+
+    // Ordenar OS dentro de cada grupo e dividir em clusters de MAX_CLUSTER
+    const clusters = [];
+    Object.values(grupos).forEach(g => {
+      g.os.sort((a, b) => b._pts - a._pts);
+      for (let i = 0; i < g.os.length; i += DispatchEngine.MAX_CLUSTER) {
+        const bloco = g.os.slice(i, i + DispatchEngine.MAX_CLUSTER);
+        const topPts = bloco[0]._pts;
+        clusters.push({
+          cidade: g.cidade,
+          bairro: g.bairro,
+          os: bloco,
+          topPts,
+          prio: DispatchEngine.labelPrioridade(topPts),
+          idx: Math.floor(i / DispatchEngine.MAX_CLUSTER) + 1,
+        });
+      }
+    });
+
+    // Ordenar clusters: maior pontuação top primeiro
+    clusters.sort((a, b) => b.topPts - a.topPts);
+    return clusters;
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER — Aba Despacho Inteligente
+═══════════════════════════════════════════════════════════════ */
+function renderDespacho() {
+  const el = document.getElementById('despacho-content');
+  if (!el) return;
+
+  const raw = STATE.rawOSAbertas || STATE.rawOSAb;
+  if (!raw || !raw.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">'
+      + 'Carregue o arquivo <strong>OS Abertas / Cancelamentos</strong> no painel de upload para ativar o Despacho Inteligente.</div>';
+    return;
+  }
+
+  const clusters = DispatchEngine.process(raw);
+  const tecnicos = TECNICOS_VALIDOS || [];
+
+  // KPIs rápidos
+  const totalOS   = clusters.reduce((s, c) => s + c.os.length, 0);
+  const urgentes  = clusters.filter(c => c.topPts >= 100).reduce((s, c) => s + c.os.length, 0);
+  const criticos  = clusters.filter(c => c.topPts >= 90 && c.topPts < 100).reduce((s, c) => s + c.os.length, 0);
+  const cidades   = [...new Set(clusters.map(c => c.cidade))].length;
+
+  let html = '<div style="padding:20px">';
+
+  // KPIs
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px">'
+    + _dKpi('Total OS', totalOS, 'var(--accent)')
+    + _dKpi('🔴 Urgentes', urgentes, 'var(--red)')
+    + _dKpi('🟣 Críticos', criticos, '#a855f7')
+    + _dKpi('Cidades', cidades, 'var(--blue)')
+    + '</div>';
+
+  // Legenda de prioridade
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700">PRIORIDADE:</span>'
+    + [['URGENTE','var(--red)','100pts — Fibra sem sinal / Reincidência'],
+       ['CRÍTICO','#a855f7','90pts — Premium / Corporativa'],
+       ['ALTA','var(--orange)','70pts — Ativação / Migração'],
+       ['MÉDIA','var(--yellow)','50pts — Infância / Rádio / Fibra com sinal'],
+       ['BAIXA','var(--muted)','20pts — Retirada / Cancelamento']
+      ].map(([l,c,tip]) =>
+        '<span title="'+tip+'" style="background:'+c+'22;color:'+c+';border:1px solid '+c+'55;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;cursor:default">'+l+'</span>'
+      ).join('')
+    + '</div>';
+
+  // Cards por cluster
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px">';
+
+  clusters.forEach((cluster, ci) => {
+    const p = cluster.prio;
+    const clusterId = 'cluster_' + ci;
+
+    html += '<div style="background:var(--card);border:1px solid ' + p.cor + '44;border-radius:14px;overflow:hidden">';
+
+    // Cabeçalho do card
+    html += '<div style="background:' + p.bg + ';border-bottom:1px solid ' + p.cor + '33;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">'
+      + '<div>'
+        + '<div style="font-size:13px;font-weight:800;color:var(--text)">📍 ' + cluster.cidade + ' — ' + cluster.bairro + '</div>'
+        + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + cluster.os.length + ' OS neste bloco'
+          + (cluster.idx > 1 ? ' · Bloco ' + cluster.idx : '') + '</div>'
+      + '</div>'
+      + '<span style="background:' + p.cor + ';color:#000;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">' + p.label + '</span>'
+    + '</div>';
+
+    // Lista de OS
+    html += '<div style="padding:12px 16px">';
+    cluster.os.forEach((os, oi) => {
+      const pOs = DispatchEngine.labelPrioridade(os._pts);
+      html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+          + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (os.nome||'') + '">' + (os.nome||'—').slice(0,32) + '</div>'
+            + '<div style="font-size:10px;color:var(--muted);margin-top:2px">'
+              + '<span style="color:' + pOs.cor + ';font-weight:700">' + os._pts + 'pts</span>'
+              + ' · ' + (os.tipo||'—').slice(0,30)
+              + (os.data ? ' · ' + os.data.slice(0,10) : '')
+            + '</div>'
+            + (os.desc_ab ? '<div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic">' + os.desc_ab.slice(0,55) + (os.desc_ab.length>55?'…':'') + '</div>' : '')
+          + '</div>'
+          + '<span style="background:' + pOs.cor + '22;color:' + pOs.cor + ';border:1px solid ' + pOs.cor + '55;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">'
+            + pOs.label
+          + '</span>'
+        + '</div>'
+      + '</div>';
+    });
+
+    // Seletor de técnico + botão despacho
+    html += '<div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      + '<select id="tec-' + clusterId + '" style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;outline:none">'
+        + '<option value="">— Selecionar Técnico —</option>'
+        + tecnicos.map(t => '<option value="' + t.replace(/"/g,'&quot;') + '">' + t + '</option>').join('')
+      + '</select>'
+      + '<button onclick="despacharCluster(\'' + clusterId + '\',this)" '
+        + 'style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">'
+        + '🚀 Despachar'
+      + '</button>'
+    + '</div>';
+
+    html += '</div>'; // padding
+    html += '</div>'; // card
+  });
+
+  html += '</div>'; // grid
+  html += '</div>'; // padding outer
+
+  el.innerHTML = html;
+}
+
+function _dKpi(label, val, cor) {
+  return '<div style="background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">'
+    + '<div style="font-size:26px;font-weight:800;color:' + cor + ';font-family:monospace">' + val + '</div>'
+    + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:3px">' + label + '</div>'
+    + '</div>';
+}
+
+function despacharCluster(clusterId, btn) {
+  const sel = document.getElementById('tec-' + clusterId);
+  if (!sel || !sel.value) {
+    sel.style.borderColor = 'var(--red)';
+    setTimeout(() => { sel.style.borderColor = 'var(--border)'; }, 1500);
+    return;
+  }
+  const tecNome = sel.value;
+  btn.textContent = '✅ Despachado!';
+  btn.style.background = 'var(--green)';
+  btn.disabled = true;
+  sel.disabled = true;
+  // Registrar no log
+  dbLog('Despacho: técnico "' + tecNome + '" — bloco ' + clusterId + ' (' + new Date().toLocaleString('pt-BR') + ')');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NUVYON v3.7 — InfraEngine (Análise de Infraestrutura)
+═══════════════════════════════════════════════════════════════ */
+const InfraEngine = {
+  /** Classifica sinal dBm conforme regra v3.7 */
+  classifySinal(s) {
+    if (isNaN(s) || s === 0) return { label:'Sem Leitura', cor:'var(--muted)',  bg:'',        emoji:'⚫', peso:0 };
+    if (s > -17)             return { label:'Excelente',   cor:'#00C9A7',       bg:'#001a14', emoji:'🟢', peso:1 };
+    if (s >= -25)            return { label:'Bom',         cor:'#10B981',       bg:'#001810', emoji:'🟢', peso:2 };
+    if (s >= -34)            return { label:'Ruim',        cor:'#F97316',       bg:'#1a0c00', emoji:'🔴', peso:3 };
+    return                          { label:'Péssimo',     cor:'#E53E3E',       bg:'#200000', emoji:'💀', peso:4 };
+  },
+
+  /** Normaliza uma linha do relatório de sinais */
+  parseRow(r) {
+    const nk = (r, ...ks) => {
+      for (const k of ks) {
+        for (const rk of Object.keys(r)) {
+          const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+          if (norm(rk) === norm(k)) {
+            const v = r[rk];
+            if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+          }
+        }
+      }
+      return '';
+    };
+    return {
+      cod:     nk(r,'Cod Cliente','cod_cliente','codigo_cliente'),
+      nome:    nk(r,'Nome Cliente','nome_cliente','nome'),
+      sinal:   parseFloat(nk(r,'Sinal ONU','sinal_onu','sinal') || 'NaN'),
+      caixa:   nk(r,'Caixa Optica','caixa_optica','Caixa Óptica'),
+      portaCx: nk(r,'Porta Caixa Optica','porta_caixa_optica','Porta Caixa Óptica'),
+      status:  nk(r,'Status Servico','status_servico','Status Serviço'),
+      cidade:  nk(r,'Cidade','cidade'),
+      bairro:  nk(r,'Bairro','bairro'),
+    };
+  },
+
+  /**
+   * Identifica clientes críticos:
+   * Sinal RUIM (-26 a -34) ou PÉSSIMO (<-35) com mais de 2 atendimentos no histórico
+   */
+  findCriticos(sinais, rawAT) {
+    // Indexar atendimentos por nome (normalizado) e por cod
+    const atPorCod  = {};
+    const atPorNome = {};
+    const normNome  = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+
+    (rawAT || []).forEach(r => {
+      const cod  = String(r['codigo_cliente']||r['cod_cliente']||r['Cod Cliente']||'').trim();
+      const nome = normNome(r['nome_razaosocial']||r['nome']||r['Nome Cliente']||'');
+      if (cod)  { if (!atPorCod[cod])   atPorCod[cod]  = []; atPorCod[cod].push(r);  }
+      if (nome) { if (!atPorNome[nome]) atPorNome[nome] = []; atPorNome[nome].push(r); }
+    });
+
+    return sinais
+      .filter(s => s.peso >= 3) // Ruim ou Péssimo
+      .map(s => {
+        const ats = (s.cod ? atPorCod[s.cod] : null)
+          || atPorNome[normNome(s.nome)]
+          || [];
+        return { ...s, totalAT: ats.length, ats: ats.slice(-3) };
+      })
+      .filter(s => s.totalAT > 2) // mais de 2 atendimentos
+      .sort((a, b) => {
+        if (b.peso !== a.peso) return b.peso - a.peso; // péssimo antes de ruim
+        return b.totalAT - a.totalAT;
+      });
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER v3.7 — Aba Análise Infra (substituí renderInfra anterior)
+═══════════════════════════════════════════════════════════════ */
+function renderInfra() {
+  const el = document.getElementById('infra-content');
+  if (!el) return;
+
+  const rawSin = STATE.rawSinais;
+  if (!rawSin || !rawSin.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">'
+      + 'Carregue o <strong>Relatório de Sinais ONU</strong> no painel de upload para ver esta análise.</div>';
+    return;
+  }
+
+  // Parsear e classificar
+  const sinais = rawSin
+    .map(r => InfraEngine.parseRow(r))
+    .filter(r => r.nome || r.cod)
+    .map(r => ({ ...r, ...InfraEngine.classifySinal(r.sinal) }));
+
+  // Filtros
+  const selCid = window._infraCidade || 'TODAS';
+  const selBai = window._infraBairro || 'TODOS';
+  const cidades = [...new Set(sinais.map(r => r.cidade).filter(Boolean))].sort();
+  const filtCid = selCid === 'TODAS' ? sinais : sinais.filter(r => r.cidade === selCid);
+  const bairros = [...new Set(filtCid.map(r => r.bairro).filter(Boolean))].sort();
+  const filtBai = selBai === 'TODOS' ? filtCid : filtCid.filter(r => r.bairro === selBai);
+
+  // KPIs
+  const comSinal  = filtBai.filter(r => !isNaN(r.sinal) && r.sinal !== 0);
+  const excels    = comSinal.filter(r => r.peso === 1);
+  const bons      = comSinal.filter(r => r.peso === 2);
+  const ruins     = comSinal.filter(r => r.peso === 3);
+  const pessimos  = comSinal.filter(r => r.peso === 4);
+
+  // Clientes críticos (sinal ruim/péssimo + >2 atendimentos)
+  const criticos  = InfraEngine.findCriticos(filtBai, STATE.rawAT);
+
+  // Agrupamento por caixa óptica
+  const caixaMap = {};
+  filtBai.forEach(r => {
+    const k = r.caixa || '—';
+    if (!caixaMap[k]) caixaMap[k] = { caixa:k, cidade:r.cidade, bairro:r.bairro, clientes:[], minSinal:NaN };
+    caixaMap[k].clientes.push(r);
+    if (!isNaN(r.sinal) && r.sinal !== 0)
+      caixaMap[k].minSinal = isNaN(caixaMap[k].minSinal) ? r.sinal : Math.min(caixaMap[k].minSinal, r.sinal);
+  });
+  const caixas = Object.values(caixaMap).sort((a,b) => {
+    const pa = isNaN(a.minSinal) ? 0 : a.minSinal;
+    const pb = isNaN(b.minSinal) ? 0 : b.minSinal;
+    return pa - pb;
+  });
+
+  // ── HTML ──
+  let h = '<div style="padding:20px">';
+
+  // KPIs
+  h += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:20px">'
+    + _dKpi('Total Clientes', String(filtBai.length), 'var(--accent)')
+    + _dKpi('🟢 Excelente', String(excels.length), '#00C9A7')
+    + _dKpi('🟢 Bom', String(bons.length), '#10B981')
+    + _dKpi('🔴 Ruim', String(ruins.length), 'var(--orange)')
+    + _dKpi('💀 Péssimo', String(pessimos.length), 'var(--red)')
+    + _dKpi('🚨 Críticos', String(criticos.length), '#a855f7')
+    + '</div>';
+
+  // Filtros
+  h += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px">'
+    + '<label style="font-size:11px;font-weight:700;color:var(--muted)">CIDADE:</label>'
+    + '<select onchange="window._infraCidade=this.value;window._infraBairro=\'TODOS\';renderInfra()" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:var(--text);font-size:12px;outline:none">'
+      + '<option value="TODAS">Todas</option>'
+      + cidades.map(c => '<option value="'+_esc(c)+'"'+(selCid===c?' selected':'')+'>'+c+'</option>').join('')
+    + '</select>'
+    + '<label style="font-size:11px;font-weight:700;color:var(--muted)">BAIRRO:</label>'
+    + '<select onchange="window._infraBairro=this.value;renderInfra()" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:var(--text);font-size:12px;outline:none;min-width:180px">'
+      + '<option value="TODOS">Todos</option>'
+      + bairros.map(b => '<option value="'+_esc(b)+'"'+(selBai===b?' selected':'')+'>'+b+'</option>').join('')
+    + '</select>'
+  + '</div>';
+
+  // Alertas de ação urgente
+  if (criticos.length > 0) {
+    h += '<div style="background:#1a0020;border:1px solid #a855f766;border-radius:12px;padding:16px;margin-bottom:22px">'
+      + '<div style="font-size:13px;font-weight:800;color:#a855f7;margin-bottom:8px">🚨 AÇÃO URGENTE — ' + criticos.length + ' cliente(s) com sinal crítico + histórico de atendimentos</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Sinal RUIM ou PÉSSIMO com mais de 2 atendimentos registrados. Plano de ação imediato necessário.</div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead><tr style="background:#2a0030">'
+          + '<th style="padding:8px 10px;text-align:left;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Cliente</th>'
+          + '<th style="padding:8px 10px;text-align:left;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Caixa / Cidade</th>'
+          + '<th style="padding:8px 10px;text-align:center;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Sinal</th>'
+          + '<th style="padding:8px 10px;text-align:center;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Qualidade</th>'
+          + '<th style="padding:8px 10px;text-align:center;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Atendimentos</th>'
+          + '<th style="padding:8px 10px;text-align:left;color:#d8b4fe;font-weight:700;border-bottom:1px solid #3a0050">Recomendação</th>'
+        + '</tr></thead><tbody>'
+        + criticos.slice(0, 50).map(c => {
+            const rec = c.peso === 4
+              ? '💀 Troca de ONU/splitter + verificar planta toda a caixa'
+              : '🔴 Visita técnica urgente + verificar conector e atenuação';
+            return '<tr style="border-bottom:1px solid #2a0030;background:#140018">'
+              + '<td style="padding:7px 10px"><div style="font-weight:700;color:var(--text)">' + (c.nome||'').slice(0,26) + '</div>'
+                + '<div style="font-size:10px;color:var(--muted)">' + c.cidade + ' / ' + c.bairro + '</div></td>'
+              + '<td style="padding:7px 10px;font-family:monospace;font-size:11px;color:var(--muted)">' + (c.caixa||'—') + '<br>' + c.cidade + '</td>'
+              + '<td style="padding:7px 10px;text-align:center;font-weight:800;font-size:14px;color:' + c.cor + '">' + (isNaN(c.sinal)?'—':c.sinal+' dBm') + '</td>'
+              + '<td style="padding:7px 10px;text-align:center"><span style="background:' + c.cor + '22;color:' + c.cor + ';border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">' + c.emoji + ' ' + c.label + '</span></td>'
+              + '<td style="padding:7px 10px;text-align:center;font-weight:800;color:#a855f7">' + c.totalAT + '</td>'
+              + '<td style="padding:7px 10px;font-size:11px;font-weight:600">' + rec + '</td>'
+              + '</tr>';
+          }).join('')
+        + '</tbody></table></div>'
+    + '</div>';
+  }
+
+  // Tabela de caixas ópticas
+  h += '<div style="margin-bottom:22px"><div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">📦 Consolidado por Caixa Óptica</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="background:var(--panel)">'
+        + '<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Caixa</th>'
+        + '<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Localização</th>'
+        + '<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Clientes</th>'
+        + '<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Pior Sinal</th>'
+        + '<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Qualidade</th>'
+        + '<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Ação</th>'
+      + '</tr></thead><tbody>'
+      + caixas.slice(0, 80).map((cx, i) => {
+          const sc  = InfraEngine.classifySinal(cx.minSinal);
+          const urg = !isNaN(cx.minSinal) && cx.minSinal <= -26;
+          return '<tr style="border-bottom:1px solid var(--border);background:' + (urg ? sc.bg : (i%2===0?'var(--card)':'transparent')) + '">'
+            + '<td style="padding:7px 10px;font-family:monospace;font-weight:600;color:var(--text)">' + cx.caixa + '</td>'
+            + '<td style="padding:7px 10px;color:var(--muted)">' + cx.cidade + ' / ' + cx.bairro + '</td>'
+            + '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--accent)">' + cx.clientes.length + '</td>'
+            + '<td style="padding:7px 10px;text-align:center;font-weight:800;color:' + sc.cor + '">' + (isNaN(cx.minSinal)?'—':cx.minSinal+' dBm') + '</td>'
+            + '<td style="padding:7px 10px;text-align:center"><span style="background:' + sc.cor + '22;color:' + sc.cor + ';border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">' + sc.emoji + ' ' + sc.label + '</span></td>'
+            + '<td style="padding:7px 10px;text-align:center;font-size:11px;font-weight:700;color:' + (urg?sc.cor:'var(--muted)') + '">' + (urg?'🚨 URGENTE':'—') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div></div>';
+
+  // Lista completa ordenada por pior sinal
+  const listaOrdenada = comSinal.sort((a,b) => a.sinal - b.sinal);
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">'
+    + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">📋 Lista Detalhada por Sinal (' + listaOrdenada.length + ' clientes com leitura)</div>'
+    + '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'
+      + '<thead style="position:sticky;top:0"><tr style="background:var(--panel)">'
+        + '<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Cliente</th>'
+        + '<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Caixa / Porta</th>'
+        + '<th style="padding:7px 8px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Sinal ONU</th>'
+        + '<th style="padding:7px 8px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Qualidade</th>'
+        + '<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Status</th>'
+      + '</tr></thead><tbody>'
+      + listaOrdenada.slice(0, 300).map((r, i) => {
+          const sc = InfraEngine.classifySinal(r.sinal);
+          return '<tr style="border-bottom:1px solid var(--border);background:' + (sc.bg || (i%2===0?'var(--card)':'transparent')) + '">'
+            + '<td style="padding:5px 8px"><div style="font-weight:600;color:var(--text)">' + (r.nome||'').slice(0,26) + '</div>'
+              + '<div style="font-size:10px;color:var(--muted)">' + r.cidade + ' · ' + r.bairro + '</div></td>'
+            + '<td style="padding:5px 8px;font-family:monospace;font-size:10px;color:var(--muted)">' + (r.caixa||'—') + ' / P' + (r.portaCx||'?') + '</td>'
+            + '<td style="padding:5px 8px;text-align:center;font-weight:800;color:' + sc.cor + '">' + r.sinal + ' dBm</td>'
+            + '<td style="padding:5px 8px;text-align:center"><span style="background:' + sc.cor + '22;color:' + sc.cor + ';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">' + sc.emoji + ' ' + sc.label + '</span></td>'
+            + '<td style="padding:5px 8px;color:var(--muted)">' + (r.status||'—') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div>'
+  + '</div>';
+
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function _esc(s) { return String(s||'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ════════════════════════════════════════════════════════════════
+   v3.6 — ABA CANCELAMENTOS
+════════════════════════════════════════════════════════════════ */
+function processOSAbertas(rows) {
+  const nk = (r,...ks) => { for(const k of ks){ for(const rk of Object.keys(r)){ if(rk.toLowerCase()===k.toLowerCase()){ const v=r[rk]; if(v!==null&&v!==undefined&&v!=='') return String(v).trim(); }}} return ''; };
+  return rows.map(r => ({
+    cod:    nk(r,'codigo_cliente','cod_cliente'),
+    nome:   nk(r,'nome_razaosocial','nome','Nome Cliente'),
+    status: nk(r,'status','Status'),
+    prior:  nk(r,'prioridade','Prioridade'),
+    data:   nk(r,'data_inicio_programado','data_programado','data'),
+    tipo:   nk(r,'tipo_ordem_servico','tipo','Tipo'),
+    desc_ab:nk(r,'descricao_abertura','descricao_ab'),
+    id_os:  nk(r,'id_ordem_servico','id_os','numero_ordem_servico'),
+    num_os: nk(r,'numero_ordem_servico','numero_os'),
+    bairro: nk(r,'bairro','Bairro'),
+    cidade: nk(r,'cidade','Cidade'),
+    tec:    nk(r,'tecnicos','tecnico'),
+    proto:  nk(r,'protocolo_atendimento','protocolo'),
+  })).filter(r => r.nome || r.cod);
+}
+
+function coerenciaCancelamento(tipo, desc) {
+  if (!tipo || !desc) return { ok: true, msg: '' };
+  const t = tipo.toLowerCase(), d = desc.toLowerCase();
+  const grupos = [
+    { tags:['cancel','rescis','encerr'], keys:['cancel','rescis','encerr','solicit','pedido','fim do contrato'] },
+    { tags:['logistic','ret. equip','retirada'], keys:['retirar','devolv','equip','roteador','onu','aparelho','material','buscar'] },
+    { tags:['sem sinal','1os fibra sem'], keys:['sem sinal','queda','instabilidade','sem internet','fibra','link'] },
+    { tags:['ativac','instala'], keys:['instalar','ativac','nova instal','conectar'] },
+    { tags:['migracao','upgrade','troca'], keys:['migra','troca','upgrade','substituir'] },
+    { tags:['backbone','infra','vistoria','bater cto'], keys:['infra','backbone','cto','olt','estrutura','rede','vistoria'] },
+    { tags:['inadimpl','suspens'], keys:['inadimpl','debito','bloqueio','suspens','corte'] },
+  ];
+  for (const g of grupos) {
+    const tipoMatch = g.tags.some(tk => t.includes(tk));
+    if (!tipoMatch) continue;
+    const descMatch = g.keys.some(dk => d.includes(dk));
+    if (!descMatch && d.length > 8) return { ok: false, msg: 'Descricao nao condiz com o tipo de OS' };
+    return { ok: true, msg: '' };
+  }
+  return { ok: true, msg: '' };
+}
+
+function renderCancelamentos() {
+  const el = document.getElementById('cancelamentos-content');
+  const rows = STATE.rawOSAb ? processOSAbertas(STATE.rawOSAb) : [];
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">Carregue o arquivo <strong>OS Abertas / Cancelamentos</strong> no painel de upload para ver esta analise.</div>';
+    return;
+  }
+  const tipos = [...new Set(rows.map(r=>r.tipo).filter(Boolean))].sort();
+  const sel = window._cancelTipoSel || 'TODOS';
+  const filtradas = sel === 'TODOS' ? rows : rows.filter(r=>r.tipo===sel);
+  const consolidado = {};
+  filtradas.forEach(r => {
+    const cid = r.cidade||'—', bai = r.bairro||'—', tip = r.tipo||'—';
+    const key = cid+'||'+bai;
+    if (!consolidado[key]) consolidado[key] = {cidade:cid,bairro:bai,tipos:{},total:0,rows:[]};
+    consolidado[key].tipos[tip] = (consolidado[key].tipos[tip]||0)+1;
+    consolidado[key].total++;
+    consolidado[key].rows.push(r);
+  });
+  const grupos = Object.values(consolidado).sort((a,b)=>b.total-a.total);
+  const totCanc = rows.filter(r=>r.tipo&&(r.tipo.includes('CANCEL')||r.tipo.includes('RET. EQUIP')||r.tipo.includes('LOGIST')||r.tipo.includes('INADIMPL'))).length;
+  const totSS   = rows.filter(r=>r.tipo&&r.tipo.includes('SEM SINAL')).length;
+  const totAtiv = rows.filter(r=>r.tipo&&(r.tipo.includes('ATIVAC')||r.tipo.includes('INSTALA'))).length;
+  const totUrg  = rows.filter(r=>r.prior&&(r.prior==='Urgente'||r.prior==='Alta')).length;
+  const totInc  = rows.filter(r=>!coerenciaCancelamento(r.tipo,r.desc_ab).ok).length;
+  const cliSaude = {};
+  (STATE.clientes||[]).forEach(c=>{cliSaude[String(c.codigo)]=c;});
+  const osTermometro = filtradas.filter(r=>cliSaude[r.cod]);
+
+  const kpiHtml = [
+    ['Total OS',String(rows.length),'var(--accent)'],
+    ['Cancelamentos',String(totCanc),'var(--red)'],
+    ['Sem Sinal',String(totSS),'var(--orange)'],
+    ['Ativacoes',String(totAtiv),'var(--yellow)'],
+    ['Urgentes/Altas',String(totUrg),'var(--red)'],
+  ].map(([l,v,c])=>'<div style="background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)"><div style="font-size:24px;font-weight:800;color:'+c+'">'+v+'</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:2px">'+l+'</div></div>').join('');
+
+  const tipoOpts = '<option value="TODOS"'+(sel==='TODOS'?' selected':'')+'>Todos os tipos ('+rows.length+' OS)</option>'
+    + tipos.map(t=>'<option value="'+t.replace(/"/g,'&quot;')+'"'+(sel===t?' selected':'')+'>'+t+' ('+rows.filter(r=>r.tipo===t).length+')</option>').join('');
+
+  const consHtml = grupos.slice(0,50).map((g,i)=>{
+    const top3 = Object.entries(g.tipos).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([t,c])=>'<span style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin-right:3px">'+t.slice(0,28)+' ('+c+')</span>').join('');
+    const inc = g.rows.filter(r=>!coerenciaCancelamento(r.tipo,r.desc_ab).ok).length;
+    const termo = g.rows.filter(r=>cliSaude[r.cod]).length;
+    return '<tr style="border-bottom:1px solid var(--border);background:'+(i%2===0?'var(--card)':'transparent')+';cursor:pointer" onclick="window._cancelGrupoSel=\''+g.cidade+'||'+g.bairro+'\';renderCancelamentos()">'
+      +'<td style="padding:7px 10px;font-weight:600;color:var(--text)">'+g.cidade+'</td>'
+      +'<td style="padding:7px 10px;color:var(--text)">'+g.bairro+'</td>'
+      +'<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--accent)">'+g.total+'</td>'
+      +'<td style="padding:7px 10px">'+top3+'</td>'
+      +'<td style="padding:7px 10px;text-align:center;color:'+(inc>0?'var(--orange)':'var(--muted)')+';font-weight:'+(inc>0?'700':'400')+'">'+(inc>0?'&#9888; '+inc:'—')+'</td>'
+      +'<td style="padding:7px 10px;text-align:center;color:'+(termo>0?'var(--red)':'var(--muted)')+';font-weight:'+(termo>0?'800':'400')+'">'+(termo>0?'&#128293; '+termo:'—')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  const termoHtml = osTermometro.length===0
+    ? '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">'+(STATE.clientes&&STATE.clientes.length>0?'Nenhum cliente coincide entre OS Abertas e Saude do Cliente.':'Carregue tambem o arquivo de OS (historico) para cruzar.')+'</div>'
+    : '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#3a0a0a"><th style="padding:8px 10px;text-align:left;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">Cliente</th><th style="padding:8px 10px;text-align:left;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">Cidade</th><th style="padding:8px 10px;text-align:left;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">OS Aberta</th><th style="padding:8px 10px;text-align:center;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">Health</th><th style="padding:8px 10px;text-align:center;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">Risco</th><th style="padding:8px 10px;text-align:left;color:#fca;font-weight:700;border-bottom:1px solid #6b2a2a">Acao</th></tr></thead><tbody>'
+      + osTermometro.map(r=>{
+          const cs=cliSaude[r.cod]; const hc=cs.health||0;
+          const hcC=hc<30?'var(--red)':hc<60?'var(--orange)':'var(--yellow)';
+          return '<tr style="border-bottom:1px solid #2a0808;background:#1a0404"><td style="padding:7px 10px;color:var(--text);font-weight:600">'+r.nome.slice(0,28)+'</td><td style="padding:7px 10px;color:var(--muted)">'+r.cidade+'</td><td style="padding:7px 10px;color:var(--orange)">'+r.tipo.slice(0,30)+'</td><td style="padding:7px 10px;text-align:center;font-weight:800;color:'+hcC+'">'+hc+'</td><td style="padding:7px 10px;text-align:center"><span style="background:'+(cs.risco==='Critico'?'var(--red)':cs.risco==='Alto'?'var(--orange)':'var(--yellow)')+';color:#000;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">'+cs.risco+'</span></td><td style="padding:7px 10px;font-size:11px;color:var(--muted)">'+(cs.acao||'—').slice(0,35)+'</td></tr>';
+        }).join('')+'</tbody></table>';
+
+  const detalheRows = (window._cancelGrupoSel
+    ? filtradas.filter(r=>(r.cidade||'—')+'||'+(r.bairro||'—')===window._cancelGrupoSel)
+    : filtradas).slice(0,120).map((r,i)=>{
+      const c=coerenciaCancelamento(r.tipo,r.desc_ab);
+      const bg=!c.ok?'#2a1500':(i%2===0?'var(--card)':'transparent');
+      const pC=r.prior==='Urgente'?'var(--red)':r.prior==='Alta'?'var(--orange)':'var(--muted)';
+      return '<tr style="border-bottom:1px solid var(--border);background:'+bg+'"><td style="padding:5px 8px;font-family:monospace;color:var(--muted)">'+r.cod+'</td><td style="padding:5px 8px;color:var(--text);font-weight:600">'+r.nome.slice(0,22)+'</td><td style="padding:5px 8px;color:var(--muted);white-space:nowrap">'+r.data+'</td><td style="padding:5px 8px;color:var(--accent)">'+r.tipo.slice(0,30)+'</td><td style="padding:5px 8px;color:var(--text)">'+(r.desc_ab||'').slice(0,38)+'</td><td style="padding:5px 8px;text-align:center;font-weight:700;color:'+pC+'">'+r.prior+'</td><td style="padding:5px 8px;text-align:center">'+(c.ok?'<span style="color:var(--green)">&#10003;</span>':'<span style="color:var(--orange);font-weight:700" title="'+c.msg+'">&#9888;</span>')+'</td></tr>';
+    }).join('');
+
+  el.innerHTML = '<div style="padding:20px">'
+    +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+kpiHtml+'</div>'
+    +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap">'
+      +'<label style="font-size:12px;font-weight:700;color:var(--muted)">FILTRAR POR TIPO:</label>'
+      +'<select onchange="window._cancelTipoSel=this.value;renderCancelamentos()" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;min-width:280px">'+tipoOpts+'</select>'
+      +(totInc>0?'<span style="background:#f97316;color:#000;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700">&#9888; '+totInc+' OS com descricao incoerente com o tipo</span>':'')
+    +'</div>'
+    +'<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">&#128202; Consolidado por Cidade e Bairro</div>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--panel)">'
+        +'<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Cidade</th>'
+        +'<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Bairro</th>'
+        +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Total</th>'
+        +'<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Tipos (top 3)</th>'
+        +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Incoer.</th>'
+        +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Termometro</th>'
+      +'</tr></thead><tbody>'+consHtml+'</tbody></table></div></div>'
+    +'<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:24px">'
+      +'<div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:12px">&#127777; Termometro de Risco — Clientes com Historico em Saude do Cliente E OS Aberta</div>'
+      +termoHtml
+    +'</div>'
+    +'<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px">'
+      +'<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">&#128269; Detalhe de OS '+(window._cancelGrupoSel?'— '+window._cancelGrupoSel.replace('||',' / '):'')
+        +'<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:8px">Clique numa linha do consolidado para filtrar</span></div>'
+      +'<div style="overflow-x:auto;max-height:400px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'
+        +'<thead style="position:sticky;top:0;z-index:1"><tr style="background:var(--panel)">'
+          +'<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Cod.</th>'
+          +'<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Cliente</th>'
+          +'<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Data</th>'
+          +'<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Tipo OS</th>'
+          +'<th style="padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Descricao Abertura</th>'
+          +'<th style="padding:7px 8px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Prior.</th>'
+          +'<th style="padding:7px 8px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Coer.</th>'
+        +'</tr></thead><tbody>'+detalheRows+'</tbody></table></div>'
+    +'</div>'
+  +'</div>';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   v3.6 — ABA INFRA
+════════════════════════════════════════════════════════════════ */
+function processSinais(rows) {
+  const nk = (r,...ks) => {
+    for(const k of ks){
+      for(const rk of Object.keys(r)){
+        if(rk.toLowerCase().replace(/\s/g,'_').replace(/[áàãâä]/gi,'a').replace(/[éèê]/gi,'e').replace(/[íì]/gi,'i').replace(/[óòõô]/gi,'o').replace(/[úù]/gi,'u') ===
+           k.toLowerCase().replace(/\s/g,'_').replace(/[áàãâä]/gi,'a').replace(/[éèê]/gi,'e').replace(/[íì]/gi,'i').replace(/[óòõô]/gi,'o').replace(/[úù]/gi,'u')){
+          const v=r[rk]; if(v!==null&&v!==undefined&&v!=='') return v;
+        }
+      }
+    }
+    return '';
+  };
+  return rows.map(r=>({
+    cod:    String(nk(r,'Cod Cliente','cod_cliente','codigo_cliente')||''),
+    nome:   String(nk(r,'Nome Cliente','nome_cliente','nome')||''),
+    sinal:  parseFloat(nk(r,'Sinal ONU','sinal_onu','sinal')||'NaN'),
+    caixa:  String(nk(r,'Caixa Optica','caixa_optica','Caixa Optica')||''),
+    portaCx:String(nk(r,'Porta Caixa Optica','porta_caixa_optica','Porta Caixa Optica')||''),
+    porta:  String(nk(r,'Porta PON','porta_pon','Porta PON')||''),
+    status: String(nk(r,'Status Servico','status_servico','Status Servico','Status Serviço')||''),
+    cidade: String(nk(r,'Cidade','cidade')||''),
+    bairro: String(nk(r,'Bairro','bairro')||''),
+    proj:   String(nk(r,'Projeto','projeto')||''),
+  })).filter(r=>r.nome||r.cod);
+}
+
+function sinalClass(s) {
+  if(isNaN(s)||s===0) return {label:'Sem Leitura',color:'var(--muted)',bg:'',emoji:'⚫'};
+  if(s>=-17)  return {label:'Excelente',color:'#00C9A7',bg:'#001a14',emoji:'🟢'};
+  if(s>=-22)  return {label:'Bom',      color:'#10B981',bg:'#001a10',emoji:'🟢'};
+  if(s>=-26)  return {label:'Regular',  color:'#F4A429',bg:'#1a1200',emoji:'🟡'};
+  if(s>=-30)  return {label:'Ruim',     color:'#F97316',bg:'#1a0c00',emoji:'🟠'};
+  return             {label:'Critico',  color:'#E53E3E',bg:'#1a0000',emoji:'🔴'};
+}
+
 </script>
 
 <!-- ═══════════════ MODAL CLIENTE ═══════════════ -->
