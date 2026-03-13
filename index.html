@@ -174,6 +174,46 @@ td{padding:9px}
 @keyframes npi-pulse{0%,100%{opacity:1}50%{opacity:.65}}
 .npi-regular{background:var(--panel);color:var(--muted);border-color:var(--border)}
 .npi-section-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px}
+/* ── BONIFICAÇÃO v3.7 ── */
+.bon-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.bon-title{font-size:18px;font-weight:900;letter-spacing:-.02em}
+.bon-title span{color:var(--accent)}
+.bon-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:22px}
+.bon-kpi{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px;text-align:center;position:relative;overflow:hidden}
+.bon-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--bon-accent,var(--accent))}
+.bon-kpi-val{font-size:26px;font-weight:900;font-family:monospace;line-height:1.1}
+.bon-kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
+.bon-top5{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.bon-card{border-radius:13px;padding:18px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.bon-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px #00000055}
+.bon-card-rank{font-size:28px;text-align:center;margin-bottom:6px}
+.bon-card-name{font-size:13px;font-weight:800;text-align:center;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bon-card-score{font-size:38px;font-weight:900;text-align:center;font-family:monospace;line-height:1.1;margin:8px 0 4px}
+.bon-card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;text-align:center;margin-bottom:10px;opacity:.7}
+.bon-score-ring{width:56px;height:56px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:3px solid}
+.bon-details-grid{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.bon-pill{border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;border:1px solid;white-space:nowrap}
+.bon-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.bon-table-head{background:var(--panel);border-bottom:2px solid var(--accent)33}
+.bon-table{width:100%;border-collapse:collapse;font-size:12px}
+.bon-table th{padding:10px 12px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.bon-table td{padding:10px 12px;border-bottom:1px solid var(--border)55;vertical-align:middle}
+.bon-table tbody tr{transition:background .15s}
+.bon-table tbody tr:hover{background:var(--panel)}
+.bon-score-bar-outer{background:var(--border);border-radius:4px;height:7px;overflow:hidden;min-width:80px}
+.bon-score-bar-inner{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.bon-alert{background:#f4a42914;border:1px solid #f4a42940;border-radius:9px;padding:11px 14px;font-size:12px;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+.bon-source-tag{font-size:10px;border-radius:7px;padding:6px 12px;margin-bottom:16px;display:flex;align-items:center;gap:6px}
+.bon-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.bon-filter-btn{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.bon-filter-btn.active{background:var(--accent)22;color:var(--accent);border-color:var(--accent)}
+.bon-badge{display:inline-flex;align-items:center;gap:3px;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;border:1px solid;white-space:nowrap}
+.bon-badge-gold{background:#f4a42922;color:#F4A429;border-color:#f4a42955}
+.bon-badge-green{background:#10b98122;color:#10B981;border-color:#10b98155}
+.bon-badge-red{background:#f0525222;color:#F05252;border-color:#f0525255}
+.bon-badge-yellow{background:#f4a42922;color:#F4A429;border-color:#f4a42955}
+.bon-badge-blue{background:#3b82f622;color:#3B82F6;border-color:#3b82f655}
+.bon-badge-muted{background:var(--panel);color:var(--muted);border-color:var(--border)}
 </style>
 </head>
 <body>
@@ -289,6 +329,7 @@ const ABAS = [
   { id:'cancelamentos', label:'🚫 Cancelamentos' },
   { id:'despacho',      label:'🚀 Despacho Inteligente' },
   { id:'infra',         label:'📡 Análise Infra' },
+  { id:'bonificacao',    label:'🏅 Bonificação' },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -977,6 +1018,9 @@ window.addEventListener('load', async () => {
 
   <!-- ══════════ ABA SAC ══════════ -->
   <div class="tab-content" id="tab-content-sac">
+    <!-- ── Seção FCR (SACEngine v3.9) ── -->
+    <div id="sac-fcr-section" style="margin-bottom:20px"></div>
+    <!-- ── Seção original SAC (métricas de chat) ── -->
     <div class="kpi-grid" id="sac-kpis"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px" id="sac-charts-row">
       <div class="card"><div class="sec-title"><h3>Distribuição por Agente</h3></div><div class="chart-wrap"><canvas id="chart-sac-bar"></canvas></div></div>
@@ -1093,6 +1137,15 @@ window.addEventListener('load', async () => {
     </div>
   </div>
 
+  <!-- ══════ ABA BONIFICAÇÃO INTELIGENTE ══════ -->
+  <div class="tab-content" id="tab-content-bonificacao">
+    <div id="bonificacao-content">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">
+        Carregue o <strong>Relatório Analítico Matrix</strong> para ativar o módulo de bonificação.
+      </div>
+    </div>
+  </div>
+
 </div><!-- #main -->
 
 <!-- FOOTER -->
@@ -1199,6 +1252,26 @@ window.addEventListener('load', async () => {
         </div>
         <div class="upload-slot-status" id="slot-agentes-icon">○</div>
       </div>
+      <div class="upload-slot" id="slot-matrix">
+        <input type="file" accept=".csv" onchange="handleFile('matrix',this)">
+        <div class="upload-slot-icon">🏅</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">Relatório Analítico Matrix</div>
+          <div class="upload-slot-hint">matrix.csv — delimitador ";", colunas: Protocolo; Tempo de Atendimento; Status; Tag; Agente</div>
+          <div class="upload-slot-file" id="slot-matrix-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-matrix-icon">○</div>
+      </div>
+      <div class="upload-slot" id="slot-npsTelefonia">
+        <input type="file" accept=".csv,.xlsx,.xls" onchange="handleFile('npsTelefonia',this)">
+        <div class="upload-slot-icon">📞</div>
+        <div class="upload-slot-info">
+          <div class="upload-slot-title">NPS Telefonia</div>
+          <div class="upload-slot-hint">nps_telefonia.csv — colunas: Agente; Nota (1–5)</div>
+          <div class="upload-slot-file" id="slot-npsTelefonia-name" style="color:var(--muted)">Nenhum arquivo</div>
+        </div>
+        <div class="upload-slot-status" id="slot-npsTelefonia-icon">○</div>
+      </div>
     </div>
     <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
     <div style="display:flex;gap:10px">
@@ -1276,8 +1349,12 @@ const STATE = {
   rawNPS: null, npsData: null,
   rawOSAb: null, rawSinais: null, rawOSAbertas: null,
   rawAgentes: null, agenteMap: {}, // { cod -> nomeReal }
+  relatorioAnalitico: null, // Matrix CSV (delim ';')
+  rawNpsTelefonia: null,     // NPS Telefonia (CSV/XLSX)
+  rankingNPS: null,         // calculado por NPSIntelligence
+  sacFCR: null,             // SACEngine output — FCR + deduplicação + produtividade composta
   nomes: { os: null, at: null, sac: null },
-  loaded: { os: false, at: false, sac: false, nps: false, osab: false, sinais: false, agentes: false }
+  loaded: { os: false, at: false, sac: false, nps: false, osab: false, sinais: false, agentes: false, matrix: false, npsTelefonia: false }
 };
 
 // Instâncias de gráficos (necessário declarar globalmente para destroyChart/mkChart)
@@ -1361,6 +1438,7 @@ function readFileAsRows(file, opts={}) {
     if (ext === 'csv') {
       Papa.parse(file, {
         header: true, skipEmptyLines: true, encoding: 'UTF-8',
+        delimiter: opts.delimiter || '',   // '' = autodetect; ';' para Matrix
         complete: r => resolve(r.data),
         error: e => {
           // fallback ISO-8859-1
@@ -1874,7 +1952,7 @@ function cruzarSACAtendimento(sacRows, atRows, cliMapOS) {
 /* ════════════════════════════════════════════════════════════════
    PARTE 5 — UPLOAD E APLICAÇÃO DOS DADOS
 ════════════════════════════════════════════════════════════════ */
-const pendingFiles = { os: null, at: null, sac: null, prod: null, osab: null, sinais: null, agentes: null };
+const pendingFiles = { os: null, at: null, sac: null, prod: null, osab: null, sinais: null, agentes: null, matrix: null, npsTelefonia: null };
 
 async function handleFile(tipo, input) {
   const file = input.files[0];
@@ -1891,7 +1969,11 @@ async function handleFile(tipo, input) {
   document.getElementById('upload-progress').textContent = `Lendo ${file.name}...`;
 
   try {
-    const rows = await readFileAsRows(file, { raw: tipo !== 'nps' && tipo !== 'prod', multiSheet: tipo === 'nps' });
+    const rows = await readFileAsRows(file, {
+      raw: tipo !== 'nps' && tipo !== 'prod',
+      multiSheet: tipo === 'nps',
+      delimiter: tipo === 'matrix' ? ';' : undefined,
+    });
     pendingFiles[tipo] = rows;
     if (tipo === 'nps') {
       const el = document.getElementById('slot-nps-name');
@@ -1982,6 +2064,71 @@ function aplicarDados() {
       STATE.rawAgentes = pendingFiles.agentes;
       STATE.agenteMap  = NPSIntelligence.buildAgenteMap(pendingFiles.agentes);
       STATE.loaded.agentes = true;
+      // Reprocessar NPS com o mapa de agentes atualizado
+      if (STATE.rawNPS) {
+        STATE.npsData = processNPS(STATE.rawNPS);
+        // Re-renderizar NPS e Bonificação com nomes reais
+        setTimeout(() => {
+          renderNPS();
+          NPSIntelligence.render();
+          renderBonificacao();
+        }, 0);
+      }
+    }
+    if (pendingFiles.matrix) {
+      STATE.relatorioAnalitico = pendingFiles.matrix;
+      STATE.loaded.matrix = true;
+      setTimeout(() => {
+        STATE.sacFCR = SACEngine.fromState();
+        renderBonificacao();
+        renderSACFCR();
+      }, 0);
+    }
+    // SACEngine: recalcular FCR quando Hubsoft, OS ou Produtividade chegam
+    // (funciona mesmo que matrix já estivesse carregada antes)
+    if ((pendingFiles.at || pendingFiles.os || pendingFiles.osab || pendingFiles.prod) &&
+        STATE.relatorioAnalitico && STATE.relatorioAnalitico.length > 0) {
+      setTimeout(() => {
+        STATE.sacFCR = SACEngine.fromState();
+        renderSACFCR();
+      }, 0);
+    }
+    if (pendingFiles.npsTelefonia) {
+      STATE.rawNpsTelefonia = pendingFiles.npsTelefonia;
+      STATE.loaded.npsTelefonia = true;
+      setTimeout(() => renderBonificacao(), 0);
+    }
+    // Atualizar rankingNPS consolidado para cruzamento de bonificação
+    // Se agenteMap carregado + rawNPS: processar com mapeamento de códigos
+    STATE.rankingNPS = (function() {
+      let src;
+      if (STATE.rawNPS && STATE.agenteMap && Object.keys(STATE.agenteMap).length > 0) {
+        // Processar com mapeamento código→nome (formato B do arquivo real)
+        src = NPSIntelligence.processWithMap(STATE.rawNPS, STATE.agenteMap);
+        // Converter formato NPSIntelligence → formato rankingNPS
+        const out = {};
+        for (const [ag, v] of Object.entries(src)) {
+          out[ag] = { nps: v.nps, total: v.total, media: v.media };
+        }
+        return out;
+      }
+      // Fallback: usar npsData já calculado (formato A legado)
+      src = STATE.npsData || (typeof getNPSData === 'function' ? getNPSData() : {});
+      const out  = {};
+      for (const [ag, v] of Object.entries(src)) {
+        const notas = Object.entries(v.dist||{}).flatMap(([n,c])=>Array(c).fill(parseInt(n)));
+        if (!notas.length) continue;
+        const tot = notas.length;
+        const pro = notas.filter(n=>n>=4).length;
+        const det = notas.filter(n=>n<=2).length;
+        out[ag] = { nps: Math.round((pro-det)/tot*100), total: tot, media: v.media };
+      }
+      return out;
+    })();
+
+    // ── SACEngine: calcular FCR se Matrix estiver carregada ──
+    if (STATE.relatorioAnalitico && STATE.relatorioAnalitico.length > 0) {
+      STATE.sacFCR = SACEngine.fromState();
     }
 
     closeUpload();
@@ -3632,7 +3779,7 @@ function showTab(t) {
   document.getElementById('tab-'+t).classList.add('active');
   
   // Re-renderizar ao mudar de aba
-  if (t === 'sac') renderSAC();
+  if (t === 'sac') { renderSAC(); renderSACFCR(); }
   if (t === 'campo') renderCampo();
   if (t === 'gestao') renderGestao();
   if (t === 'clientes') renderClientes();
@@ -3642,6 +3789,7 @@ function showTab(t) {
   if (t === 'cancelamentos') renderCancelamentos();
   if (t === 'despacho') renderDespacho();
   if (t === 'infra') renderInfra();
+  if (t === 'bonificacao') renderBonificacao();
 }
 
 function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
@@ -4187,31 +4335,51 @@ function renderProdutividadeNPS() {
 
 function processNPS(rows) {
   // rows: array de objetos já parseados pelo SheetJS/PapaParse
-  const agData = {};
-  const limpa = r => (r||'').replace(/##[^#]+##\s*/g,'').trim();
+  // Suporta dois formatos:
+  //   Formato A (legado):   coluna 'Agente' = nome, coluna 'Resposta' = comentário
+  //   Formato B (pesquisa): coluna 'Resposta' = código do agente, coluna 'Opção' = nota 1-5
+  //                         + coluna 6 = classificação (PROMOTOR/NEUTRO/DETRATOR)
+  //   Quando agenteMap estiver carregado, códigos são traduzidos para nomes reais.
 
-  // Diagnóstico: mostrar primeiras linhas e colunas disponíveis
-  if (rows.length > 0) {
-    const j1rows = rows.filter(r => r['__janela'] !== 'j2');
-    const j2rows = rows.filter(r => r['__janela'] === 'j2');
-    console.log('[processNPS] Total:', rows.length, '| j1:', j1rows.length, '| j2:', j2rows.length);
-    console.log('[processNPS] Colunas j1:', j1rows[0] ? Object.keys(j1rows[0]) : 'nenhuma');
-    console.log('[processNPS] Colunas j2:', j2rows[0] ? Object.keys(j2rows[0]) : 'nenhuma');
-    if (j2rows[0]) console.log('[processNPS] Exemplo j2:', j2rows[0]);
-  }
+  const agData = {};
+  const limpa  = r => (r||'').replace(/##[^#]+##\s*/g,'').trim();
+  const agenteMap = (typeof STATE !== 'undefined' && STATE.agenteMap) ? STATE.agenteMap : {};
+  const hasMap    = Object.keys(agenteMap).length > 0;
+
+  // Detectar formato do arquivo na primeira linha de dados
+  const sample = rows.find(r => r['__janela'] !== 'j2') || rows[0] || {};
+  const temColunaAgente = !!(sample['Agente'] || sample['agente']);
+  const temColunaResposta = !!(sample['Resposta'] || sample['resposta']);
+  // Formato B: 'Resposta' contém código numérico (ou string curta), sem coluna 'Agente'
+  const isFormatoB = !temColunaAgente && temColunaResposta;
+  console.log('[processNPS] Formato:', isFormatoB ? 'B (código via Resposta)' : 'A (nome via Agente)',
+    '| agenteMap:', Object.keys(agenteMap).length, 'entradas',
+    '| rows:', rows.length);
 
   rows.forEach(r => {
-    const ag = String(r['Agente']||r['agente']||'').trim();
-    const nota = parseInt(r['Opção']||r['opcao']||r['Opção']||'');
-    const resp = limpa(String(r['Resposta']||r['resposta']||''));
-    const telRaw = r['Telefone']||r['telefone']||r['TELEFONE']||'';
-    const tel = String(typeof telRaw === 'number' ? telRaw.toFixed(0) : telRaw).replace(/[^\d]/g,'');
-    const proto = String(r['Protocolo']||r['protocolo']||'');
-    const dt   = String(r['Data']||r['data']||'').slice(0,10);
     const janela = String(r['__janela']||'');
-    if (!ag) return;
-    if (!agData[ag]) agData[ag] = { j1:[], j2:[] };
     const isJ2 = janela === 'j2' || String(r['__sheet']||'').toLowerCase().includes('2');
+    const nota  = parseInt(r['Opção']||r['opcao']||r['Opção']||'');
+    const resp  = limpa(String(r['Resposta']||r['resposta']||''));
+    const telRaw = r['Telefone']||r['telefone']||r['TELEFONE']||'';
+    const tel   = String(typeof telRaw === 'number' ? telRaw.toFixed(0) : telRaw).replace(/[^\d]/g,'');
+    const proto = String(r['Protocolo']||r['protocolo']||'');
+    const dt    = String(r['Data']||r['data']||'').slice(0,10);
+
+    let ag;
+    if (isFormatoB) {
+      // 'Resposta' = código do agente → traduzir para nome se mapa disponível
+      const cod = resp;
+      if (!cod) return;
+      ag = hasMap ? (NPSIntelligence.resolveAgent(cod, agenteMap) || cod) : cod;
+    } else {
+      // Formato legado: 'Agente' contém o nome diretamente
+      ag = String(r['Agente']||r['agente']||'').trim();
+      if (!ag) return;
+    }
+
+    if (!agData[ag]) agData[ag] = { j1:[], j2:[] };
+
     if (!isJ2 && !isNaN(nota) && nota >= 1 && nota <= 5) {
       agData[ag].j1.push({ d:dt, tel, n:nota, r:resp, p:proto });
     } else if (isJ2 || (isNaN(nota) && resp.length > 2)) {
@@ -4972,6 +5140,7 @@ function renderAll() {
   renderGestao();
   renderVisao360();
   renderSAC();
+  renderSACFCR();
   renderCampo();
   renderClientes();
   renderGestor();
@@ -4979,6 +5148,7 @@ function renderAll() {
   renderCancelamentos();
   renderDespacho();
   renderInfra();
+  renderBonificacao();
 }
 
 function renderGestao() {
@@ -6188,6 +6358,1083 @@ function coerenciaCancelamento(tipo, desc) {
     return { ok: true, msg: '' };
   }
   return { ok: true, msg: '' };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NUVYON v3.9 — SACEngine
+   Módulo de Auditoria SAC Avançada
+   Cruzamento: Matrix (chat) × Hubsoft (OS) × Produtividade Ligações × OS Geral
+   ─────────────────────────────────────────────────────────────────────────────
+   FONTES:
+     matrixRows         — relatorio_analitico_matrix.csv (delim ";")
+                          Colunas: Protocolo | Agente | Tempo de Atendimento
+                                   CPF/CNPJ  | Status
+     hubsoftRows        — atendimentos_hubsoft.xlsx
+                          Colunas: protocolo | codigo_cliente | descricao_abertura
+                                   usuario_abertura
+     prodRows           — produtividade_ligacoes.xlsx
+                          Colunas: Agente | Tempo logado | Qtde. efetivas | TMA
+     osRows             — rawOS + rawOSAbertas (já no STATE)
+                          Colunas: codigo_cliente | tipo_ordem_servico | data_cadastro
+   ─────────────────────────────────────────────────────────────────────────────
+   LÓGICA:
+     1. DEDUPLICAÇÃO: Protocolo Matrix contido em descricao_abertura Hubsoft
+        → Mesmo protocolo 2x pelo mesmo agente conta como 1
+     2. FCR (First Contact Resolution):
+        → Para cada atendimento validado busca OS do mesmo codigo_cliente
+          criada no mesmo dia ou até 24h depois
+        → Com OS: "Não Resolvido" | Sem OS: "Resolvido no Ato"
+     3. PRODUTIVIDADE COMPOSTA:
+        → Aproveitamento = Qtde Efetivas / horas logadas (ligações/h)
+        → Quem tem alto volume mas FCR baixo = "Despachante"
+     4. STATUS POR AGENTE:
+        → FCR ≥ 75%: 🟢 Resolutivo | FCR ≥ 50%: 🟡 Despachante | FCR < 50%: 🔴 Crítico
+   ─────────────────────────────────────────────────────────────────────────────
+   API PÚBLICA:
+     SACEngine.process(matrixRows, hubsoftRows, prodRows, osRows, osAbRows)
+       → { agentes, kpis, deduplicados }
+     SACEngine.fromState()
+       → Lê STATE diretamente (wrapper para aplicarDados)
+═══════════════════════════════════════════════════════════════════════ */
+const SACEngine = {
+
+  /* ── Utilitários internos ──────────────────────────────────────────── */
+  _nf(s) {
+    return String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '').trim();
+  },
+
+  _col(row, ...keys) {
+    for (const k of keys) {
+      for (const rk of Object.keys(row)) {
+        if (rk.trim().toLowerCase() === k.toLowerCase()) {
+          const v = row[rk];
+          if (v !== null && v !== undefined && String(v).trim() !== '')
+            return String(v).trim();
+        }
+      }
+    }
+    return '';
+  },
+
+  /* ── Parse de duração (HH:MM:SS, MM:SS, segundos) → segundos ──────── */
+  _parseSecs(v) {
+    if (!v) return null;
+    const s = String(v).trim();
+    const hms = s.match(/^(\d+):(\d+):(\d+)$/);
+    if (hms) return +hms[1] * 3600 + +hms[2] * 60 + +hms[3];
+    const ms = s.match(/^(\d+):(\d+)$/);
+    if (ms) return +ms[1] * 60 + +ms[2];
+    const n = parseFloat(s.replace(',', '.'));
+    return isNaN(n) ? null : Math.round(n);
+  },
+
+  /* ── Formata segundos → "Xm Ys" ───────────────────────────────────── */
+  _fmtSecs(secs) {
+    if (!secs || isNaN(secs)) return '—';
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  },
+
+  /* ── Formata segundos → "HH:MM" ───────────────────────────────────── */
+  _fmtHM(secs) {
+    if (!secs || isNaN(secs)) return '—';
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PASSO 1 — Indexar Hubsoft: protocolo → { codCli, descAbertura, usuAbertura }
+     A busca usa o protocolo Matrix contido em descricao_abertura do Hubsoft
+  ───────────────────────────────────────────────────────────────────── */
+  _indexHubsoft(hubRows) {
+    const byProto  = {};  // exact: hubProto → entry
+    const byDesc   = [];  // lista para busca por substring
+    (hubRows || []).forEach(r => {
+      const proto  = this._col(r, 'protocolo', 'Protocolo', 'PROTOCOLO', 'num_protocolo').trim();
+      const codCli = this._col(r, 'codigo_cliente', 'cod_cliente', 'cliente_codigo', 'codigo').trim();
+      const desc   = this._col(r, 'descricao_abertura', 'descricaoabertura', 'descricao', 'historico').toUpperCase();
+      const usu    = this._col(r, 'usuario_abertura', 'usuario_fechamento', 'usuario', 'Agente', 'operador').trim();
+      const entry  = { proto, codCli, desc, usu };
+      if (proto) byProto[proto.toUpperCase()] = entry;
+      if (desc)  byDesc.push(entry);
+    });
+    return { byProto, byDesc };
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PASSO 2 — Resolver protocolo Matrix → entrada Hubsoft
+     Estratégia 1: Hubsoft.protocolo === Matrix.Protocolo (exato)
+     Estratégia 2: Matrix.Protocolo está contido em Hubsoft.descricao_abertura
+  ───────────────────────────────────────────────────────────────────── */
+  _resolveProtocolo(matProto, hubIdx) {
+    if (!matProto) return null;
+    const key = matProto.toUpperCase().trim();
+    // Estratégia 1 — match exato de protocolo
+    if (hubIdx.byProto[key]) return hubIdx.byProto[key];
+    // Estratégia 2 — protocolo contido na descricao_abertura
+    const hit = hubIdx.byDesc.find(e => e.desc.includes(key));
+    return hit || null;
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PASSO 3 — Indexar OS por codigo_cliente com timestamp
+     Retorna: { codCli → [ Date, ... ] }
+  ───────────────────────────────────────────────────────────────────── */
+  _indexOS(osRows, osAbRows) {
+    const idx = {};  // { codCli → [timestamp, ...] }
+    const addRow = r => {
+      const cod = this._col(r, 'codigo_cliente', 'cod_cliente', 'codigo_cli', 'codigo').trim();
+      const dt  = parseDate(this._col(r, 'data_cadastro', 'data_abertura', 'data abertura', 'data', 'data_criacao'));
+      if (!cod || !dt) return;
+      if (!idx[cod]) idx[cod] = [];
+      idx[cod].push(dt.getTime());
+    };
+    (osRows || []).forEach(addRow);
+    (osAbRows || []).forEach(addRow);
+    return idx;
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PASSO 4 — Verificar FCR: o cliente gerou OS dentro de 24h do atendimento?
+  ───────────────────────────────────────────────────────────────────── */
+  _gerou_OS(codCli, dtAtendimento, osIdx) {
+    if (!codCli || !dtAtendimento || !osIdx[codCli]) return false;
+    const t = dtAtendimento instanceof Date ? dtAtendimento.getTime() : dtAtendimento;
+    const JANELA_MS = 24 * 60 * 60 * 1000; // 24 horas
+    return osIdx[codCli].some(osT => osT >= t && osT <= t + JANELA_MS);
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PASSO 5 — Indexar produtividade de ligações
+     Retorna: { agNorm → { logadoSecs, efetivas, tmaSecs, aproveitamento } }
+  ───────────────────────────────────────────────────────────────────── */
+  _indexProdutividade(prodRows) {
+    const idx = {};
+    (prodRows || []).forEach(r => {
+      const agRaw  = this._col(r, 'Agente', 'agente', 'AGENTE', 'nome', 'usuario');
+      if (!agRaw || /^total$/i.test(agRaw.trim())) return;
+      // Limpa prefixos numéricos e sufixos de ramal
+      const ag     = agRaw.replace(/^\d+\s*[-–]\s*/, '').replace(/\s*[-–]\s*(SUPORTE|SAC|ATEND.*|RECEPCAO|RECEPÇÃO)\s*$/i, '').trim();
+      const agN    = this._nf(ag);
+      if (!agN) return;
+
+      const logadoRaw  = this._col(r, 'Tempo logado', 'tempo_logado', 'tempo logado', 'logado', 'TL');
+      const efefRaw    = this._col(r, 'Qtde. efetivas', 'qtde efetivas', 'efetivas', 'qtd_efetivas', 'ligacoes_efetivas');
+      const tmaRaw     = this._col(r, 'TMA', 'tma', 'tempo_medio', 'tma_ligacao');
+
+      const logadoSecs = this._parseSecs(logadoRaw) || 0;
+      const efetivas   = parseInt(efefRaw.replace(/\D/g, '')) || 0;
+      const tmaSecs    = this._parseSecs(tmaRaw) || 0;
+      // Aproveitamento = ligações efetivas por hora logada
+      const aproveitamento = logadoSecs > 0 ? +(efetivas / (logadoSecs / 3600)).toFixed(2) : 0;
+
+      idx[agN] = { agReal: ag, logadoSecs, efetivas, tmaSecs, aproveitamento };
+    });
+    return idx;
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PROCESSAMENTO PRINCIPAL
+     Aceita os dados como parâmetros (API-ready para migração a fetch())
+  ───────────────────────────────────────────────────────────────────── */
+  process(matrixRows, hubsoftRows, prodRows, osRows, osAbRows) {
+    if (!matrixRows || !matrixRows.length) return null;
+
+    // Construir índices auxiliares
+    const hubIdx  = this._indexHubsoft(hubsoftRows);
+    const osIdx   = this._indexOS(osRows, osAbRows);
+    const prodIdx = this._indexProdutividade(prodRows);
+
+    // Estrutura por agente
+    const agentes = {};
+    // Controle de deduplicação: agente+protocolo únicos
+    const seenProtos = {};  // `${agNorm}:${proto}` → true
+
+    // Contadores globais
+    let totalLinhas     = 0;
+    let totalDeduplic   = 0;
+    let totalComOS      = 0;
+
+    matrixRows.forEach(r => {
+      const proto  = this._col(r, 'Protocolo', 'protocolo', 'PROTOCOLO').trim();
+      const agRaw  = this._col(r, 'Agente', 'agente', 'AGENTE', 'usuario', 'Usuario').trim();
+      const tempoV = this._col(r, 'Tempo de Atendimento', 'tempo_atendimento', 'Tempo', 'TMA', 'tma');
+      const cpf    = this._col(r, 'CPF/CNPJ', 'cpf_cnpj', 'cpf', 'cnpj', 'documento').trim();
+      const status = this._col(r, 'Status', 'status', 'STATUS').trim();
+
+      if (!agRaw) return;
+      totalLinhas++;
+
+      const agN = this._nf(agRaw);
+      if (!agentes[agN]) {
+        agentes[agN] = {
+          nomeReal: agRaw,
+          total: 0, unicos: 0, duplicados: 0,
+          comOS: 0, semOS: 0, naoValidado: 0,
+          secs: [],         // tempos de atendimento (não-duplic.)
+          protosVistos: new Set(),
+        };
+      }
+      const ag = agentes[agN];
+      ag.total++;
+
+      // ── DEDUPLICAÇÃO ─────────────────────────────────────────────────
+      const dedupKey = `${agN}:${proto.toUpperCase()}`;
+      if (proto && seenProtos[dedupKey]) {
+        ag.duplicados++;
+        return; // conta mas não processa duplicado
+      }
+      if (proto) seenProtos[dedupKey] = true;
+      ag.unicos++;
+      totalDeduplic += ag.duplicados > 0 ? 1 : 0;
+
+      // ── VALIDAÇÃO VIA HUBSOFT ─────────────────────────────────────────
+      const hubEntry = this._resolveProtocolo(proto, hubIdx);
+      // codigo_cliente: vem do Hubsoft quando validado; fallback ao CPF/CNPJ da Matrix
+      const codCli = (hubEntry ? hubEntry.codCli : '') || cpf;
+
+      // ── DATA DO ATENDIMENTO ───────────────────────────────────────────
+      const dtRaw = this._col(r, 'data_entrada', 'data', 'Data', 'data_abertura', 'data_inicio');
+      const dtAt  = parseDate(dtRaw);
+
+      // ── FCR ───────────────────────────────────────────────────────────
+      const gerouOS = codCli ? this._gerou_OS(codCli, dtAt, osIdx) : false;
+
+      if (!hubEntry && !codCli) {
+        ag.naoValidado++;
+      } else if (gerouOS) {
+        ag.comOS++;
+        totalComOS++;
+      } else {
+        ag.semOS++;
+      }
+
+      // TMA
+      const secs = this._parseSecs(tempoV);
+      if (secs !== null) ag.secs.push(secs);
+    });
+
+    // ── CONSOLIDAR POR AGENTE ─────────────────────────────────────────
+    const avgS = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+    const maxAprov = Math.max(...Object.values(prodIdx).map(p => p.aproveitamento), 1);
+
+    const result = [];
+    for (const [agN, ag] of Object.entries(agentes)) {
+      // FCR = (únicos sem OS) / (únicos validados)
+      const validados = ag.semOS + ag.comOS;
+      const fcr       = validados > 0 ? +((ag.semOS / validados) * 100).toFixed(1) : null;
+
+      // TMA médio
+      const tmaMedio = avgS(ag.secs);
+
+      // Cruzar com produtividade de ligações (fuzzy match)
+      const prodKey = Object.keys(prodIdx).find(k => k.includes(agN) || agN.includes(k));
+      const prod    = prodKey ? prodIdx[prodKey] : null;
+
+      // Score composto (0–100):
+      // FCR 40% | Produtividade (aproveitamento normalizado) 30% | TMA inverso 30%
+      const fcrScore  = fcr !== null ? fcr * 0.4 : 20;
+      const prodScore = prod
+        ? Math.min(100, (prod.aproveitamento / Math.max(maxAprov, 1)) * 100) * 0.3
+        : 15;
+      // TMA: menor é melhor — normalizado inversamente entre todos os agentes
+      const allTMAs = Object.values(agentes).map(a => avgS(a.secs)).filter(v => v !== null);
+      const minTMA  = Math.min(...allTMAs, Infinity);
+      const maxTMA  = Math.max(...allTMAs, 1);
+      const tmaInv  = tmaMedio !== null && maxTMA > minTMA
+        ? (1 - (tmaMedio - minTMA) / (maxTMA - minTMA)) * 100 * 0.3
+        : 15;
+
+      const score = Math.min(100, Math.round(fcrScore + prodScore + tmaInv));
+
+      // Status semântico
+      const status = fcr === null
+        ? { label: '⚪ Sem Dados',  color: '#5A6A85', cls: 'sac-status-nodata' }
+        : fcr >= 75
+        ? { label: '🟢 Resolutivo', color: '#10B981', cls: 'sac-status-ok' }
+        : fcr >= 50
+        ? { label: '🟡 Despachante',color: '#F4A429', cls: 'sac-status-warn' }
+        : { label: '🔴 Crítico',    color: '#F05252', cls: 'sac-status-crit' };
+
+      result.push({
+        agN, nomeReal: ag.nomeReal,
+        total: ag.total, unicos: ag.unicos, duplicados: ag.duplicados,
+        comOS: ag.comOS, semOS: ag.semOS, naoValidado: ag.naoValidado,
+        fcr, tmaMedio, score, status,
+        prod: prod ? {
+          efetivas: prod.efetivas,
+          logadoHM: this._fmtHM(prod.logadoSecs),
+          aproveitamento: prod.aproveitamento,
+          tmaSecs: prod.tmaSecs,
+          tmaFmt: this._fmtSecs(prod.tmaSecs),
+        } : null,
+      });
+    }
+
+    result.sort((a, b) => b.score - a.score || b.unicos - a.unicos);
+    result.forEach((a, i) => { a.rank = i + 1; });
+
+    // ── KPIs GLOBAIS ──────────────────────────────────────────────────
+    const comFCR      = result.filter(a => a.fcr !== null);
+    const fcrMedio    = comFCR.length
+      ? +(comFCR.reduce((s, a) => s + a.fcr, 0) / comFCR.length).toFixed(1)
+      : null;
+    const totalUnicos = result.reduce((s, a) => s + a.unicos, 0);
+    const totalDuplic = result.reduce((s, a) => s + a.duplicados, 0);
+    const resolutivos = result.filter(a => a.fcr !== null && a.fcr >= 75).length;
+    const criticos    = result.filter(a => a.fcr !== null && a.fcr < 50).length;
+    const totalLig    = Object.values(prodIdx).reduce((s, p) => s + p.efetivas, 0);
+
+    const kpis = {
+      fcrMedio, totalUnicos, totalDuplic,
+      totalComOS, resolutivos, criticos, totalLig,
+      totalAgentes: result.length,
+    };
+
+    return { agentes: result, kpis, prodIdx };
+  },
+
+  /* ── Wrapper: lê diretamente do STATE (uso interno) ──────────────── */
+  fromState() {
+    return this.process(
+      STATE.relatorioAnalitico,
+      STATE.rawAT,
+      STATE.rawProd,
+      STATE.rawOS,
+      STATE.rawOSAb
+    );
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NUVYON v3.9 — renderSACFCR
+   Renderiza a seção FCR na Guia SAC (abaixo da seção original)
+═══════════════════════════════════════════════════════════════════════ */
+(function injectSACFCRCSS() {
+  if (document.getElementById('css-sac-fcr')) return;
+  const s = document.createElement('style');
+  s.id = 'css-sac-fcr';
+  s.textContent = `
+/* ── Seção FCR ── */
+.fcr-wrap{background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-bottom:20px}
+.fcr-head{background:var(--panel);border-bottom:2px solid var(--accent)33;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.fcr-title{font-weight:900;font-size:15px;color:var(--text);letter-spacing:-.01em}
+.fcr-fonte-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fcr-chip{font-size:10px;border:1px solid;border-radius:20px;padding:3px 10px;font-weight:700;white-space:nowrap}
+/* KPI row */
+.fcr-kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)22}
+.fcr-kpi{background:var(--panel);border-radius:10px;padding:12px 14px;text-align:center}
+.fcr-kpi-val{font-size:22px;font-weight:900;font-family:monospace;line-height:1.1}
+.fcr-kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
+/* Tabela FCR */
+.fcr-table-wrap{overflow-x:auto}
+.fcr-table{width:100%;border-collapse:collapse;font-size:12px}
+.fcr-table thead tr{background:var(--panel)}
+.fcr-table th{padding:9px 12px;text-align:left;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+.fcr-table td{padding:9px 12px;border-bottom:1px solid #1E2A4018;vertical-align:middle}
+.fcr-table tbody tr{transition:background .12s}
+.fcr-table tbody tr:hover{background:var(--panel)}
+/* Barra FCR */
+.fcr-bar-outer{height:6px;border-radius:3px;background:var(--border);width:60px;overflow:hidden;margin-top:3px}
+.fcr-bar-inner{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+/* Status badges */
+.sac-status-ok   {color:#10B981}
+.sac-status-warn {color:#F4A429}
+.sac-status-crit {color:#F05252;animation:sac-pulse 1.8s infinite}
+.sac-status-nodata{color:#5A6A85}
+@keyframes sac-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+/* Dedup badge */
+.fcr-dedup-badge{background:#F4A42918;border:1px solid #F4A42940;border-radius:5px;padding:2px 7px;font-size:10px;color:#F4A429;font-weight:700}
+/* FCR value coloring */
+.fcr-val-ok  {color:#10B981;font-weight:900}
+.fcr-val-warn{color:#F4A429;font-weight:900}
+.fcr-val-crit{color:#F05252;font-weight:900}
+.fcr-val-nd  {color:#5A6A85}
+/* Score ring mini */
+.fcr-score{font-size:17px;font-weight:900;font-family:monospace}
+/* Alerta deduplicação */
+.fcr-dedup-alert{background:#F4A42910;border:1px solid #F4A42933;border-radius:9px;padding:10px 14px;font-size:11px;color:#F4A429;margin:12px 18px;display:flex;gap:8px;align-items:center}
+`;
+  document.head.appendChild(s);
+})();
+
+function renderSACFCR() {
+  const container = document.getElementById('sac-fcr-section');
+  if (!container) return;
+
+  const data = STATE.sacFCR;
+  if (!data) {
+    container.innerHTML = `
+    <div class="fcr-wrap">
+      <div class="fcr-head">
+        <div class="fcr-title">🎯 FCR — Resolução no Primeiro Contato</div>
+      </div>
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:48px 20px">
+        Carregue o <strong>Relatório Analítico Matrix</strong> (CSV com ";") para ativar a análise FCR.<br>
+        <span style="font-size:11px;opacity:.7;margin-top:6px;display:block">Fontes opcionais: Hubsoft (valida protocolos), OS Geral (detecta encaminhamentos), Produtividade Ligações (aproveitamento)</span>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const { agentes, kpis, prodIdx } = data;
+  const hasHub  = STATE.rawAT && STATE.rawAT.length > 0;
+  const hasProd = STATE.rawProd && STATE.rawProd.length > 0;
+  const hasOS   = (STATE.rawOS && STATE.rawOS.length > 0) || (STATE.rawOSAb && STATE.rawOSAb.length > 0);
+  const hasMat  = STATE.relatorioAnalitico && STATE.relatorioAnalitico.length > 0;
+
+  /* ── Barra de fontes ── */
+  const fonteBar = `
+  <div class="fcr-fonte-bar">
+    <span class="fcr-chip" style="${hasMat?'background:var(--accent)22;color:var(--accent);border-color:var(--accent)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasMat?'✅':'○'} Matrix${hasMat?' ('+kpis.totalUnicos+' únicos)':' — não carregada'}
+    </span>
+    <span class="fcr-chip" style="${hasHub?'background:var(--green)22;color:var(--green);border-color:var(--green)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasHub?'✅':'○'} Hubsoft${hasHub?' ('+STATE.rawAT.length+' reg.)':' — não carregado'}
+    </span>
+    <span class="fcr-chip" style="${hasOS?'background:var(--blue)22;color:var(--blue);border-color:var(--blue)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasOS?'✅':'○'} OS Geral${hasOS?' ('+((STATE.rawOS||[]).length+(STATE.rawOSAb||[]).length)+' OS)':' — não carregado'}
+    </span>
+    <span class="fcr-chip" style="${hasProd?'background:var(--purple)22;color:var(--purple);border-color:var(--purple)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasProd?'✅':'○'} Produtividade${hasProd?' ('+STATE.rawProd.length+' agentes)':' — não carregada'}
+    </span>
+  </div>`;
+
+  /* ── KPIs ── */
+  const fcrCls = kpis.fcrMedio === null ? '' : kpis.fcrMedio >= 75 ? C.green : kpis.fcrMedio >= 50 ? C.yellow : C.red;
+  const kpisHtml = `
+  <div class="fcr-kpi-row">
+    ${[
+      ['🎯 FCR Médio',         kpis.fcrMedio !== null ? kpis.fcrMedio+'%' : '—',    fcrCls || C.muted],
+      ['📋 Atend. Únicos',     kpis.totalUnicos.toLocaleString('pt-BR'),             C.accent],
+      ['♻ Duplicados',        kpis.totalDuplic.toLocaleString('pt-BR'),             kpis.totalDuplic>0?C.orange:C.muted],
+      ['📞 Com OS Gerada',     kpis.totalComOS.toLocaleString('pt-BR'),              kpis.totalComOS>0?C.red:C.green],
+      ['🟢 Resolutivos',       kpis.resolutivos,                                    C.green],
+      ['🔴 Críticos',          kpis.criticos,                                       kpis.criticos>0?C.red:C.muted],
+      ['📲 Ligações Efetivas', kpis.totalLig.toLocaleString('pt-BR'),               C.blue],
+    ].map(([l, v, c]) => `
+      <div class="fcr-kpi">
+        <div class="fcr-kpi-val" style="color:${c}">${v}</div>
+        <div class="fcr-kpi-lbl">${l}</div>
+      </div>`).join('')}
+  </div>`;
+
+  /* ── Alerta de deduplicação ── */
+  const dedupAlert = kpis.totalDuplic > 0 ? `
+  <div class="fcr-dedup-alert">
+    <span>♻</span>
+    <span><strong>${kpis.totalDuplic} protocolo(s) duplicado(s)</strong> detectados — o mesmo protocolo foi registrado mais de uma vez pelo mesmo agente. Contabilizados apenas <strong>1 vez</strong> para fins de produtividade.</span>
+  </div>` : '';
+
+  /* ── Linhas da tabela ── */
+  const tableRows = agentes.map(ag => {
+    const rk = ag.rank <= 3 ? ['🥇','🥈','🥉'][ag.rank-1] : `#${ag.rank}`;
+    const fcrCls2 = ag.fcr === null ? 'fcr-val-nd' : ag.fcr >= 75 ? 'fcr-val-ok' : ag.fcr >= 50 ? 'fcr-val-warn' : 'fcr-val-crit';
+    const fcrBar  = ag.fcr !== null ? `
+      <div class="fcr-bar-outer">
+        <div class="fcr-bar-inner" style="width:${ag.fcr}%;background:${ag.status.color}"></div>
+      </div>` : '';
+    const dedupBadge = ag.duplicados > 0
+      ? `<span class="fcr-dedup-badge">♻ ${ag.duplicados} dupl.</span>` : '';
+    const prodCell = ag.prod
+      ? `<div style="font-weight:700;color:var(--blue)">${ag.prod.efetivas} lig.</div>
+         <div style="font-size:10px;color:var(--muted)">${ag.prod.aproveitamento} lig/h · ${ag.prod.tmaFmt} TMA</div>`
+      : `<span style="color:var(--muted)">—</span>`;
+    const tmaCell = ag.tmaMedio !== null
+      ? SACEngine._fmtSecs(ag.tmaMedio)
+      : `<span style="color:var(--muted)">—</span>`;
+    const scoreColor = ag.score >= 70 ? C.accent : ag.score >= 50 ? C.green : ag.score >= 35 ? C.yellow : C.red;
+
+    return `
+    <tr>
+      <td style="text-align:center;font-size:14px;font-weight:800">${rk}</td>
+      <td>
+        <div style="font-weight:700;color:var(--text)">${ag.nomeReal}</div>
+        ${dedupBadge}
+      </td>
+      <td style="text-align:center">
+        <div style="font-weight:700">${ag.unicos.toLocaleString('pt-BR')}</div>
+        <div style="font-size:10px;color:var(--muted)">${ag.total} brutos</div>
+      </td>
+      <td style="text-align:center">
+        <div class="${fcrCls2}">${ag.fcr !== null ? ag.fcr+'%' : '—'}</div>
+        ${fcrBar}
+      </td>
+      <td style="text-align:center">
+        <div style="color:${ag.comOS > 0 ? C.red : C.muted};font-weight:${ag.comOS>0?700:400}">${ag.comOS}</div>
+        <div style="font-size:10px;color:var(--green)">${ag.semOS} resolvidos</div>
+      </td>
+      <td>${tmaCell}</td>
+      <td>${prodCell}</td>
+      <td>
+        <div class="fcr-score" style="color:${scoreColor}">${ag.score}</div>
+      </td>
+      <td class="${ag.status.cls}" style="font-weight:700;white-space:nowrap">${ag.status.label}</td>
+    </tr>`;
+  }).join('');
+
+  /* ── Legenda metodológica ── */
+  const legendaHtml = `
+  <div style="background:var(--panel);border-top:1px solid var(--border)22;padding:12px 18px;font-size:10px;color:var(--muted);display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    <div><span style="font-weight:700;color:${C.green}">🟢 Resolutivo</span><br>FCR ≥ 75% — resolve no ato, não encaminha para técnica.</div>
+    <div><span style="font-weight:700;color:${C.yellow}">🟡 Despachante</span><br>FCR 50–74% — alto volume mas aciona OS com frequência.</div>
+    <div><span style="font-weight:700;color:${C.red}">🔴 Crítico</span><br>FCR &lt; 50% — maioria dos atendimentos gera OS. Requer treinamento urgente.</div>
+  </div>`;
+
+  container.innerHTML = `
+  <div class="fcr-wrap">
+    <div class="fcr-head">
+      <div class="fcr-title">🎯 FCR — Resolução no Primeiro Contato</div>
+      ${fonteBar}
+    </div>
+    ${dedupAlert}
+    ${kpisHtml}
+    <div class="fcr-table-wrap">
+      <table class="fcr-table">
+        <thead>
+          <tr>
+            <th style="width:36px">Rank</th>
+            <th>Agente</th>
+            <th style="text-align:center">Atend.<br><small style="font-weight:400">Únicos</small></th>
+            <th style="text-align:center">FCR %<br><small style="font-weight:400">Resolução</small></th>
+            <th style="text-align:center">Com OS<br><small style="font-weight:400">Encaminhou</small></th>
+            <th style="text-align:center">TMA Chat</th>
+            <th>Produtividade Lig.<br><small style="font-weight:400">Efetivas · lig/h · TMA</small></th>
+            <th style="text-align:center">Score</th>
+            <th>Status FCR</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    ${legendaHtml}
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NUVYON v3.8 — BonificacaoEngine
+   Módulo de Bonificação Inteligente
+   Cruzamento: Matrix CSV × Hubsoft XLSX × NPS × NPS Telefonia
+   ─────────────────────────────────────────────────────────────────────
+   FONTES:
+     STATE.relatorioAnalitico  — Matrix CSV (delim ";")
+       Colunas: Protocolo | Tempo de Atendimento | Status | Tag | Agente
+     STATE.rawAT               — Hubsoft XLSX
+       Colunas: protocolo | descricao_abertura | usuario_fechamento
+     STATE.rankingNPS          — { agente → { nps, total, media } }
+     STATE.rawNpsTelefonia     — CSV/XLSX: Agente | Nota (1–5)
+   ─────────────────────────────────────────────────────────────────────
+   LÓGICA:
+     1. Validação de Protocolo: vincula atendimento Matrix ao Hubsoft
+        verificando se o protocolo consta na descricao_abertura
+     2. Análise de Transferência: status/tag com termos de transbordo
+        reduzem o peso do atendimento
+     3. TMA + Bônus de Agilidade: atendimentos 20% abaixo da média
+        (não-transferidos) ganham +5 pts no score
+     4. Consolidado: Score Final 0–100 ponderado por 4 dimensões
+═══════════════════════════════════════════════════════════════════════ */
+const BonificacaoEngine = {
+
+  /* ── Constantes de peso do score final ────────────────────── */
+  PESOS: { volume: 25, transferencia: 30, tma: 20, nps: 25 },
+
+  /* ── Termos que configuram transbordo/transferência ─────────── */
+  TERMOS_TRANSF: ['transferido','fila','transbordo','transfer','encaminhado','redirecionado','overflow'],
+
+  /* ── Normalização de string para comparação ─────────────────── */
+  _n(s) { return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); },
+  _nf(s) { return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); },
+
+  /* ── Converter "HH:MM:SS" ou número de segundos para segundos ─ */
+  toSecs(v) {
+    if (!v || v === '' || v === null) return null;
+    const s = String(v).trim();
+    // formato HH:MM:SS ou MM:SS
+    const hms = s.match(/^(\d+):(\d+):(\d+)$/);
+    if (hms) return +hms[1]*3600 + +hms[2]*60 + +hms[3];
+    const ms  = s.match(/^(\d+):(\d+)$/);
+    if (ms) return +ms[1]*60 + +ms[2];
+    // número puro (assume segundos)
+    const n = parseFloat(s.replace(',','.'));
+    return isNaN(n) ? null : Math.round(n);
+  },
+
+  /* ── Formatar segundos → "Xm Ys" ─────────────────────────── */
+  fmtSecs(s) {
+    if (!s || isNaN(s)) return '—';
+    const m = Math.floor(s / 60), r = s % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
+  },
+
+  /* ── Checar se Status ou Tag indica transferência ──────────── */
+  isTransf(status, tag) {
+    const haystack = this._n((status||'') + ' ' + (tag||''));
+    return this.TERMOS_TRANSF.some(t => haystack.includes(t.toUpperCase()));
+  },
+
+  /* ── Buscar coluna case-insensitive ──────────────────────── */
+  col(row, ...keys) {
+    for (const k of keys) {
+      for (const rk of Object.keys(row)) {
+        if (rk.trim().toLowerCase() === k.toLowerCase()) {
+          const v = row[rk];
+          if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+        }
+      }
+    }
+    return '';
+  },
+
+  /* ── NPS Telefonia: construir mapa agente→nps ───────────────── */
+  buildNpsTelMap(rows) {
+    if (!rows || !rows.length) return {};
+    const perAg = {};
+    rows.forEach(r => {
+      const ag   = this._nf(this.col(r,'Agente','agente','AGENTE','usuario','Usuario','nome'));
+      const nota = parseInt(this.col(r,'Nota','nota','NOTA','nps','NPS','score','Score') || '');
+      if (!ag || isNaN(nota)) return;
+      if (!perAg[ag]) perAg[ag] = [];
+      perAg[ag].push(nota);
+    });
+    const out = {};
+    for (const [ag, notas] of Object.entries(perAg)) {
+      const tot  = notas.length;
+      const pro  = notas.filter(n => n >= 4).length;
+      const det  = notas.filter(n => n <= 2).length;
+      out[ag] = Math.round((pro - det) / tot * 100);
+    }
+    return out;
+  },
+
+  /* ── Indexar Hubsoft: protocolo → { descricao_abertura, usuario_fechamento } ── */
+  indexHubsoft(rawAT) {
+    const idx = {};
+    (rawAT || []).forEach(r => {
+      const proto = this._n(this.col(r,'protocolo','Protocolo','PROTOCOLO','protocol'));
+      const desc  = this._n(this.col(r,'descricao_abertura','descricaoabertura','descricao','descricão'));
+      const usu   = this.col(r,'usuario_fechamento','usuario','Usuario','agente','Agente','operador');
+      if (proto) idx[proto] = { desc, usu };
+    });
+    return idx;
+  },
+
+  /* ══════════════════════════════════════════════════════════
+     PROCESSAMENTO PRINCIPAL
+     Retorna: { agentes: { nome → AgenteData }, totalLinhas }
+  ══════════════════════════════════════════════════════════ */
+  process(matrixRows, rawAT, rankingNPS, rawNpsTelefonia) {
+    if (!matrixRows || !matrixRows.length) return null;
+
+    // 1. Construir índices auxiliares
+    const hubIdx    = this.indexHubsoft(rawAT);
+    const npsTelMap = this.buildNpsTelMap(rawNpsTelefonia);
+
+    // 2. Processar cada linha da Matrix
+    const agentes = {}; // { nomeNorm → AgStruct }
+
+    const initAg = () => ({
+      nomeReal: '',
+      total: 0,
+      validados: 0,      // validados no Hubsoft
+      transferidos: 0,
+      naoTransf: 0,
+      tempos: [],        // segundos apenas dos não-transferidos
+      todosTempos: [],   // todos os tempos para TMA geral
+      bonusAgilidade: 0, // contagem de atendimentos rápidos
+    });
+
+    matrixRows.forEach(r => {
+      const proto  = this._n(this.col(r,'Protocolo','protocolo','PROTOCOLO'));
+      const agRaw  = this.col(r,'Agente','agente','AGENTE','usuario','Usuario');
+      const status = this.col(r,'Status','status','STATUS');
+      const tag    = this.col(r,'Tag','tag','TAG','tags','Tags');
+      const tempoV = this.col(r,'Tempo de Atendimento','tempo_atendimento','Tempo','TMA','tma');
+
+      if (!agRaw) return;
+
+      const agKey  = this._nf(agRaw);
+      if (!agentes[agKey]) { agentes[agKey] = initAg(); agentes[agKey].nomeReal = agRaw; }
+      const ag = agentes[agKey];
+
+      ag.total++;
+
+      // Validação de Protocolo contra Hubsoft
+      let validado = false;
+      if (proto) {
+        // Busca exata
+        if (hubIdx[proto]) { validado = true; }
+        else {
+          // Busca: protocolo contido na descricao_abertura de qualquer registro
+          validado = Object.values(hubIdx).some(h => h.desc && h.desc.includes(proto));
+        }
+      }
+      if (validado) ag.validados++;
+
+      // Transferência
+      const isT = this.isTransf(status, tag);
+      if (isT) { ag.transferidos++; }
+      else { ag.naoTransf++; }
+
+      // Tempo
+      const secs = this.toSecs(tempoV);
+      if (secs !== null) {
+        ag.todosTempos.push(secs);
+        if (!isT) ag.tempos.push(secs);
+      }
+    });
+
+    // 3. Pós-processamento: TMA + bônus de agilidade
+    const mediaGeralNaoTransf = (() => {
+      const allT = Object.values(agentes).flatMap(a => a.tempos);
+      return allT.length ? Math.round(allT.reduce((s,v)=>s+v,0) / allT.length) : 0;
+    })();
+
+    for (const ag of Object.values(agentes)) {
+      // TMA do agente (apenas não-transferidos)
+      ag.tma = ag.tempos.length
+        ? Math.round(ag.tempos.reduce((s,v)=>s+v,0) / ag.tempos.length)
+        : null;
+
+      // Bônus de agilidade: atendimentos 20% abaixo da média geral
+      if (mediaGeralNaoTransf > 0) {
+        const threshold = mediaGeralNaoTransf * 0.8;
+        ag.bonusAgilidade = ag.tempos.filter(t => t <= threshold).length;
+      }
+
+      // % Transferência
+      ag.pctTransf = ag.total > 0 ? +((ag.transferidos / ag.total) * 100).toFixed(1) : 0;
+
+      // NPS: priorizar NPS Telefonia → rankingNPS → null
+      const agNF = this._nf(ag.nomeReal);
+      // Busca no NPS Telefonia
+      let npsTel = npsTelMap[agNF];
+      if (npsTel === undefined) {
+        const hitTel = Object.keys(npsTelMap).find(k => k.includes(agNF) || agNF.includes(k));
+        npsTel = hitTel !== undefined ? npsTelMap[hitTel] : undefined;
+      }
+      // Busca no ranking NPS existente
+      let npsRank = null;
+      if (rankingNPS) {
+        const hitR = Object.keys(rankingNPS).find(k => this._nf(k) === agNF || this._nf(k).includes(agNF) || agNF.includes(this._nf(k)));
+        if (hitR) npsRank = rankingNPS[hitR].nps;
+      }
+      ag.nps = npsTel !== undefined ? npsTel : npsRank;
+      ag.npsFonte = npsTel !== undefined ? 'Telefonia' : (npsRank !== null ? 'Chat/NPS' : null);
+    }
+
+    // 4. Score Final 0–100
+    // Volumes: normalizar por máximo para comparação relativa
+    const maxVol = Math.max(...Object.values(agentes).map(a => a.total), 1);
+    const minTMA = Math.min(...Object.values(agentes).map(a => a.tma).filter(v => v !== null), Infinity);
+    const maxTMA = Math.max(...Object.values(agentes).map(a => a.tma).filter(v => v !== null), 1);
+
+    for (const ag of Object.values(agentes)) {
+      // Componente 1 — Volume normalizado (25%)
+      const volScore = Math.round((ag.total / maxVol) * 100);
+
+      // Componente 2 — Penalidade de transferência (30%)
+      // pctTransf 0% = 100pts, 100% = 0pts
+      const transfScore = Math.max(0, Math.round(100 - ag.pctTransf * 1.5));
+
+      // Componente 3 — TMA (20%)
+      // Menor TMA = melhor. Normalizado inversamente.
+      let tmaScore = 50; // default se sem dados
+      if (ag.tma !== null && maxTMA > minTMA) {
+        tmaScore = Math.round(100 - ((ag.tma - minTMA) / (maxTMA - minTMA)) * 100);
+      } else if (ag.tma !== null) {
+        tmaScore = 80; // único agente com tempo
+      }
+      // Bônus de agilidade: +5 pts por atendimento rápido (máx +15)
+      const bonusAg = Math.min(15, ag.bonusAgilidade * 5);
+      const tmaFinal = Math.min(100, tmaScore + bonusAg);
+
+      // Componente 4 — NPS (25%)
+      // NPS range −100..+100 → 0..100
+      const npsScore = ag.nps !== null ? Math.round((ag.nps + 100) / 2) : 50;
+
+      ag.score = Math.round(
+        volScore    * (BonificacaoEngine.PESOS.volume        / 100) +
+        transfScore * (BonificacaoEngine.PESOS.transferencia / 100) +
+        tmaFinal    * (BonificacaoEngine.PESOS.tma           / 100) +
+        npsScore    * (BonificacaoEngine.PESOS.nps           / 100)
+      );
+      ag._comp = { volScore, transfScore, tmaFinal, npsScore, bonusAg };
+    }
+
+    // 5. Ranking final por score desc
+    const ranking = Object.values(agentes)
+      .sort((a, b) => b.score - a.score || b.total - a.total)
+      .map((a, i) => ({ ...a, rank: i + 1 }));
+
+    return { ranking, mediaGeralNaoTransf, totalLinhas: matrixRows.length };
+  },
+
+  /* ── Helpers visuais ─────────────────────────────────────── */
+  scoreColor(s) {
+    if (s >= 80) return C.accent;
+    if (s >= 65) return C.green;
+    if (s >= 50) return C.yellow;
+    if (s >= 35) return C.orange;
+    return C.red;
+  },
+
+  scoreBadge(s) {
+    if (s >= 80) return ['🏆 Elite',   C.accent];
+    if (s >= 65) return ['⭐ Destaque', C.green];
+    if (s >= 50) return ['✅ Bom',     '#3B82F6'];
+    if (s >= 35) return ['⚠ Atenção',  C.orange];
+    return               ['❌ Crítico', C.red];
+  },
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   CSS — Bonificação Inteligente
+══════════════════════════════════════════════════════════════════ */
+(function injectBonifCSS() {
+  if (document.getElementById('css-bonif')) return;
+  const s = document.createElement('style');
+  s.id = 'css-bonif';
+  s.textContent = `
+/* ── bonificação top5 grid ── */
+.bon-top5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:900px){.bon-top5{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.bon-top5{grid-template-columns:1fr}}
+.bon-card{border-radius:14px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:default}
+.bon-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px #00000044}
+.bon-card-rank{font-size:28px;margin-bottom:4px}
+.bon-card-nome{font-size:12px;font-weight:800;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bon-card-score{font-size:36px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:4px}
+.bon-card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.bon-card-pill{display:inline-block;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;border:1px solid}
+.bon-score-ring{width:56px;height:56px;margin:0 auto 8px;position:relative}
+.bon-score-ring svg{transform:rotate(-90deg)}
+/* ── tabela principal ── */
+.bon-table{width:100%;border-collapse:collapse;font-size:12px}
+.bon-table thead tr{background:var(--panel)}
+.bon-table th{padding:9px 12px;text-align:left;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+.bon-table td{padding:9px 12px;border-bottom:1px solid #1E2A4018;vertical-align:middle}
+.bon-table tbody tr{transition:background .12s}
+.bon-table tbody tr:hover{background:var(--panel)}
+.bon-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px;width:70px}
+.bon-fill{height:100%;border-radius:3px;transition:width .5s}
+.bon-comp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+@media(max-width:700px){.bon-comp-grid{grid-template-columns:repeat(2,1fr)}}
+.bon-comp-card{background:var(--panel);border-radius:9px;padding:11px;text-align:center}
+.bon-comp-val{font-size:22px;font-weight:800;font-family:monospace}
+.bon-comp-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+.bon-info-row{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
+.bon-fonte-chip{border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;border:1px solid}
+`;
+  document.head.appendChild(s);
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   RENDER — Aba Bonificação Inteligente
+══════════════════════════════════════════════════════════════════ */
+function renderBonificacao() {
+  const el = document.getElementById('bonificacao-content');
+  if (!el) return;
+
+  const matrix = STATE.relatorioAnalitico;
+  if (!matrix || !matrix.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">
+      Carregue o <strong>Relatório Analítico Matrix</strong> (CSV com ";") no painel de upload para ativar este módulo.
+    </div>`;
+    return;
+  }
+
+  const result = BonificacaoEngine.process(
+    matrix,
+    STATE.rawAT,
+    STATE.rankingNPS,
+    STATE.rawNpsTelefonia
+  );
+
+  if (!result || !result.ranking.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">Nenhum agente encontrado no arquivo Matrix.</div>`;
+    return;
+  }
+
+  const { ranking, mediaGeralNaoTransf, totalLinhas } = result;
+  const top5    = ranking.slice(0, 5);
+  const CROWNS  = ['🥇','🥈','🥉','4°','5°'];
+  const hasHub  = STATE.rawAT && STATE.rawAT.length > 0;
+  const hasNPS  = STATE.rawNpsTelefonia || STATE.rankingNPS;
+  const hasTel  = STATE.rawNpsTelefonia && STATE.rawNpsTelefonia.length > 0;
+
+  /* ── Barra de status das fontes ── */
+  const fonteBar = `
+  <div class="bon-info-row">
+    <span style="font-weight:700;color:var(--text)">Fontes ativas:</span>
+    <span class="bon-fonte-chip" style="background:var(--accent)22;color:var(--accent);border-color:var(--accent)55">✅ Matrix (${totalLinhas} linhas)</span>
+    <span class="bon-fonte-chip" style="${hasHub?'background:var(--green)22;color:var(--green);border-color:var(--green)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasHub?'✅':'○'} Hubsoft (${hasHub?STATE.rawAT.length+' registros':'não carregado'})
+    </span>
+    <span class="bon-fonte-chip" style="${hasTel?'background:var(--blue)22;color:var(--blue);border-color:var(--blue)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${hasTel?'✅':'○'} NPS Telefonia${hasTel?' ('+STATE.rawNpsTelefonia.length+' avaliações)':' — não carregado'}
+    </span>
+    <span class="bon-fonte-chip" style="${STATE.rankingNPS?'background:var(--purple)22;color:var(--purple);border-color:var(--purple)55':'background:var(--border);color:var(--muted);border-color:var(--border)'}">
+      ${STATE.rankingNPS?'✅':'○'} NPS Chat${STATE.rankingNPS?' ('+Object.keys(STATE.rankingNPS).length+' agentes)':' — não calculado'}
+    </span>
+  </div>`;
+
+  /* ── KPIs Globais ── */
+  const totalAt    = ranking.reduce((s,a)=>s+a.total,0);
+  const totalTransf= ranking.reduce((s,a)=>s+a.transferidos,0);
+  const pctTransfG = totalAt > 0 ? ((totalTransf/totalAt)*100).toFixed(1) : 0;
+  const avgScore   = Math.round(ranking.reduce((s,a)=>s+a.score,0) / ranking.length);
+  const elites     = ranking.filter(a=>a.score>=80).length;
+
+  const kpisHtml = `
+  <div class="bon-comp-grid" style="margin-bottom:20px">
+    ${[
+      ['🏅 Agentes',          ranking.length,         C.accent],
+      ['📋 Atend. Processados',totalAt.toLocaleString('pt-BR'), C.blue],
+      ['🔀 % Transferências',  pctTransfG+'%',         pctTransfG>30?C.red:pctTransfG>15?C.orange:C.green],
+      ['⏱ TMA Médio (geral)', BonificacaoEngine.fmtSecs(mediaGeralNaoTransf), C.yellow],
+      ['📊 Score Médio',       avgScore,               BonificacaoEngine.scoreColor(avgScore)],
+      ['🏆 Elegíveis Bônus',   elites,                 elites>0?C.accent:C.muted],
+    ].map(([l,v,c])=>`
+      <div class="bon-comp-card">
+        <div class="bon-comp-val" style="color:${c}">${v}</div>
+        <div class="bon-comp-lbl">${l}</div>
+      </div>`).join('')}
+  </div>`;
+
+  /* ── Top 5 Cards ── */
+  const top5Html = `
+  <div class="sec-title" style="margin-bottom:14px"><h3>🏆 Top 5 Agentes para Bônus</h3></div>
+  <div class="bon-top5">
+    ${top5.map((ag, i) => {
+      const cor = BonificacaoEngine.scoreColor(ag.score);
+      const [badgeTxt] = BonificacaoEngine.scoreBadge(ag.score);
+      const pct = Math.min(100, ag.score);
+      // mini SVG ring
+      const r=22, circ=2*Math.PI*r;
+      const dash = (pct/100)*circ;
+      return `
+      <div class="bon-card" style="background:${cor}11;border:2px solid ${cor}44">
+        <div class="bon-card-rank">${CROWNS[i]||('#'+(i+1))}</div>
+        <div class="bon-card-nome" style="color:${cor}" title="${ag.nomeReal}">${ag.nomeReal}</div>
+        <svg class="bon-score-ring" viewBox="0 0 56 56" style="display:block;margin:0 auto 6px">
+          <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>
+          <circle cx="28" cy="28" r="${r}" fill="none" stroke="${cor}" stroke-width="5"
+            stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+            stroke-linecap="round" style="transform:rotate(-90deg);transform-origin:center"/>
+          <text x="28" y="33" text-anchor="middle" fill="${cor}" font-size="12" font-weight="800" style="transform:none">${ag.score}</text>
+        </svg>
+        <div class="bon-card-label">Score Bônus</div>
+        <div class="bon-card-pill" style="background:${cor}22;color:${cor};border-color:${cor}55">${badgeTxt}</div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px">
+          <div style="background:var(--panel);border-radius:5px;padding:4px">
+            <div style="font-weight:700;color:var(--text)">${ag.total}</div>
+            <div style="color:var(--muted)">Atend.</div>
+          </div>
+          <div style="background:var(--panel);border-radius:5px;padding:4px">
+            <div style="font-weight:700;color:${ag.pctTransf>30?C.red:C.green}">${ag.pctTransf}%</div>
+            <div style="color:var(--muted)">Transf.</div>
+          </div>
+          <div style="background:var(--panel);border-radius:5px;padding:4px">
+            <div style="font-weight:700;color:${C.yellow}">${BonificacaoEngine.fmtSecs(ag.tma)}</div>
+            <div style="color:var(--muted)">TMA</div>
+          </div>
+          <div style="background:var(--panel);border-radius:5px;padding:4px">
+            <div style="font-weight:700;color:${ag.nps!==null?BonificacaoEngine.scoreColor(Math.round((ag.nps+100)/2)):C.muted}">
+              ${ag.nps !== null ? (ag.nps>=0?'+':'')+ag.nps : '—'}
+            </div>
+            <div style="color:var(--muted)">NPS</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  /* ── Tabela Detalhada ── */
+  const tableRows = ranking.map(ag => {
+    const cor  = BonificacaoEngine.scoreColor(ag.score);
+    const [badgeTxt, badgeCor] = BonificacaoEngine.scoreBadge(ag.score);
+    const rk   = ag.rank <= 3 ? ['🥇','🥈','🥉'][ag.rank-1] : `#${ag.rank}`;
+    const pctBarW = Math.min(100, ag.score);
+    return `
+    <tr>
+      <td style="font-size:14px;text-align:center;font-weight:800">${rk}</td>
+      <td>
+        <div style="font-weight:700;color:var(--text)">${ag.nomeReal}</div>
+        ${ag.validados > 0 ? `<div style="font-size:10px;color:var(--accent)">✔ ${ag.validados} validados no Hubsoft</div>` : ''}
+      </td>
+      <td style="text-align:center">
+        <div style="font-weight:700;color:var(--text)">${ag.total}</div>
+        <div style="font-size:10px;color:var(--muted)">${ag.naoTransf} diretos</div>
+      </td>
+      <td style="text-align:center">
+        <div style="font-weight:700;color:${ag.pctTransf>30?C.red:ag.pctTransf>15?C.orange:C.green}">${ag.pctTransf}%</div>
+        <div style="font-size:10px;color:var(--muted)">${ag.transferidos} atend.</div>
+      </td>
+      <td style="text-align:center">
+        <div style="font-weight:700;color:${C.yellow}">${BonificacaoEngine.fmtSecs(ag.tma)}</div>
+        ${ag.bonusAgilidade>0?`<div style="font-size:10px;color:var(--accent)">⚡ +${ag.bonusAgilidade} rápidos</div>`:''}
+      </td>
+      <td style="text-align:center">
+        ${ag.nps !== null
+          ? `<div style="font-weight:700;color:${BonificacaoEngine.scoreColor(Math.round((ag.nps+100)/2))}">${ag.nps>=0?'+':''}${ag.nps}</div>
+             <div style="font-size:10px;color:var(--muted)">${ag.npsFonte||''}</div>`
+          : '<span style="color:var(--muted)">—</span>'}
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:18px;font-weight:900;color:${cor};font-family:monospace;min-width:28px">${ag.score}</div>
+          <div>
+            <div class="bon-bar"><div class="bon-fill" style="width:${pctBarW}%;background:${cor}"></div></div>
+            <span style="background:${badgeCor}22;color:${badgeCor};border:1px solid ${badgeCor}55;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${badgeTxt}</span>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:10px;color:var(--muted)">
+        <div>Vol: ${ag._comp.volScore}</div>
+        <div>Transf: ${ag._comp.transfScore}</div>
+        <div>TMA: ${ag._comp.tmaFinal}${ag._comp.bonusAg>0?'(+'+ag._comp.bonusAg+'⚡)':''}</div>
+        <div>NPS: ${ag._comp.npsScore}</div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const tableHtml = `
+  <div class="sec-title" style="margin-bottom:12px"><h3>📋 Ranking Detalhado — Todos os Agentes</h3></div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">
+    <div style="overflow-x:auto">
+      <table class="bon-table">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:44px">Rank</th>
+            <th>Agente</th>
+            <th style="text-align:center">Total Atend.<br><small style="font-weight:400">/ Diretos</small></th>
+            <th style="text-align:center">% Transf.<br><small style="font-weight:400">Penalização</small></th>
+            <th style="text-align:center">TMA<br><small style="font-weight:400">⚡ Rápidos</small></th>
+            <th style="text-align:center">Nota NPS<br><small style="font-weight:400">Fonte</small></th>
+            <th>Score Bônus<br><small style="font-weight:400">0–100</small></th>
+            <th style="font-size:10px">Componentes</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+  </div>`;
+
+  /* ── Legenda metodológica ── */
+  const legendaHtml = `
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:11px;color:var(--muted)">
+    <div style="font-weight:700;color:var(--text);margin-bottom:8px">📐 Metodologia do Score (0–100)</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div><span style="font-weight:700;color:${C.accent}">25% Volume</span><br>Participação relativa no total de atendimentos. Normalizado pelo agente de maior volume.</div>
+      <div><span style="font-weight:700;color:${C.red}">30% Transferência</span><br>Penalização proporcional ao % de transbordo. 0% transf. = 100 pts. Termos: Transferido, Fila, Transbordo, Encaminhado.</div>
+      <div><span style="font-weight:700;color:${C.yellow}">20% TMA</span><br>Menor TMA = maior score. Bônus de agilidade (+5 pts por atendimento 20%+ abaixo da média, máx +15).</div>
+      <div><span style="font-weight:700;color:${C.purple}">25% NPS</span><br>NPS Telefonia (prioridade) ou NPS Chat. Escala −100…+100 → 0…100 pts.</div>
+    </div>
+  </div>`;
+
+  el.innerHTML = `<div style="padding:20px">${fonteBar}${kpisHtml}${top5Html}${tableHtml}${legendaHtml}</div>`;
 }
 
 function renderCancelamentos() {
