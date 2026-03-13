@@ -947,6 +947,8 @@ window.addEventListener('load', async () => {
       <div style="color:var(--muted);font-size:12px;margin-bottom:16px">Clientes que abriram SAC, geraram OS e voltaram ao SAC — risco crítico de churn.</div>
       <div class="tbl-wrap"><table style="width:100%"><thead><tr><th>Cliente</th><th>Total OS</th><th>Total SAC</th><th>Health</th><th>Motivo</th><th>Ação</th></tr></thead><tbody id="gestao-jornada-cruzada-tbody"></tbody></table></div>
     </div>
+    <!-- ── Dashboard ROI & Churn por Cidade ── -->
+    <div id="gestao-roi-section" style="margin-top:20px"></div>
   </div>
 
   <!-- ══════════ ABA VISÃO 360 ══════════ -->
@@ -1432,6 +1434,52 @@ function normalizeKey(obj, ...keys) {
   return '';
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   findData(row, variants) — busca flexível tolerante a variações
+   de nomes de coluna nos relatórios.
+   Normaliza: minúsculas + sem acento + sem espaço/underscore.
+   Retorna '' se não encontrar (nunca lança exceção).
+   Variantes padrão disponíveis via findData.COLS.*
+───────────────────────────────────────────────────────────────── */
+function findData(row, variants) {
+  if (!row || !variants || !variants.length) return '';
+  const norm = s => String(s||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[\s_\-().\/]/g,'');
+  for (const k of variants) {
+    const kn = norm(k);
+    for (const rk of Object.keys(row)) {
+      if (norm(rk) === kn) {
+        const v = row[rk];
+        if (v !== null && v !== undefined && String(v).trim() !== '')
+          return String(v).trim();
+      }
+    }
+  }
+  return '';
+}
+
+/* Variantes padrão (usadas em todo o sistema) */
+findData.COLS = {
+  CLIENTE: ['nome_razaosocial','nome_razao_social','Assinante','Nome Cliente','Nome do Cliente','Cliente','Nome','nome','razao_social'],
+  SINAL:   ['Sinal ONU','sinal_onu','sinal','dbm','rx','potencia','Sinal (dBm)','sinal_rx','rx_level','rx_power'],
+  AGENTE:  ['Agente','agente','usuario_abertura','usuario_fechamento','Resposta','Cod.','operador','Usuario','usuario','atendente','nome_agente'],
+  CIDADE:  ['cidade','Cidade','municipio','Municipio','city'],
+  BAIRRO:  ['bairro','Bairro','neighborhood','district'],
+  CODIGO:  ['codigo_cliente','cod_cliente','Codigo','codigo','Cod.','id_cliente'],
+};
+
+/* Normaliza nome de agente para MAIÚSCULAS e remove prefixos numéricos
+   tipo "3 - " ou "3-" — evita duplicatas "Ana" vs "ANA" */
+function normalizeAgenteName(raw) {
+  if (!raw) return '';
+  return String(raw)
+    .replace(/^\d+\s*[-–]\s*/, '')       // remove "3 - "
+    .replace(/\s*[-–]\s*(SUPORTE|SAC|ATEND.*|RECEPCAO|RECEPÇÃO)\s*$/i, '')
+    .trim()
+    .toUpperCase();
+}
+
 function readFileAsRows(file, opts={}) {
   return new Promise((resolve, reject) => {
     const ext = file.name.split('.').pop().toLowerCase();
@@ -1765,13 +1813,13 @@ function processSAC(rows) {
     });
     if (porSubstring.length === 1) return (_cacheResolucao[raw] = porSubstring[0]);
 
-    // 5. Sem match → mantém o nome original (novo agente)
-    return (_cacheResolucao[raw] = raw);
+    // 5. Sem match → mantém o nome original (novo agente) — sempre em MAIÚSCULAS
+    return (_cacheResolucao[raw] = normalizeAgenteName(raw));
   };
 
   const aMap = {};
   rows.forEach(r => {
-    const agRaw = normalizeKey(r, 'Agente', 'agente', 'nome_agente', 'atendente', 'operador');
+    const agRaw = findData(r, findData.COLS.AGENTE) || normalizeKey(r, 'Agente', 'agente', 'nome_agente', 'atendente', 'operador');
     if (!agRaw || /^bot$/i.test(agRaw.trim())) return;
     const ag = normalizarAgente(agRaw);
 
@@ -5169,9 +5217,10 @@ function renderGestao() {
     htmlAg += `<tr><td>${nome}</td><td>${data.total}</td><td>${data.taxa_resolucao}%</td><td>${data.score}%</td><td>${data.veredicto}</td></tr>`;
   });
   document.getElementById('gestao-sac-tbody').innerHTML = htmlAg;
-  
+
   // Renderizar tabela de jornada cruzada (clientes que tiveram SAC→OS→SAC)
   renderJornadaCruzada();
+  renderROI();
 }
 
 function renderJornadaCruzada() {
@@ -5204,6 +5253,206 @@ function renderJornadaCruzada() {
   });
   
   document.getElementById('gestao-jornada-cruzada-tbody').innerHTML = htmlJornada;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NUVYON v3.9 — renderROI
+   Dashboard ROI Executivo: Ativações vs Cancelamentos por Cidade
+   + Taxa de Churn Relativa + Diagnóstico Automatizado
+══════════════════════════════════════════════════════════════════ */
+function renderROI() {
+  const el = document.getElementById('gestao-roi-section');
+  if (!el) return;
+
+  // ── Fontes de dados ──────────────────────────────────────────────
+  const osRows   = STATE.rawOS    || [];       // OS finalizadas (ativações, cancelamentos)
+  const osAbRows = STATE.rawOSAb  || [];       // OS abertas
+  const sinais   = STATE.rawSinais || [];      // sinais ONU por região
+
+  const allOS = [...osRows, ...osAbRows];
+
+  if (!allOS.length) {
+    el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:28px;text-align:center;color:var(--muted);font-size:13px">
+      📊 Carregue o <strong>Relatório de OS</strong> para ativar o Dashboard ROI por Cidade.
+    </div>`;
+    return;
+  }
+
+  // ── Detectar colunas dinamicamente ──────────────────────────────
+  const tipo = r => findData(r, ['tipo_ordem_servico','tipo_os','tipo','Tipo']) || '';
+  const cid  = r => findData(r, findData.COLS.CIDADE) || 'Sem Cidade';
+
+  // ── Indexar sinais por cidade ────────────────────────────────────
+  const sinalPorCidade = {};
+  (sinais || []).forEach(r => {
+    const cidade   = findData(r, findData.COLS.CIDADE) || '';
+    const sinalRaw = findData(r, findData.COLS.SINAL);
+    const sinalVal = parseFloat(String(sinalRaw||'').replace(',','.'));
+    if (!cidade || isNaN(sinalVal) || sinalVal === 0) return;
+    if (!sinalPorCidade[cidade]) sinalPorCidade[cidade] = [];
+    sinalPorCidade[cidade].push(sinalVal);
+  });
+  const sinalMedCidade = {};
+  Object.entries(sinalPorCidade).forEach(([c, vals]) => {
+    sinalMedCidade[c] = +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1);
+  });
+
+  // ── Consolidar ativações e cancelamentos por cidade ──────────────
+  // Fórmula de Churn correta: (Cancelamentos / Ativações) × 100
+  const cidadeMap = {};
+  allOS.forEach(r => {
+    const c = cid(r);
+    const t = tipo(r).toUpperCase().trim();
+    if (!cidadeMap[c]) cidadeMap[c] = { ativacoes: 0, cancelamentos: 0 };
+    // Ativações: Instalação, Ativação, Migração, Nova Instalação
+    if (/ATIV|INSTAL|MIGR|NOVA/.test(t))                                cidadeMap[c].ativacoes++;
+    // Cancelamentos: Retirada de Equipamento, Cancelamento, Rescisão, Inadimplência, Logística
+    if (/CANCEL|RET[.\s]+EQUIP|RETIR|RESCIS|INADIMPL|LOGIST/.test(t)) cidadeMap[c].cancelamentos++;
+  });
+
+  const cidades = Object.entries(cidadeMap)
+    .map(([nome, d]) => {
+      // Churn = (Cancelamentos / Ativações) × 100 — real taxa de perda vs aquisição
+      const churn = d.ativacoes > 0
+        ? +((d.cancelamentos / d.ativacoes) * 100).toFixed(1)
+        : d.cancelamentos > 0 ? 100 : 0;
+      const sinal = sinalMedCidade[nome] ?? null;
+      return { nome, ...d, churn, sinal };
+    })
+    .filter(c => c.ativacoes > 0 || c.cancelamentos > 0)
+    .sort((a, b) => (b.ativacoes + b.cancelamentos) - (a.ativacoes + a.cancelamentos));
+
+  if (!cidades.length) { el.innerHTML = ''; return; }
+
+  // ── KPIs macro ───────────────────────────────────────────────────
+  const totalAtiv = cidades.reduce((s,c)=>s+c.ativacoes,   0);
+  const totalCanc = cidades.reduce((s,c)=>s+c.cancelamentos,0);
+  // Churn geral = cancelamentos / ativações × 100
+  const churnGeral = totalAtiv > 0 ? +((totalCanc/totalAtiv)*100).toFixed(1) : 0;
+  // Cidade com maior churn (min 1 cancelamento para evitar outlier)
+  const cidCritica = cidades.filter(c=>c.cancelamentos>=1).sort((a,b)=>b.churn-a.churn)[0];
+
+  // ── Insight principal (obrigatório) ─────────────────────────────
+  const insightPrincipal = cidCritica
+    ? `A cidade <strong>${cidCritica.nome}</strong> tem o maior índice de perda de clientes: `
+      + `<strong style="color:${cidCritica.churn>=100?C.red:cidCritica.churn>=50?C.orange:C.yellow}">`
+      + `${cidCritica.churn}%</strong> de churn `
+      + `(${cidCritica.cancelamentos} cancelamento${cidCritica.cancelamentos!==1?'s':''} `
+      + `para ${cidCritica.ativacoes} ativação${cidCritica.ativacoes!==1?'s':''}).`
+    : '';
+
+  // ── Diagnósticos automáticos por cidade crítica ──────────────────
+  const diagnosticos = cidades
+    .filter(c => c.churn > 30)
+    .slice(0, 5)
+    .map(c => {
+      const sinalRuim = c.sinal !== null && c.sinal < -25;
+      if (sinalRuim)
+        return `🔴 <strong>${c.nome}</strong> — <strong>${c.churn}%</strong> de churn, sinal médio de ${c.sinal} dBm. `
+          + `<span style="color:var(--orange);font-weight:700">Investimento em Infraestrutura Recomendado.</span>`;
+      return `🟡 <strong>${c.nome}</strong> — <strong>${c.churn}%</strong> de churn. `
+        + `Verifique qualidade técnica e histórico de reincidência na região.`;
+    });
+
+  // ── Tabela por cidade ────────────────────────────────────────────
+  const maxAtiv = Math.max(...cidades.map(c=>c.ativacoes), 1);
+  const maxCanc = Math.max(...cidades.map(c=>c.cancelamentos), 1);
+  const linhas = cidades.slice(0, 30).map(c => {
+    const churnCor = c.churn >= 100 ? C.red : c.churn >= 50 ? C.orange : c.churn >= 20 ? C.yellow : C.green;
+    const barAtiv  = Math.round((c.ativacoes / maxAtiv) * 100);
+    const barCanc  = Math.round((c.cancelamentos / maxCanc) * 100);
+    const sinalCor = c.sinal === null ? C.muted : c.sinal < -34 ? C.red : c.sinal < -25 ? C.orange : C.green;
+    const diagIcon = c.churn >= 100 ? '🔴 Crítico'
+      : c.churn >= 50  ? (c.sinal!==null&&c.sinal<-25?'🔴 Infra':'🟡 Alto')
+      : c.churn >= 20  ? '⚠️ Médio'
+      : '✅ Saudável';
+    return `
+    <tr style="border-bottom:1px solid var(--border)22">
+      <td style="padding:9px 14px;font-weight:700;color:${c.nome===cidCritica?.nome?C.red:'var(--text)'}">
+        ${c.nome===cidCritica?.nome?'🔴 ':''}${c.nome}
+      </td>
+      <td style="padding:9px 14px;text-align:center">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:7px;border-radius:4px;background:var(--border);overflow:hidden">
+            <div style="width:${barAtiv}%;height:100%;background:${C.green};border-radius:4px"></div>
+          </div>
+          <span style="color:${C.green};font-weight:800;min-width:28px;font-family:monospace">${c.ativacoes}</span>
+        </div>
+      </td>
+      <td style="padding:9px 14px;text-align:center">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:7px;border-radius:4px;background:var(--border);overflow:hidden">
+            <div style="width:${barCanc}%;height:100%;background:${C.red};border-radius:4px"></div>
+          </div>
+          <span style="color:${C.red};font-weight:800;min-width:28px;font-family:monospace">${c.cancelamentos}</span>
+        </div>
+      </td>
+      <td style="padding:9px 14px;text-align:center">
+        <span style="font-weight:900;color:${churnCor};font-family:monospace;font-size:13px">${c.churn}%</span>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${c.cancelamentos}/${c.ativacoes} atv</div>
+      </td>
+      <td style="padding:9px 14px;text-align:center;font-weight:700;color:${sinalCor}">
+        ${c.sinal !== null ? c.sinal+' dBm' : '<span style="color:var(--muted)">—</span>'}
+      </td>
+      <td style="padding:9px 14px;font-size:11px;font-weight:600">${diagIcon}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden">
+    <div style="background:var(--panel);border-bottom:2px solid var(--accent)33;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-weight:900;font-size:15px;color:var(--text)">📊 Dashboard ROI — Ativações vs Cancelamentos por Cidade</div>
+      <div style="font-size:11px;color:var(--muted)">Fontes: OS${osAbRows.length?' + OS Abertas':''}${sinais.length?' + Sinais':''} · Churn = Cancelamentos / Ativações × 100</div>
+    </div>
+
+    <!-- KPIs macro -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)22">
+      ${[
+        ['🟢 Ativações',      totalAtiv,          C.green],
+        ['🔴 Cancelamentos',  totalCanc,           C.red],
+        ['📉 Churn Geral',   churnGeral+'%',       churnGeral>=100?C.red:churnGeral>=50?C.orange:churnGeral>=20?C.yellow:C.green],
+        ['🏙 Maior Perda',   cidCritica ? cidCritica.nome : '—', C.red],
+      ].map(([l,v,c])=>`
+        <div style="background:var(--panel);border-radius:10px;padding:12px;text-align:center;border:1px solid var(--border)22">
+          <div style="font-size:${String(v).length>8?'14px':'20px'};font-weight:900;color:${c};font-family:monospace">${v}</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:4px">${l}</div>
+        </div>`).join('')}
+    </div>
+
+    ${insightPrincipal ? `
+    <!-- Insight Principal -->
+    <div style="margin:14px 18px;background:${C.red}0d;border-left:4px solid ${C.red};border-radius:0 8px 8px 0;padding:12px 16px">
+      <div style="font-size:12px;font-weight:700;color:${C.red};margin-bottom:4px">💡 Insight Principal</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6">${insightPrincipal}</div>
+    </div>` : ''}
+
+    ${diagnosticos.length ? `
+    <div style="margin:0 18px 14px;background:#1a100022;border:1px solid var(--orange)33;border-radius:9px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:800;color:var(--orange);margin-bottom:8px">🤖 Diagnósticos Automáticos</div>
+      ${diagnosticos.map(d=>`<div style="font-size:11px;color:var(--text);line-height:1.7;margin-bottom:4px">${d}</div>`).join('')}
+    </div>` : ''}
+
+    <!-- Tabela -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:var(--panel)">
+            <th style="padding:9px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Cidade</th>
+            <th style="padding:9px 14px;text-align:center;color:${C.green};font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Ativações</th>
+            <th style="padding:9px 14px;text-align:center;color:${C.red};font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Cancelamentos</th>
+            <th style="padding:9px 14px;text-align:center;color:var(--orange);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Churn % <span style="font-weight:400">(Canc/Ativ)</span></th>
+            <th style="padding:9px 14px;text-align:center;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Sinal Médio</th>
+            <th style="padding:9px 14px;text-align:center;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Diagnóstico</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>
+    <div style="padding:10px 18px;font-size:10px;color:var(--muted);background:var(--panel);border-top:1px solid var(--border)22">
+      Churn = Cancelamentos ÷ Ativações × 100 &nbsp;·&nbsp; ≥100% = cancela mais do que ativa &nbsp;·&nbsp; Churn &gt;30% + sinal ruim → Infra recomendada
+    </div>
+  </div>`;
 }
 
 function renderVisao360() {
@@ -5875,11 +6124,16 @@ const DispatchEngine = {
   /**
    * Recebe array raw de OS abertas, normaliza, pontua e agrupa
    * por cidade+bairro em blocos de MAX_CLUSTER OS.
+   * opts: { qtdGrupo, cidade, tipos[] }  — filtros dinâmicos
    */
   MAX_CLUSTER: 6,
 
-  process(rawRows) {
+  process(rawRows, opts) {
     if (!rawRows || !rawRows.length) return [];
+    const qtd    = (opts && opts.qtdGrupo) || this.MAX_CLUSTER;
+    const fCid   = (opts && opts.cidade)   || '';
+    const fTipos = (opts && opts.tipos && opts.tipos.length) ? opts.tipos : [];
+
     const nk = (r, ...ks) => {
       for (const k of ks) {
         for (const rk of Object.keys(r)) {
@@ -5893,25 +6147,29 @@ const DispatchEngine = {
     };
 
     // Normalizar
-    const os = rawRows.map(r => ({
+    let os = rawRows.map(r => ({
       id:      nk(r,'id_ordem_servico','id_os','numero_ordem_servico','numero_os'),
       cod:     nk(r,'codigo_cliente','cod_cliente'),
-      nome:    nk(r,'nome_razaosocial','nome','Nome Cliente'),
+      nome:    findData(r, findData.COLS.CLIENTE) || nk(r,'nome_razaosocial','nome','Nome Cliente'),
       tipo:    nk(r,'tipo_ordem_servico','tipo'),
       desc_ab: nk(r,'descricao_abertura','descricao_ab'),
       data:    nk(r,'data_inicio_programado','data_programado','data_abertura','data'),
       prior:   nk(r,'prioridade','Prioridade'),
-      bairro:  nk(r,'bairro','Bairro') || 'Sem Bairro',
-      cidade:  nk(r,'cidade','Cidade') || 'Sem Cidade',
+      bairro:  findData(r, findData.COLS.BAIRRO) || 'Sem Bairro',
+      cidade:  findData(r, findData.COLS.CIDADE) || 'Sem Cidade',
       status:  nk(r,'status','Status'),
       tec:     nk(r,'tecnicos','tecnico'),
       end:     nk(r,'endereco','Endereco'),
     })).filter(r => r.nome || r.id);
 
+    // ── Aplicar filtros ─────────────────────────────────────────────
+    if (fCid)         os = os.filter(o => o.cidade === fCid);
+    if (fTipos.length) os = os.filter(o => fTipos.some(t => o.tipo === t));
+
     // Pontuar
     os.forEach(o => { o._pts = DispatchEngine.score(o); });
 
-    // Agrupar por cidade+bairro, ordenado por pontuação desc dentro de cada grupo
+    // Agrupar por cidade+bairro (proximidade por bairro)
     const grupos = {};
     os.forEach(o => {
       const key = (o.cidade + '||' + o.bairro).toLowerCase();
@@ -5919,12 +6177,12 @@ const DispatchEngine = {
       grupos[key].os.push(o);
     });
 
-    // Ordenar OS dentro de cada grupo e dividir em clusters de MAX_CLUSTER
+    // Ordenar OS dentro de cada grupo e dividir em clusters de qtd
     const clusters = [];
     Object.values(grupos).forEach(g => {
       g.os.sort((a, b) => b._pts - a._pts);
-      for (let i = 0; i < g.os.length; i += DispatchEngine.MAX_CLUSTER) {
-        const bloco = g.os.slice(i, i + DispatchEngine.MAX_CLUSTER);
+      for (let i = 0; i < g.os.length; i += qtd) {
+        const bloco = g.os.slice(i, i + qtd);
         const topPts = bloco[0]._pts;
         clusters.push({
           cidade: g.cidade,
@@ -5932,7 +6190,7 @@ const DispatchEngine = {
           os: bloco,
           topPts,
           prio: DispatchEngine.labelPrioridade(topPts),
-          idx: Math.floor(i / DispatchEngine.MAX_CLUSTER) + 1,
+          idx: Math.floor(i / qtd) + 1,
         });
       }
     });
@@ -5944,8 +6202,49 @@ const DispatchEngine = {
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   RENDER — Aba Despacho Inteligente
+   RENDER — Aba Despacho Inteligente (v3.9 — filtros dinâmicos)
 ═══════════════════════════════════════════════════════════════ */
+
+/* Estado dos filtros — persiste entre re-renders */
+const _despachoFiltro = {
+  cidade:   '',       // '' = todas
+  tipos:    [],       // [] = todos
+  qtdGrupo: 6,        // default DispatchEngine.MAX_CLUSTER
+};
+
+function _despachoGetFiltro() {
+  // Lê os valores dos controles do DOM e persiste no estado
+  const cidEl  = document.getElementById('desp-fil-cidade');
+  const qtdEl  = document.getElementById('desp-fil-qtd');
+  const tipEl  = document.getElementById('desp-fil-tipos');
+  if (cidEl) _despachoFiltro.cidade   = cidEl.value;
+  if (qtdEl) _despachoFiltro.qtdGrupo = Math.max(1, Math.min(20, parseInt(qtdEl.value) || 6));
+  if (tipEl) {
+    const selecionados = Array.from(tipEl.selectedOptions).map(o => o.value).filter(Boolean);
+    _despachoFiltro.tipos = selecionados;
+  }
+}
+
+/* Chamada segura a partir dos controles — garante persistência antes de renderizar */
+function _despachoSetCidade(val) {
+  _despachoFiltro.cidade = val;
+  renderDespacho();
+}
+function _despachoSetQtd(val) {
+  _despachoFiltro.qtdGrupo = Math.max(1, Math.min(20, parseInt(val) || 6));
+  renderDespacho();
+}
+function _despachoSetTipos(sel) {
+  _despachoFiltro.tipos = Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
+  renderDespacho();
+}
+function _despachoClearFiltros() {
+  _despachoFiltro.cidade   = '';
+  _despachoFiltro.tipos    = [];
+  _despachoFiltro.qtdGrupo = 6;
+  renderDespacho();
+}
+
 function renderDespacho() {
   const el = document.getElementById('despacho-content');
   if (!el) return;
@@ -5957,7 +6256,22 @@ function renderDespacho() {
     return;
   }
 
-  const clusters = DispatchEngine.process(raw);
+  // Ler filtros do DOM (se já renderizados)
+  _despachoGetFiltro();
+
+  // Extrair cidades e tipos únicos para os selects
+  const allParsed = DispatchEngine.process(raw, { qtdGrupo: 999, cidade: '', tipos: [] });
+  const todasCidades = [...new Set(allParsed.map(c => c.cidade).filter(Boolean))].sort();
+  const todosTipos   = [...new Set(
+    (raw || []).map(r => (r['tipo_ordem_servico']||r['tipo']||r['Tipo']||'').trim()).filter(Boolean)
+  )].sort();
+
+  // Aplicar filtros ao process
+  const clusters = DispatchEngine.process(raw, {
+    qtdGrupo: _despachoFiltro.qtdGrupo,
+    cidade:   _despachoFiltro.cidade,
+    tipos:    _despachoFiltro.tipos,
+  });
   const tecnicos = TECNICOS_VALIDOS || [];
 
   // KPIs rápidos
@@ -5969,12 +6283,59 @@ function renderDespacho() {
   let html = '<div style="padding:20px">';
 
   // KPIs
-  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px">'
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">'
     + _dKpi('Total OS', totalOS, 'var(--accent)')
     + _dKpi('🔴 Urgentes', urgentes, 'var(--red)')
     + _dKpi('🟣 Críticos', criticos, '#a855f7')
     + _dKpi('Cidades', cidades, 'var(--blue)')
     + '</div>';
+
+  // ── Painel de filtros ───────────────────────────────────────────────
+  const cidOpts = '<option value="">Todas as cidades (' + raw.length + ' OS)</option>'
+    + todasCidades.map(c =>
+        '<option value="' + c.replace(/"/g,'&quot;') + '"'
+        + (_despachoFiltro.cidade === c ? ' selected' : '') + '>'
+        + c + '</option>'
+      ).join('');
+
+  const tipOpts = todosTipos.map(t =>
+    '<option value="' + t.replace(/"/g,'&quot;') + '"'
+    + (_despachoFiltro.tipos.includes(t) ? ' selected' : '') + '>'
+    + t + '</option>'
+  ).join('');
+
+  html += `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+    <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;align-self:flex-start;padding-top:2px;white-space:nowrap">Filtros:</div>
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:180px">
+      <label style="font-size:10px;color:var(--muted);font-weight:700">🏙 CIDADE</label>
+      <select id="desp-fil-cidade" onchange="_despachoSetCidade(this.value)"
+        style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer">
+        ${cidOpts}
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:220px">
+      <label style="font-size:10px;color:var(--muted);font-weight:700">📋 TIPO DE OS <span style="font-weight:400">(Ctrl+clique para múltiplos)</span></label>
+      <select id="desp-fil-tipos" multiple size="3" onchange="_despachoSetTipos(this)"
+        style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:4px 8px;color:var(--text);font-size:11px;outline:none;cursor:pointer;max-height:80px">
+        ${tipOpts}
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:100px">
+      <label style="font-size:10px;color:var(--muted);font-weight:700">👥 OS POR GRUPO</label>
+      <input id="desp-fil-qtd" type="number" min="1" max="20" value="${_despachoFiltro.qtdGrupo}"
+        onchange="_despachoSetQtd(this.value)" oninput="_despachoSetQtd(this.value)"
+        style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:13px;font-weight:700;outline:none;width:70px;text-align:center">
+    </div>
+    ${_despachoFiltro.cidade || _despachoFiltro.tipos.length
+      ? '<button onclick="_despachoClearFiltros()" style="background:var(--red)22;color:var(--red);border:1px solid var(--red)44;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;align-self:flex-end">✕ Limpar</button>'
+      : ''}
+    <div style="flex:1;text-align:right;font-size:11px;color:var(--muted);align-self:flex-end">
+      <strong style="color:var(--accent)">${clusters.reduce((s,c)=>s+c.os.length,0)}</strong> OS em
+      <strong style="color:var(--accent)">${clusters.length}</strong> grupos
+      ${_despachoFiltro.cidade ? `· <span style="color:var(--blue)">📍 ${_despachoFiltro.cidade}</span>` : ''}
+    </div>
+  </div>`;
 
   // Legenda de prioridade
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center">'
@@ -6030,7 +6391,29 @@ function renderDespacho() {
       + '</div>';
     });
 
-    // Seletor de técnico + botão despacho
+    // Seletor de técnico + botão despacho + botão Maps
+    // Montar URL do Google Maps com waypoints das OS do cluster
+    const enderecos = cluster.os
+      .map(o => [o.end, o.bairro, o.cidade].filter(Boolean).join(', '))
+      .filter(Boolean);
+    let mapsUrl = '';
+    if (enderecos.length > 0) {
+      // Google Maps Directions: origin=primeiro, destination=último, waypoints=meio
+      const enc = s => encodeURIComponent(s);
+      if (enderecos.length === 1) {
+        mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + enc(enderecos[0]);
+      } else {
+        const origin      = enc(enderecos[0]);
+        const destination = enc(enderecos[enderecos.length - 1]);
+        const waypoints   = enderecos.slice(1, -1).map(enc).join('|');
+        mapsUrl = 'https://www.google.com/maps/dir/?api=1'
+          + '&origin='      + origin
+          + '&destination=' + destination
+          + (waypoints ? '&waypoints=' + waypoints : '')
+          + '&travelmode=driving';
+      }
+    }
+
     html += '<div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       + '<select id="tec-' + clusterId + '" style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;outline:none">'
         + '<option value="">— Selecionar Técnico —</option>'
@@ -6040,6 +6423,11 @@ function renderDespacho() {
         + 'style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">'
         + '🚀 Despachar'
       + '</button>'
+      + (mapsUrl
+        ? '<a href="' + mapsUrl + '" target="_blank" rel="noopener" '
+          + 'style="display:inline-flex;align-items:center;gap:5px;background:#1a73e822;color:#4285f4;border:1px solid #4285f444;border-radius:7px;padding:7px 13px;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap;cursor:pointer">'
+          + '📍 Ver Rota no Maps</a>'
+        : '')
     + '</div>';
 
     html += '</div>'; // padding
@@ -6088,29 +6476,60 @@ const InfraEngine = {
     return                          { label:'Péssimo',     cor:'#E53E3E',       bg:'#200000', emoji:'💀', peso:4 };
   },
 
-  /** Normaliza uma linha do relatório de sinais */
-  parseRow(r) {
-    const nk = (r, ...ks) => {
-      for (const k of ks) {
-        for (const rk of Object.keys(r)) {
-          const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-          if (norm(rk) === norm(k)) {
-            const v = r[rk];
-            if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
-          }
-        }
-      }
-      return '';
-    };
+  /** Normaliza e parseia uma linha do relatório de Sinais ONU (4 camadas de nome — ver detalhes abaixo) */
+  /**
+   * Parseia uma linha do relatório de Sinais ONU.
+   * Estratégia de nome (4 camadas):
+   *   1. Colunas diretas do arquivo: Assinante | Nome Cliente | nome_razaosocial | Cliente | Nome
+   *   2. findData.COLS.CLIENTE (varredura tolerante a acentos/espaços)
+   *   3. Cruzamento por codigo_cliente em STATE.rawOS e STATE.rawAT
+   *   4. Fallback: exibe o código do cliente para rastreabilidade
+   */
+  parseRow(r, _nomeIdx) {
+    // Camada 1 — colunas típicas do arquivo de sinais (priority order)
+    const nomeDireto =
+      r['Assinante']         ||
+      r['Nome Cliente']      ||
+      r['nome_razaosocial']  ||
+      r['nome_razao_social'] ||
+      r['Cliente']           ||
+      r['Nome do Cliente']   ||
+      r['Nome']              ||
+      r['nome']              || '';
+
+    // Camada 2 — findData tolerante a variações
+    const nomeFind = nomeDireto.trim() ? '' : findData(r, findData.COLS.CLIENTE);
+
+    // Código do cliente — base para cruzamento
+    const cod = findData(r, findData.COLS.CODIGO)
+      || findData(r, ['CPF','cnpj','CPF/CNPJ','cpf_cnpj','documento']);
+
+    // Camada 3 — cruzamento com STATE.rawOS e STATE.rawAT se nome ainda vazio
+    let nomeCruz = '';
+    if (!nomeDireto.trim() && !nomeFind && cod && _nomeIdx) {
+      nomeCruz = _nomeIdx[cod.replace(/[^0-9a-zA-Z]/g,'')] || '';
+    }
+
+    // Camada 4 — fallback: código para rastreabilidade
+    const nomeFinal = (nomeDireto.trim() || nomeFind || nomeCruz || cod || '').trim();
+
+    const sinalRaw = findData(r, findData.COLS.SINAL);
+    const sinal    = parseFloat(String(sinalRaw).replace(',','.'));
+    const sinalVal = (!sinalRaw || sinalRaw === '0' || isNaN(sinal)) ? NaN : sinal;
+
     return {
-      cod:     nk(r,'Cod Cliente','cod_cliente','codigo_cliente'),
-      nome:    nk(r,'Nome Cliente','nome_cliente','nome'),
-      sinal:   parseFloat(nk(r,'Sinal ONU','sinal_onu','sinal') || 'NaN'),
-      caixa:   nk(r,'Caixa Optica','caixa_optica','Caixa Óptica'),
-      portaCx: nk(r,'Porta Caixa Optica','porta_caixa_optica','Porta Caixa Óptica'),
-      status:  nk(r,'Status Servico','status_servico','Status Serviço'),
-      cidade:  nk(r,'Cidade','cidade'),
-      bairro:  nk(r,'Bairro','bairro'),
+      cod,
+      nome:      nomeFinal,
+      _nomeFonte: nomeDireto.trim() ? 'direto' : nomeFind ? 'findData' : nomeCruz ? 'cruzamento' : cod ? 'cod' : '',
+      sinal:     sinalVal,
+      sinalTexto: (!sinalRaw || sinalRaw === '0') ? 'Sinal não enviado' : null,
+      caixa:     findData(r, ['Caixa Optica','caixa_optica','Caixa Óptica','caixa','CTO','Cto']),
+      portaCx:   findData(r, ['Porta Caixa Optica','porta_caixa_optica','Porta Caixa Óptica','porta_cx','Porta CTO']),
+      porta:     findData(r, ['Porta PON','porta_pon','porta']),
+      status:    findData(r, ['Status Servico','status_servico','Status Serviço','status','Status']),
+      cidade:    findData(r, findData.COLS.CIDADE),
+      bairro:    findData(r, findData.COLS.BAIRRO),
+      proj:      findData(r, ['Projeto','projeto']),
     };
   },
 
@@ -6156,16 +6575,70 @@ function renderInfra() {
 
   const rawSin = STATE.rawSinais;
   if (!rawSin || !rawSin.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:60px">'
-      + 'Carregue o <strong>Relatório de Sinais ONU</strong> no painel de upload para ver esta análise.</div>';
+    el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;text-align:center;gap:16px">
+      <div style="font-size:52px">📡</div>
+      <div style="font-size:17px;font-weight:800;color:var(--text)">Aguardando Relatório de Sinais ONU</div>
+      <div style="font-size:13px;color:var(--muted);max-width:460px;line-height:1.7">
+        Carregue o arquivo <strong>Relatório de Sinais ONU</strong> (.xlsx ou .csv) no painel de upload
+        para ativar a análise de infraestrutura e identificar clientes com sinal crítico.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+        <span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:11px;color:var(--muted)">Sinal ONU (dBm)</span>
+        <span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:11px;color:var(--muted)">Caixa Óptica</span>
+        <span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:11px;color:var(--muted)">Cidade / Bairro</span>
+        <span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:11px;color:var(--muted)">Cliente / Código</span>
+      </div>
+    </div>`;
     return;
   }
 
+  // ── Construir índice de nomes para cruzamento (Camada 3 do parseRow) ──
+  // Fontes: STATE.rawOS e STATE.rawAT — chave = código normalizado (só alfanumérico)
+  const _nomeIdx = {};
+  const _normCod = c => String(c||'').replace(/[^0-9a-zA-Z]/g,'');
+  [...(STATE.rawOS||[]), ...(STATE.rawAT||[])].forEach(r => {
+    const cod = _normCod(
+      r['codigo_cliente'] || r['cod_cliente'] || r['Codigo'] || r['Cod.'] ||
+      r['id_cliente']     || r['CPF']         || r['cnpj']   || r['cpf_cnpj'] || ''
+    );
+    const nome = (
+      r['nome_razaosocial'] || r['Nome Cliente']   || r['Assinante'] ||
+      r['nome_razao_social']|| r['Cliente']         || r['Nome do Cliente'] ||
+      r['nome'] || ''
+    ).trim();
+    if (cod && nome && !_nomeIdx[cod]) _nomeIdx[cod] = nome;
+  });
+
   // Parsear e classificar
-  const sinais = rawSin
-    .map(r => InfraEngine.parseRow(r))
+  const sinaisRaw = rawSin
+    .map(r => InfraEngine.parseRow(r, _nomeIdx))
     .filter(r => r.nome || r.cod)
     .map(r => ({ ...r, ...InfraEngine.classifySinal(r.sinal) }));
+
+  // Verificar se a coluna de sinal existe (todos com peso === 0 = sem dados)
+  const comSinalValido = sinaisRaw.filter(r => !isNaN(r.sinal) && r.sinal !== 0 && r.sinalTexto !== 'Sinal não enviado');
+  if (!sinaisRaw.length || (sinaisRaw.length > 0 && comSinalValido.length === 0)) {
+    el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;text-align:center;gap:16px">
+      <div style="font-size:52px">⚠️</div>
+      <div style="font-size:17px;font-weight:800;color:var(--orange)">Aguardando Relatório de Sinais ONU</div>
+      <div style="font-size:13px;color:var(--muted);max-width:500px;line-height:1.7">
+        O arquivo foi carregado (${rawSin.length} linhas), mas a coluna de <strong>Sinal (dBm)</strong> não foi encontrada ou todos os valores estão zerados.
+        <br><br>Verifique se o arquivo contém uma coluna com nome similar a:
+        <code style="background:var(--card);padding:2px 6px;border-radius:4px">Sinal ONU</code>,
+        <code style="background:var(--card);padding:2px 6px;border-radius:4px">sinal_rx</code> ou
+        <code style="background:var(--card);padding:2px 6px;border-radius:4px">dbm</code>.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        ${Object.keys(rawSin[0]||{}).slice(0,8).map(k=>`<span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--muted);font-family:monospace">${k}</span>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted)">↑ Colunas detectadas no arquivo</div>
+    </div>`;
+    return;
+  }
+
+  const sinais = sinaisRaw;
 
   // Filtros
   const selCid = window._infraCidade || 'TODAS';
@@ -6249,7 +6722,7 @@ function renderInfra() {
               + '<td style="padding:7px 10px"><div style="font-weight:700;color:var(--text)">' + (c.nome||'').slice(0,26) + '</div>'
                 + '<div style="font-size:10px;color:var(--muted)">' + c.cidade + ' / ' + c.bairro + '</div></td>'
               + '<td style="padding:7px 10px;font-family:monospace;font-size:11px;color:var(--muted)">' + (c.caixa||'—') + '<br>' + c.cidade + '</td>'
-              + '<td style="padding:7px 10px;text-align:center;font-weight:800;font-size:14px;color:' + c.cor + '">' + (isNaN(c.sinal)?'—':c.sinal+' dBm') + '</td>'
+              + '<td style="padding:7px 10px;text-align:center;font-weight:800;font-size:14px;color:' + c.cor + '">' + (isNaN(c.sinal) ? (c.sinalTexto||'Sinal não enviado') : c.sinal+' dBm') + '</td>'
               + '<td style="padding:7px 10px;text-align:center"><span style="background:' + c.cor + '22;color:' + c.cor + ';border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">' + c.emoji + ' ' + c.label + '</span></td>'
               + '<td style="padding:7px 10px;text-align:center;font-weight:800;color:#a855f7">' + c.totalAT + '</td>'
               + '<td style="padding:7px 10px;font-size:11px;font-weight:600">' + rec + '</td>'
@@ -6298,9 +6771,27 @@ function renderInfra() {
       + '</tr></thead><tbody>'
       + listaOrdenada.slice(0, 300).map((r, i) => {
           const sc = InfraEngine.classifySinal(r.sinal);
+          // Nome com indicação visual de fonte e fallback para código
+          const nomeExib = r.nome
+            ? r.nome.slice(0, 28)
+            : r.cod
+              ? `<span style="color:var(--muted);font-family:monospace">${r.cod}</span>`
+              : '<span style="color:var(--red);font-size:10px">—sem identificação—</span>';
+          const fonteTag = r._nomeFonte === 'cruzamento'
+            ? `<span style="font-size:9px;background:var(--blue)22;color:var(--blue);border-radius:3px;padding:1px 4px;margin-left:4px">OS/AT</span>`
+            : r._nomeFonte === 'cod'
+              ? `<span style="font-size:9px;background:var(--orange)22;color:var(--orange);border-radius:3px;padding:1px 4px;margin-left:4px">cod</span>`
+              : '';
           return '<tr style="border-bottom:1px solid var(--border);background:' + (sc.bg || (i%2===0?'var(--card)':'transparent')) + '">'
-            + '<td style="padding:5px 8px"><div style="font-weight:600;color:var(--text)">' + (r.nome||'').slice(0,26) + '</div>'
-              + '<div style="font-size:10px;color:var(--muted)">' + r.cidade + ' · ' + r.bairro + '</div></td>'
+            + '<td style="padding:5px 8px">'
+              + '<div style="font-weight:600;color:var(--text);display:flex;align-items:center;gap:2px">'
+                + nomeExib + fonteTag
+              + '</div>'
+              + '<div style="font-size:10px;color:var(--muted);margin-top:1px">'
+                + (r.cod ? r.cod + ' · ' : '')
+                + r.cidade + (r.bairro ? ' · ' + r.bairro : '')
+              + '</div>'
+            + '</td>'
             + '<td style="padding:5px 8px;font-family:monospace;font-size:10px;color:var(--muted)">' + (r.caixa||'—') + ' / P' + (r.portaCx||'?') + '</td>'
             + '<td style="padding:5px 8px;text-align:center;font-weight:800;color:' + sc.cor + '">' + r.sinal + ' dBm</td>'
             + '<td style="padding:5px 8px;text-align:center"><span style="background:' + sc.cor + '22;color:' + sc.cor + ';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">' + sc.emoji + ' ' + sc.label + '</span></td>'
@@ -6914,67 +7405,69 @@ function renderSACFCR() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   NUVYON v3.8 — BonificacaoEngine
-   Módulo de Bonificação Inteligente
-   Cruzamento: Matrix CSV × Hubsoft XLSX × NPS × NPS Telefonia
+   NUVYON v3.9 — BonificacaoEngine (Golf Edition)
    ─────────────────────────────────────────────────────────────────────
-   FONTES:
-     STATE.relatorioAnalitico  — Matrix CSV (delim ";")
-       Colunas: Protocolo | Tempo de Atendimento | Status | Tag | Agente
-     STATE.rawAT               — Hubsoft XLSX
-       Colunas: protocolo | descricao_abertura | usuario_fechamento
-     STATE.rankingNPS          — { agente → { nps, total, media } }
-     STATE.rawNpsTelefonia     — CSV/XLSX: Agente | Nota (1–5)
-   ─────────────────────────────────────────────────────────────────────
-   LÓGICA:
-     1. Validação de Protocolo: vincula atendimento Matrix ao Hubsoft
-        verificando se o protocolo consta na descricao_abertura
-     2. Análise de Transferência: status/tag com termos de transbordo
-        reduzem o peso do atendimento
-     3. TMA + Bônus de Agilidade: atendimentos 20% abaixo da média
-        (não-transferidos) ganham +5 pts no score
-     4. Consolidado: Score Final 0–100 ponderado por 4 dimensões
+   CRITÉRIOS E PESOS:
+     1. NPS            (Peso 5%)  — Nota média do agente da aba NPS
+     2. Qualidade      (Peso 30%) — Análise de Tag (Matrix) + descricao_fechamento (Hubsoft)
+     3. Produtividade  (Peso 65%) — Soma Matrix + Hubsoft (atendimentos únicos validados)
+   CÁLCULO GOLF:
+     Cada critério gera um ranking individual (1º, 2º, 3º…).
+     Pontuação final = SOMA DAS POSIÇÕES.
+     Quem tiver a MENOR SOMA é o 1º lugar geral.
+     Em caso de empate, desempate por Produtividade.
 ═══════════════════════════════════════════════════════════════════════ */
 const BonificacaoEngine = {
 
-  /* ── Constantes de peso do score final ────────────────────── */
-  PESOS: { volume: 25, transferencia: 30, tma: 20, nps: 25 },
+  /* ── Constantes de peso ─────────────────────────────────────── */
+  PESOS: { nps: 5, qualidade: 30, produtividade: 65 },
 
-  /* ── Termos que configuram transbordo/transferência ─────────── */
+  /* ── Termos de transferência / transbordo ───────────────────── */
   TERMOS_TRANSF: ['transferido','fila','transbordo','transfer','encaminhado','redirecionado','overflow'],
 
-  /* ── Normalização de string para comparação ─────────────────── */
-  _n(s) { return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); },
+  /* ── Termos positivos de qualidade (Tag/descrição) ──────────── */
+  TERMOS_QUAL_POS: ['resolvido','solucao','finalizado','concluido','satisf','elogio','perfeito','otimo','excelente'],
+  TERMOS_QUAL_NEG: ['insatisf','reclamacao','reclamação','pendente','sem solucao','sem retorno','nao resolvido','escalado','reincid'],
+
+  /* ── Normalização ────────────────────────────────────────────── */
+  _n(s)  { return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); },
   _nf(s) { return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); },
 
-  /* ── Converter "HH:MM:SS" ou número de segundos para segundos ─ */
+  /* ── Tempo string → segundos ─────────────────────────────────── */
   toSecs(v) {
     if (!v || v === '' || v === null) return null;
     const s = String(v).trim();
-    // formato HH:MM:SS ou MM:SS
     const hms = s.match(/^(\d+):(\d+):(\d+)$/);
     if (hms) return +hms[1]*3600 + +hms[2]*60 + +hms[3];
     const ms  = s.match(/^(\d+):(\d+)$/);
     if (ms) return +ms[1]*60 + +ms[2];
-    // número puro (assume segundos)
     const n = parseFloat(s.replace(',','.'));
     return isNaN(n) ? null : Math.round(n);
   },
 
-  /* ── Formatar segundos → "Xm Ys" ─────────────────────────── */
+  /* ── Formatar segundos → "Xm Ys" ─────────────────────────────── */
   fmtSecs(s) {
     if (!s || isNaN(s)) return '—';
-    const m = Math.floor(s / 60), r = s % 60;
+    const m = Math.floor(s/60), r = s%60;
     return m > 0 ? `${m}m ${r}s` : `${r}s`;
   },
 
-  /* ── Checar se Status ou Tag indica transferência ──────────── */
+  /* ── Checar transferência ─────────────────────────────────────── */
   isTransf(status, tag) {
-    const haystack = this._n((status||'') + ' ' + (tag||''));
-    return this.TERMOS_TRANSF.some(t => haystack.includes(t.toUpperCase()));
+    const h = this._n((status||'')+' '+(tag||''));
+    return this.TERMOS_TRANSF.some(t => h.includes(t.toUpperCase()));
   },
 
-  /* ── Buscar coluna case-insensitive ──────────────────────── */
+  /* ── Score de qualidade por texto ───────────────────────────── */
+  qualScore(tag, descFech) {
+    const h = this._nf((tag||'')+' '+(descFech||''));
+    const pos = this.TERMOS_QUAL_POS.filter(t => h.includes(t)).length;
+    const neg = this.TERMOS_QUAL_NEG.filter(t => h.includes(t)).length;
+    // +10 por positivo, -15 por negativo, base 50, clamp 0-100
+    return Math.min(100, Math.max(0, 50 + pos*10 - neg*15));
+  },
+
+  /* ── Buscar coluna flexível ──────────────────────────────────── */
   col(row, ...keys) {
     for (const k of keys) {
       for (const rk of Object.keys(row)) {
@@ -6987,12 +7480,12 @@ const BonificacaoEngine = {
     return '';
   },
 
-  /* ── NPS Telefonia: construir mapa agente→nps ───────────────── */
+  /* ── NPS Telefonia → mapa agente→nps ─────────────────────────── */
   buildNpsTelMap(rows) {
     if (!rows || !rows.length) return {};
     const perAg = {};
     rows.forEach(r => {
-      const ag   = this._nf(this.col(r,'Agente','agente','AGENTE','usuario','Usuario','nome'));
+      const ag   = this._nf(findData(r, findData.COLS.AGENTE) || this.col(r,'Agente','agente'));
       const nota = parseInt(this.col(r,'Nota','nota','NOTA','nps','NPS','score','Score') || '');
       if (!ag || isNaN(nota)) return;
       if (!perAg[ag]) perAg[ag] = [];
@@ -7000,173 +7493,184 @@ const BonificacaoEngine = {
     });
     const out = {};
     for (const [ag, notas] of Object.entries(perAg)) {
-      const tot  = notas.length;
-      const pro  = notas.filter(n => n >= 4).length;
-      const det  = notas.filter(n => n <= 2).length;
-      out[ag] = Math.round((pro - det) / tot * 100);
+      const tot = notas.length, pro = notas.filter(n=>n>=4).length, det = notas.filter(n=>n<=2).length;
+      out[ag] = Math.round((pro-det)/tot*100);
     }
     return out;
   },
 
-  /* ── Indexar Hubsoft: protocolo → { descricao_abertura, usuario_fechamento } ── */
+  /* ── Indexar Hubsoft ─────────────────────────────────────────── */
   indexHubsoft(rawAT) {
-    const idx = {};
+    const byProto = {}, byDesc = [];
     (rawAT || []).forEach(r => {
-      const proto = this._n(this.col(r,'protocolo','Protocolo','PROTOCOLO','protocol'));
-      const desc  = this._n(this.col(r,'descricao_abertura','descricaoabertura','descricao','descricão'));
-      const usu   = this.col(r,'usuario_fechamento','usuario','Usuario','agente','Agente','operador');
-      if (proto) idx[proto] = { desc, usu };
+      const proto = this._n(this.col(r,'protocolo','Protocolo','PROTOCOLO'));
+      const desc  = this._n(this.col(r,'descricao_abertura','descricaoabertura','descricao'));
+      const descF = this._n(this.col(r,'descricao_fechamento','descricaofechamento','desc_fechamento'));
+      const usu   = normalizeAgenteName(this.col(r,'usuario_fechamento','usuario_abertura','usuario','agente','Agente'));
+      const entry = { desc, descF, usu };
+      if (proto) { byProto[proto] = entry; }
+      if (desc)  byDesc.push({ proto, ...entry });
     });
-    return idx;
+    return { byProto, byDesc };
   },
 
-  /* ══════════════════════════════════════════════════════════
-     PROCESSAMENTO PRINCIPAL
-     Retorna: { agentes: { nome → AgenteData }, totalLinhas }
-  ══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     PROCESSAMENTO PRINCIPAL — SISTEMA GOLF
+  ══════════════════════════════════════════════════════════════ */
   process(matrixRows, rawAT, rankingNPS, rawNpsTelefonia) {
     if (!matrixRows || !matrixRows.length) return null;
 
-    // 1. Construir índices auxiliares
     const hubIdx    = this.indexHubsoft(rawAT);
     const npsTelMap = this.buildNpsTelMap(rawNpsTelefonia);
 
-    // 2. Processar cada linha da Matrix
-    const agentes = {}; // { nomeNorm → AgStruct }
+    // ── Coletar dados por agente ─────────────────────────────────
+    const agentes = {};
 
-    const initAg = () => ({
-      nomeReal: '',
-      total: 0,
-      validados: 0,      // validados no Hubsoft
-      transferidos: 0,
-      naoTransf: 0,
-      tempos: [],        // segundos apenas dos não-transferidos
-      todosTempos: [],   // todos os tempos para TMA geral
-      bonusAgilidade: 0, // contagem de atendimentos rápidos
-    });
+    const getAg = (nomeRaw) => {
+      const nome = normalizeAgenteName(nomeRaw);
+      const key  = this._nf(nome);
+      if (!key) return null;
+      if (!agentes[key]) {
+        agentes[key] = {
+          nomeReal: nome,
+          // Produtividade: contagem única de protocolos Matrix + Hubsoft
+          protosMatrix:  new Set(),
+          protosHubsoft: new Set(),
+          atMatrix:  0,  // total bruto Matrix
+          atHub: 0,      // total bruto Hubsoft
+          // Qualidade
+          qualScores: [],  // scores por atendimento
+          transferidos: 0,
+          tempos: [],
+          // NPS
+          nps: null, npsFonte: null,
+        };
+      }
+      return agentes[key];
+    };
 
+    // ── Matrix ───────────────────────────────────────────────────
     matrixRows.forEach(r => {
+      const agRaw  = findData(r, findData.COLS.AGENTE) || this.col(r,'Agente','agente','AGENTE');
+      if (!agRaw) return;
+      const ag = getAg(agRaw);
+      if (!ag) return;
+
       const proto  = this._n(this.col(r,'Protocolo','protocolo','PROTOCOLO'));
-      const agRaw  = this.col(r,'Agente','agente','AGENTE','usuario','Usuario');
       const status = this.col(r,'Status','status','STATUS');
       const tag    = this.col(r,'Tag','tag','TAG','tags','Tags');
       const tempoV = this.col(r,'Tempo de Atendimento','tempo_atendimento','Tempo','TMA','tma');
+      const descF  = this.col(r,'descricao_fechamento','descricao_fechamento','Descricao Fechamento');
 
-      if (!agRaw) return;
+      ag.atMatrix++;
+      if (proto) ag.protosMatrix.add(proto);
 
-      const agKey  = this._nf(agRaw);
-      if (!agentes[agKey]) { agentes[agKey] = initAg(); agentes[agKey].nomeReal = agRaw; }
-      const ag = agentes[agKey];
+      if (this.isTransf(status, tag)) ag.transferidos++;
 
-      ag.total++;
-
-      // Validação de Protocolo contra Hubsoft
-      let validado = false;
-      if (proto) {
-        // Busca exata
-        if (hubIdx[proto]) { validado = true; }
-        else {
-          // Busca: protocolo contido na descricao_abertura de qualquer registro
-          validado = Object.values(hubIdx).some(h => h.desc && h.desc.includes(proto));
-        }
-      }
-      if (validado) ag.validados++;
-
-      // Transferência
-      const isT = this.isTransf(status, tag);
-      if (isT) { ag.transferidos++; }
-      else { ag.naoTransf++; }
-
-      // Tempo
       const secs = this.toSecs(tempoV);
-      if (secs !== null) {
-        ag.todosTempos.push(secs);
-        if (!isT) ag.tempos.push(secs);
-      }
+      if (secs !== null) ag.tempos.push(secs);
+
+      // Score de qualidade: Tag + descricao_fechamento
+      ag.qualScores.push(this.qualScore(tag, descF));
     });
 
-    // 3. Pós-processamento: TMA + bônus de agilidade
-    const mediaGeralNaoTransf = (() => {
-      const allT = Object.values(agentes).flatMap(a => a.tempos);
-      return allT.length ? Math.round(allT.reduce((s,v)=>s+v,0) / allT.length) : 0;
-    })();
+    // ── Hubsoft (atendimentos adicionais, validação e descricao_fechamento) ──
+    (rawAT || []).forEach(r => {
+      const agRaw = normalizeAgenteName(this.col(r,'usuario_fechamento','usuario_abertura','usuario','agente','Agente','Resposta'));
+      if (!agRaw) return;
+      const ag = getAg(agRaw);
+      if (!ag) return;
 
-    for (const ag of Object.values(agentes)) {
-      // TMA do agente (apenas não-transferidos)
-      ag.tma = ag.tempos.length
-        ? Math.round(ag.tempos.reduce((s,v)=>s+v,0) / ag.tempos.length)
-        : null;
+      const proto = this._n(this.col(r,'protocolo','Protocolo'));
+      const descF = this.col(r,'descricao_fechamento','descricaofechamento','desc_fechamento','descricao_fechamento');
 
-      // Bônus de agilidade: atendimentos 20% abaixo da média geral
-      if (mediaGeralNaoTransf > 0) {
-        const threshold = mediaGeralNaoTransf * 0.8;
-        ag.bonusAgilidade = ag.tempos.filter(t => t <= threshold).length;
-      }
+      ag.atHub++;
+      if (proto) ag.protosHubsoft.add(proto);
 
-      // % Transferência
-      ag.pctTransf = ag.total > 0 ? +((ag.transferidos / ag.total) * 100).toFixed(1) : 0;
+      // Qualidade via descricao_fechamento do Hubsoft
+      if (descF) ag.qualScores.push(this.qualScore('', descF));
+    });
 
-      // NPS: priorizar NPS Telefonia → rankingNPS → null
-      const agNF = this._nf(ag.nomeReal);
-      // Busca no NPS Telefonia
-      let npsTel = npsTelMap[agNF];
+    // ── Calcular métricas por agente ─────────────────────────────
+    for (const [key, ag] of Object.entries(agentes)) {
+      // Produtividade = union de protocolos únicos Matrix ∪ Hubsoft
+      const allProtos = new Set([...ag.protosMatrix, ...ag.protosHubsoft]);
+      ag.prodTotal = allProtos.size || (ag.atMatrix + ag.atHub);
+      ag.pctTransf = ag.atMatrix > 0 ? +((ag.transferidos/ag.atMatrix)*100).toFixed(1) : 0;
+      ag.tma = ag.tempos.length ? Math.round(ag.tempos.reduce((s,v)=>s+v,0)/ag.tempos.length) : null;
+      ag.qualMedia = ag.qualScores.length ? Math.round(ag.qualScores.reduce((s,v)=>s+v,0)/ag.qualScores.length) : 50;
+
+      // NPS: prioriza Telefonia → rankingNPS
+      const nf = this._nf(ag.nomeReal);
+      let npsTel = npsTelMap[nf];
       if (npsTel === undefined) {
-        const hitTel = Object.keys(npsTelMap).find(k => k.includes(agNF) || agNF.includes(k));
-        npsTel = hitTel !== undefined ? npsTelMap[hitTel] : undefined;
+        const hit = Object.keys(npsTelMap).find(k => k.includes(nf) || nf.includes(k));
+        npsTel = hit !== undefined ? npsTelMap[hit] : undefined;
       }
-      // Busca no ranking NPS existente
       let npsRank = null;
       if (rankingNPS) {
-        const hitR = Object.keys(rankingNPS).find(k => this._nf(k) === agNF || this._nf(k).includes(agNF) || agNF.includes(this._nf(k)));
+        const hitR = Object.keys(rankingNPS).find(k => this._nf(k) === nf || this._nf(k).includes(nf) || nf.includes(this._nf(k)));
         if (hitR) npsRank = rankingNPS[hitR].nps;
       }
       ag.nps = npsTel !== undefined ? npsTel : npsRank;
       ag.npsFonte = npsTel !== undefined ? 'Telefonia' : (npsRank !== null ? 'Chat/NPS' : null);
     }
 
-    // 4. Score Final 0–100
-    // Volumes: normalizar por máximo para comparação relativa
-    const maxVol = Math.max(...Object.values(agentes).map(a => a.total), 1);
-    const minTMA = Math.min(...Object.values(agentes).map(a => a.tma).filter(v => v !== null), Infinity);
-    const maxTMA = Math.max(...Object.values(agentes).map(a => a.tma).filter(v => v !== null), 1);
+    // ── SISTEMA GOLF — Ranking por critério ──────────────────────
+    const list = Object.values(agentes).filter(a => a.prodTotal > 0);
 
-    for (const ag of Object.values(agentes)) {
-      // Componente 1 — Volume normalizado (25%)
-      const volScore = Math.round((ag.total / maxVol) * 100);
+    // Critério 1 — Produtividade (maior = melhor → menor posição)
+    const byProd = [...list].sort((a,b) => b.prodTotal - a.prodTotal || a.pctTransf - b.pctTransf);
+    byProd.forEach((ag,i) => { ag._rankProd = i+1; });
 
-      // Componente 2 — Penalidade de transferência (30%)
-      // pctTransf 0% = 100pts, 100% = 0pts
-      const transfScore = Math.max(0, Math.round(100 - ag.pctTransf * 1.5));
+    // Critério 2 — Qualidade (maior qualMedia = melhor → menor posição)
+    const byQual = [...list].sort((a,b) => b.qualMedia - a.qualMedia);
+    byQual.forEach((ag,i) => { ag._rankQual = i+1; });
 
-      // Componente 3 — TMA (20%)
-      // Menor TMA = melhor. Normalizado inversamente.
-      let tmaScore = 50; // default se sem dados
-      if (ag.tma !== null && maxTMA > minTMA) {
-        tmaScore = Math.round(100 - ((ag.tma - minTMA) / (maxTMA - minTMA)) * 100);
-      } else if (ag.tma !== null) {
-        tmaScore = 80; // único agente com tempo
-      }
-      // Bônus de agilidade: +5 pts por atendimento rápido (máx +15)
-      const bonusAg = Math.min(15, ag.bonusAgilidade * 5);
-      const tmaFinal = Math.min(100, tmaScore + bonusAg);
+    // Critério 3 — NPS (maior nps = melhor → menor posição)
+    //   Agentes sem NPS recebem posição mediana (não punem e não beneficiam)
+    const comNPS    = list.filter(a => a.nps !== null).sort((a,b) => b.nps - a.nps);
+    const semNPS    = list.filter(a => a.nps === null);
+    const posMediana = Math.ceil(list.length / 2);
+    comNPS.forEach((ag,i) => { ag._rankNPS = i+1; });
+    semNPS.forEach(ag     => { ag._rankNPS = posMediana; });
 
-      // Componente 4 — NPS (25%)
-      // NPS range −100..+100 → 0..100
-      const npsScore = ag.nps !== null ? Math.round((ag.nps + 100) / 2) : 50;
+    // ── Pontuação Golf = soma ponderada das posições ──────────────
+    // Pesos: Prod 65%, Qual 30%, NPS 5%
+    const P = this.PESOS;
+    list.forEach(ag => {
+      ag.golfScore = +(
+        ag._rankProd * (P.produtividade/100) +
+        ag._rankQual * (P.qualidade/100)     +
+        ag._rankNPS  * (P.nps/100)
+      ).toFixed(2);
+    });
 
-      ag.score = Math.round(
-        volScore    * (BonificacaoEngine.PESOS.volume        / 100) +
-        transfScore * (BonificacaoEngine.PESOS.transferencia / 100) +
-        tmaFinal    * (BonificacaoEngine.PESOS.tma           / 100) +
-        npsScore    * (BonificacaoEngine.PESOS.nps           / 100)
-      );
-      ag._comp = { volScore, transfScore, tmaFinal, npsScore, bonusAg };
-    }
+    // Menor golfScore = 1º lugar
+    const ranking = list
+      .sort((a,b) => a.golfScore - b.golfScore || b.prodTotal - a.prodTotal)
+      .map((a, i) => ({
+        ...a,
+        rank: i + 1,
+        // compatibilidade com render existente
+        total:       a.prodTotal,
+        naoTransf:   a.prodTotal - a.transferidos,
+        score:       Math.round(Math.max(0, 100 - (a.golfScore / list.length) * 100)),
+        validados:   a.protosMatrix.size,
+        bonusAgilidade: 0,
+        _comp: {
+          volScore:    a._rankProd,
+          transfScore: a._rankQual,
+          tmaFinal:    a._rankNPS,
+          npsScore:    a.golfScore,
+          bonusAg:     0,
+        },
+      }));
 
-    // 5. Ranking final por score desc
-    const ranking = Object.values(agentes)
-      .sort((a, b) => b.score - a.score || b.total - a.total)
-      .map((a, i) => ({ ...a, rank: i + 1 }));
+    const mediaGeralNaoTransf = (() => {
+      const allT = list.flatMap(a => a.tempos);
+      return allT.length ? Math.round(allT.reduce((s,v)=>s+v,0)/allT.length) : 0;
+    })();
 
     return { ranking, mediaGeralNaoTransf, totalLinhas: matrixRows.length };
   },
@@ -7181,11 +7685,11 @@ const BonificacaoEngine = {
   },
 
   scoreBadge(s) {
-    if (s >= 80) return ['🏆 Elite',   C.accent];
+    if (s >= 80) return ['🏆 Elite',    C.accent];
     if (s >= 65) return ['⭐ Destaque', C.green];
-    if (s >= 50) return ['✅ Bom',     '#3B82F6'];
-    if (s >= 35) return ['⚠ Atenção',  C.orange];
-    return               ['❌ Crítico', C.red];
+    if (s >= 50) return ['✅ Bom',      '#3B82F6'];
+    if (s >= 35) return ['⚠ Atenção',   C.orange];
+    return               ['❌ Crítico',  C.red];
   },
 };
 
@@ -7281,67 +7785,74 @@ function renderBonificacao() {
   </div>`;
 
   /* ── KPIs Globais ── */
-  const totalAt    = ranking.reduce((s,a)=>s+a.total,0);
-  const totalTransf= ranking.reduce((s,a)=>s+a.transferidos,0);
+  const totalAt    = ranking.reduce((s,a) => s + a.total, 0);
+  const totalTransf= ranking.reduce((s,a) => s + a.transferidos, 0);
   const pctTransfG = totalAt > 0 ? ((totalTransf/totalAt)*100).toFixed(1) : 0;
-  const avgScore   = Math.round(ranking.reduce((s,a)=>s+a.score,0) / ranking.length);
-  const elites     = ranking.filter(a=>a.score>=80).length;
+  // Golf: ranking já está sorted por golfScore asc — o líder tem menor soma
+  const lider      = ranking[0];
+  const melhorQual = [...ranking].sort((a,b)=>a._rankQual-b._rankQual)[0];
+  const melhorNPS  = [...ranking].filter(a=>a.nps!==null).sort((a,b)=>b.nps-a.nps)[0];
 
   const kpisHtml = `
   <div class="bon-comp-grid" style="margin-bottom:20px">
     ${[
-      ['🏅 Agentes',          ranking.length,         C.accent],
-      ['📋 Atend. Processados',totalAt.toLocaleString('pt-BR'), C.blue],
-      ['🔀 % Transferências',  pctTransfG+'%',         pctTransfG>30?C.red:pctTransfG>15?C.orange:C.green],
-      ['⏱ TMA Médio (geral)', BonificacaoEngine.fmtSecs(mediaGeralNaoTransf), C.yellow],
-      ['📊 Score Médio',       avgScore,               BonificacaoEngine.scoreColor(avgScore)],
-      ['🏆 Elegíveis Bônus',   elites,                 elites>0?C.accent:C.muted],
+      ['🏅 Agentes',           ranking.length,                  C.accent],
+      ['📋 Atend. Processados', totalAt.toLocaleString('pt-BR'), C.blue],
+      ['🔀 % Transferências',   pctTransfG+'%',                  +pctTransfG>30?C.red:+pctTransfG>15?C.orange:C.green],
+      ['🏆 Líder Geral',        lider ? lider.nomeReal.split(' ')[0] : '—', C.accent],
+      ['⭐ Melhor Qualidade',   melhorQual ? melhorQual.nomeReal.split(' ')[0] : '—', C.green],
+      ['💬 Melhor NPS',         melhorNPS  ? melhorNPS.nomeReal.split(' ')[0]  : '—', C.purple],
     ].map(([l,v,c])=>`
       <div class="bon-comp-card">
-        <div class="bon-comp-val" style="color:${c}">${v}</div>
+        <div class="bon-comp-val" style="color:${c};font-size:${String(v).length>10?'13px':'18px'}">${v}</div>
         <div class="bon-comp-lbl">${l}</div>
       </div>`).join('')}
   </div>`;
 
-  /* ── Top 5 Cards ── */
+  /* ── Top 5 Cards — estilo Pódio Golf ── */
   const top5Html = `
-  <div class="sec-title" style="margin-bottom:14px"><h3>🏆 Top 5 Agentes para Bônus</h3></div>
+  <div class="sec-title" style="margin-bottom:14px"><h3>⛳ Pódio Golf — Menor Soma de Posições</h3></div>
   <div class="bon-top5">
     ${top5.map((ag, i) => {
-      const cor = BonificacaoEngine.scoreColor(ag.score);
-      const [badgeTxt] = BonificacaoEngine.scoreBadge(ag.score);
-      const pct = Math.min(100, ag.score);
-      // mini SVG ring
-      const r=22, circ=2*Math.PI*r;
-      const dash = (pct/100)*circ;
+      const MEDAL_COLORS = ['#FFD700','#C0C0C0','#CD7F32','#a78bfa','#60a5fa'];
+      const cor   = MEDAL_COLORS[i] || C.accent;
+      const crown = CROWNS[i] || ('#'+(i+1));
+      // barras de ranking por critério
+      const maxRk = ranking.length;
+      const barProd = Math.round((1 - (ag._rankProd-1)/Math.max(maxRk-1,1)) * 100);
+      const barQual = Math.round((1 - (ag._rankQual-1)/Math.max(maxRk-1,1)) * 100);
+      const barNPS  = ag._rankNPS ? Math.round((1 - (ag._rankNPS-1)/Math.max(maxRk-1,1)) * 100) : 0;
       return `
-      <div class="bon-card" style="background:${cor}11;border:2px solid ${cor}44">
-        <div class="bon-card-rank">${CROWNS[i]||('#'+(i+1))}</div>
-        <div class="bon-card-nome" style="color:${cor}" title="${ag.nomeReal}">${ag.nomeReal}</div>
-        <svg class="bon-score-ring" viewBox="0 0 56 56" style="display:block;margin:0 auto 6px">
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="${cor}" stroke-width="5"
-            stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
-            stroke-linecap="round" style="transform:rotate(-90deg);transform-origin:center"/>
-          <text x="28" y="33" text-anchor="middle" fill="${cor}" font-size="12" font-weight="800" style="transform:none">${ag.score}</text>
-        </svg>
-        <div class="bon-card-label">Score Bônus</div>
-        <div class="bon-card-pill" style="background:${cor}22;color:${cor};border-color:${cor}55">${badgeTxt}</div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px">
-          <div style="background:var(--panel);border-radius:5px;padding:4px">
+      <div class="bon-card" style="background:${cor}11;border:2px solid ${cor}55">
+        <div class="bon-card-rank" style="font-size:32px">${crown}</div>
+        <div class="bon-card-nome" style="color:${cor};font-size:11px" title="${ag.nomeReal}">${ag.nomeReal}</div>
+        <div style="margin:8px 0;background:var(--panel);border-radius:8px;padding:8px 10px;text-align:left">
+          <div style="font-size:18px;font-weight:900;color:${cor};font-family:monospace;text-align:center;margin-bottom:6px">
+            ⛳ ${ag.golfScore.toFixed(2)}
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px">Soma de posições (menor = melhor)</div>
+          ${[
+            ['🏭 Volume', ag._rankProd, barProd, C.blue],
+            ['⭐ Qualidade', ag._rankQual, barQual, C.green],
+            ['💬 NPS', ag._rankNPS || '—', barNPS, C.purple],
+          ].map(([lbl,pos,bar,cc])=>`
+          <div style="margin-bottom:5px">
+            <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px">
+              <span style="color:var(--muted)">${lbl}</span>
+              <span style="color:${cc};font-weight:700">${typeof pos==='number'?'#'+pos:pos}</span>
+            </div>
+            <div style="height:4px;border-radius:2px;background:var(--border)">
+              <div style="width:${bar}%;height:100%;background:${cc};border-radius:2px"></div>
+            </div>
+          </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px">
+          <div style="background:var(--panel);border-radius:5px;padding:4px;text-align:center">
             <div style="font-weight:700;color:var(--text)">${ag.total}</div>
-            <div style="color:var(--muted)">Atend.</div>
+            <div style="color:var(--muted)">Volume</div>
           </div>
-          <div style="background:var(--panel);border-radius:5px;padding:4px">
-            <div style="font-weight:700;color:${ag.pctTransf>30?C.red:C.green}">${ag.pctTransf}%</div>
-            <div style="color:var(--muted)">Transf.</div>
-          </div>
-          <div style="background:var(--panel);border-radius:5px;padding:4px">
-            <div style="font-weight:700;color:${C.yellow}">${BonificacaoEngine.fmtSecs(ag.tma)}</div>
-            <div style="color:var(--muted)">TMA</div>
-          </div>
-          <div style="background:var(--panel);border-radius:5px;padding:4px">
-            <div style="font-weight:700;color:${ag.nps!==null?BonificacaoEngine.scoreColor(Math.round((ag.nps+100)/2)):C.muted}">
+          <div style="background:var(--panel);border-radius:5px;padding:4px;text-align:center">
+            <div style="font-weight:700;color:${ag.nps!==null?C.purple:C.muted}">
               ${ag.nps !== null ? (ag.nps>=0?'+':'')+ag.nps : '—'}
             </div>
             <div style="color:var(--muted)">NPS</div>
@@ -7351,86 +7862,114 @@ function renderBonificacao() {
     }).join('')}
   </div>`;
 
-  /* ── Tabela Detalhada ── */
-  const tableRows = ranking.map(ag => {
-    const cor  = BonificacaoEngine.scoreColor(ag.score);
-    const [badgeTxt, badgeCor] = BonificacaoEngine.scoreBadge(ag.score);
-    const rk   = ag.rank <= 3 ? ['🥇','🥈','🥉'][ag.rank-1] : `#${ag.rank}`;
-    const pctBarW = Math.min(100, ag.score);
+  /* ── Tabela Detalhada Golf ── */
+  const tableRows = ranking.map((ag, idx) => {
+    const medal  = idx < 3 ? ['🥇','🥈','🥉'][idx] : '';
+    const rk     = `${medal}<span style="font-family:monospace;font-size:13px;font-weight:900">#${ag.rank}</span>`;
+    // Cor da linha baseada em posição
+    const rowBg  = idx === 0 ? '#FFD70008' : idx === 1 ? '#C0C0C008' : idx === 2 ? '#CD7F3208' : 'transparent';
+    // Soma de posições visível
+    const somaTotal = ag._rankProd + ag._rankQual + ag._rankNPS;
     return `
-    <tr>
-      <td style="font-size:14px;text-align:center;font-weight:800">${rk}</td>
-      <td>
+    <tr style="background:${rowBg};border-bottom:1px solid var(--border)22">
+      <td style="text-align:center;padding:10px 8px">${rk}</td>
+      <td style="padding:10px 12px">
         <div style="font-weight:700;color:var(--text)">${ag.nomeReal}</div>
-        ${ag.validados > 0 ? `<div style="font-size:10px;color:var(--accent)">✔ ${ag.validados} validados no Hubsoft</div>` : ''}
+        <div style="font-size:10px;color:var(--muted)">Matrix: ${ag.atMatrix} · Hub: ${ag.atHub} atend.</div>
       </td>
-      <td style="text-align:center">
-        <div style="font-weight:700;color:var(--text)">${ag.total}</div>
-        <div style="font-size:10px;color:var(--muted)">${ag.naoTransf} diretos</div>
+      <td style="text-align:center;padding:10px 8px">
+        <div style="font-weight:800;color:${C.blue};font-family:monospace;font-size:14px">${ag.total}</div>
+        <div style="font-size:10px;color:var(--muted)">vol. único</div>
+        <div style="background:${C.blue}22;color:${C.blue};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-top:3px">Pos. #${ag._rankProd}</div>
       </td>
-      <td style="text-align:center">
-        <div style="font-weight:700;color:${ag.pctTransf>30?C.red:ag.pctTransf>15?C.orange:C.green}">${ag.pctTransf}%</div>
-        <div style="font-size:10px;color:var(--muted)">${ag.transferidos} atend.</div>
+      <td style="text-align:center;padding:10px 8px">
+        <div style="font-weight:800;color:${C.green};font-family:monospace;font-size:14px">${ag.qualMedia}</div>
+        <div style="font-size:10px;color:var(--muted)">score semântico</div>
+        <div style="background:${C.green}22;color:${C.green};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-top:3px">Pos. #${ag._rankQual}</div>
       </td>
-      <td style="text-align:center">
-        <div style="font-weight:700;color:${C.yellow}">${BonificacaoEngine.fmtSecs(ag.tma)}</div>
-        ${ag.bonusAgilidade>0?`<div style="font-size:10px;color:var(--accent)">⚡ +${ag.bonusAgilidade} rápidos</div>`:''}
-      </td>
-      <td style="text-align:center">
+      <td style="text-align:center;padding:10px 8px">
         ${ag.nps !== null
-          ? `<div style="font-weight:700;color:${BonificacaoEngine.scoreColor(Math.round((ag.nps+100)/2))}">${ag.nps>=0?'+':''}${ag.nps}</div>
-             <div style="font-size:10px;color:var(--muted)">${ag.npsFonte||''}</div>`
-          : '<span style="color:var(--muted)">—</span>'}
+          ? `<div style="font-weight:800;color:${C.purple};font-family:monospace;font-size:14px">${ag.nps>=0?'+':''}${ag.nps}</div>
+             <div style="font-size:10px;color:var(--muted)">${ag.npsFonte||'NPS'}</div>
+             <div style="background:${C.purple}22;color:${C.purple};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-top:3px">Pos. #${ag._rankNPS}</div>`
+          : `<span style="color:var(--muted);font-size:12px">—</span><br>
+             <div style="background:var(--border);color:var(--muted);border-radius:4px;padding:1px 6px;font-size:10px;margin-top:3px">Mediana #${ag._rankNPS}</div>`}
       </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-size:18px;font-weight:900;color:${cor};font-family:monospace;min-width:28px">${ag.score}</div>
-          <div>
-            <div class="bon-bar"><div class="bon-fill" style="width:${pctBarW}%;background:${cor}"></div></div>
-            <span style="background:${badgeCor}22;color:${badgeCor};border:1px solid ${badgeCor}55;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${badgeTxt}</span>
-          </div>
-        </div>
+      <td style="text-align:center;padding:10px 12px">
+        <div style="font-weight:900;color:var(--accent);font-family:monospace;font-size:22px">${somaTotal}</div>
+        <div style="font-size:10px;color:var(--muted)">= #${ag._rankProd} + #${ag._rankQual} + #${ag._rankNPS}</div>
       </td>
-      <td style="font-size:10px;color:var(--muted)">
-        <div>Vol: ${ag._comp.volScore}</div>
-        <div>Transf: ${ag._comp.transfScore}</div>
-        <div>TMA: ${ag._comp.tmaFinal}${ag._comp.bonusAg>0?'(+'+ag._comp.bonusAg+'⚡)':''}</div>
-        <div>NPS: ${ag._comp.npsScore}</div>
+      <td style="text-align:center;padding:10px 12px">
+        <div style="font-weight:900;color:${idx===0?'#FFD700':idx===1?'#C0C0C0':idx===2?'#CD7F32':'var(--text)'};font-family:monospace;font-size:26px">#${ag.rank}</div>
+        ${idx<3?`<div style="font-size:14px">${['🥇','🥈','🥉'][idx]}</div>`:''}
       </td>
     </tr>`;
   }).join('');
 
   const tableHtml = `
-  <div class="sec-title" style="margin-bottom:12px"><h3>📋 Ranking Detalhado — Todos os Agentes</h3></div>
+  <div class="sec-title" style="margin-bottom:12px"><h3>📋 Ranking Golf Completo — Todos os Agentes</h3></div>
   <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">
     <div style="overflow-x:auto">
       <table class="bon-table">
         <thead>
           <tr>
-            <th style="text-align:center;width:44px">Rank</th>
+            <th style="text-align:center;width:50px">Posição<br>Final</th>
             <th>Agente</th>
-            <th style="text-align:center">Total Atend.<br><small style="font-weight:400">/ Diretos</small></th>
-            <th style="text-align:center">% Transf.<br><small style="font-weight:400">Penalização</small></th>
-            <th style="text-align:center">TMA<br><small style="font-weight:400">⚡ Rápidos</small></th>
-            <th style="text-align:center">Nota NPS<br><small style="font-weight:400">Fonte</small></th>
-            <th>Score Bônus<br><small style="font-weight:400">0–100</small></th>
-            <th style="font-size:10px">Componentes</th>
+            <th style="text-align:center;background:${C.blue}11">
+              🏭 Vol. Atend.<br><small style="font-weight:400;color:${C.blue}">Pos. no Ranking</small>
+            </th>
+            <th style="text-align:center;background:${C.green}11">
+              ⭐ Qualidade<br><small style="font-weight:400;color:${C.green}">Pos. no Ranking</small>
+            </th>
+            <th style="text-align:center;background:${C.purple}11">
+              💬 NPS<br><small style="font-weight:400;color:${C.purple}">Pos. no Ranking</small>
+            </th>
+            <th style="text-align:center;background:var(--accent)11">
+              ⛳ Soma de Posições<br><small style="font-weight:400;color:var(--accent)">Menor = Melhor</small>
+            </th>
+            <th style="text-align:center">
+              🏆 Posição Final<br><small style="font-weight:400">Ranking Golf</small>
+            </th>
           </tr>
         </thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>
+    <div style="padding:10px 16px;background:var(--panel);border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+      ⛳ Soma de Posições = Pos. Volume + Pos. Qualidade + Pos. NPS &nbsp;·&nbsp; <strong>Menor soma = 1º lugar</strong>
+    </div>
   </div>`;
 
   /* ── Legenda metodológica ── */
   const legendaHtml = `
-  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:11px;color:var(--muted)">
-    <div style="font-weight:700;color:var(--text);margin-bottom:8px">📐 Metodologia do Score (0–100)</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-      <div><span style="font-weight:700;color:${C.accent}">25% Volume</span><br>Participação relativa no total de atendimentos. Normalizado pelo agente de maior volume.</div>
-      <div><span style="font-weight:700;color:${C.red}">30% Transferência</span><br>Penalização proporcional ao % de transbordo. 0% transf. = 100 pts. Termos: Transferido, Fila, Transbordo, Encaminhado.</div>
-      <div><span style="font-weight:700;color:${C.yellow}">20% TMA</span><br>Menor TMA = maior score. Bônus de agilidade (+5 pts por atendimento 20%+ abaixo da média, máx +15).</div>
-      <div><span style="font-weight:700;color:${C.purple}">25% NPS</span><br>NPS Telefonia (prioridade) ou NPS Chat. Escala −100…+100 → 0…100 pts.</div>
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:11px;color:var(--muted)">
+    <div style="font-weight:800;color:var(--text);margin-bottom:12px;font-size:13px">⛳ Como funciona o Ranking Golf</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px">
+      <div style="background:${C.blue}11;border:1px solid ${C.blue}33;border-radius:8px;padding:12px">
+        <div style="font-weight:800;color:${C.blue};margin-bottom:6px">Passo 1 — Volume de Atendimento (65%)</div>
+        <div style="line-height:1.6">Agentes ordenados pelo total único de protocolos Matrix + Hubsoft.<br>
+        O de maior volume recebe <strong style="color:${C.blue}">Posição #1</strong>,
+        o segundo recebe <strong style="color:${C.blue}">#2</strong>, e assim por diante.</div>
+      </div>
+      <div style="background:${C.green}11;border:1px solid ${C.green}33;border-radius:8px;padding:12px">
+        <div style="font-weight:800;color:${C.green};margin-bottom:6px">Passo 2 — Qualidade / Auditoria (30%)</div>
+        <div style="line-height:1.6">Análise semântica das Tags (Matrix) e descrições de fechamento (Hubsoft).<br>
+        Termos positivos (+10 pts), negativos (−15 pts) por linha. Melhor score = Posição #1.</div>
+      </div>
+      <div style="background:${C.purple}11;border:1px solid ${C.purple}33;border-radius:8px;padding:12px">
+        <div style="font-weight:800;color:${C.purple};margin-bottom:6px">Passo 3 — NPS (5%)</div>
+        <div style="line-height:1.6">Maior nota NPS Telefonia → Posição #1.<br>
+        Agentes sem dados NPS recebem posição mediana (não punem nem beneficiam).<br>
+        Fonte alternativa: NPS Chat carregado.</div>
+      </div>
+    </div>
+    <div style="background:var(--card);border-radius:8px;padding:12px;line-height:1.8;border:1px solid var(--accent)33">
+      <strong style="color:var(--accent)">Resultado Final:</strong>
+      &nbsp;<code style="background:var(--border);padding:2px 8px;border-radius:4px;font-size:10px">
+        Soma = (Pos. Volume × 0.65) + (Pos. Qualidade × 0.30) + (Pos. NPS × 0.05)
+      </code>&nbsp;
+      — A <strong>MENOR SOMA</strong> define o <strong>1º lugar</strong>.
+      Desempate: maior Volume de Atendimento.
     </div>
   </div>`;
 
@@ -7511,12 +8050,24 @@ function renderCancelamentos() {
     }).join('');
 
   el.innerHTML = '<div style="padding:20px">'
+
+    /* ── 1. KPIs ── */
     +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+kpiHtml+'</div>'
+
+    /* ── 2. TERMÔMETRO DE RISCO — movido para o topo ── */
+    +'<div style="background:var(--card);border:2px solid #6b2a2a;border-radius:12px;padding:18px;margin-bottom:20px">'
+      +'<div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:12px">&#127777; Termometro de Risco — Clientes com Historico em Saude do Cliente E OS Aberta</div>'
+      +termoHtml
+    +'</div>'
+
+    /* ── 3. Filtro de tipo ── */
     +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap">'
       +'<label style="font-size:12px;font-weight:700;color:var(--muted)">FILTRAR POR TIPO:</label>'
       +'<select onchange="window._cancelTipoSel=this.value;renderCancelamentos()" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;min-width:280px">'+tipoOpts+'</select>'
       +(totInc>0?'<span style="background:#f97316;color:#000;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700">&#9888; '+totInc+' OS com descricao incoerente com o tipo</span>':'')
     +'</div>'
+
+    /* ── 4. Consolidado por cidade/bairro ── */
     +'<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">&#128202; Consolidado por Cidade e Bairro</div>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--panel)">'
         +'<th style="padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Cidade</th>'
@@ -7526,10 +8077,8 @@ function renderCancelamentos() {
         +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Incoer.</th>'
         +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)">Termometro</th>'
       +'</tr></thead><tbody>'+consHtml+'</tbody></table></div></div>'
-    +'<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:24px">'
-      +'<div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:12px">&#127777; Termometro de Risco — Clientes com Historico em Saude do Cliente E OS Aberta</div>'
-      +termoHtml
-    +'</div>'
+
+    /* ── 5. Detalhe de OS ── */
     +'<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px">'
       +'<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px">&#128269; Detalhe de OS '+(window._cancelGrupoSel?'— '+window._cancelGrupoSel.replace('||',' / '):'')
         +'<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:8px">Clique numa linha do consolidado para filtrar</span></div>'
@@ -7550,30 +8099,42 @@ function renderCancelamentos() {
 /* ════════════════════════════════════════════════════════════════
    v3.6 — ABA INFRA
 ════════════════════════════════════════════════════════════════ */
-function processSinais(rows) {
-  const nk = (r,...ks) => {
-    for(const k of ks){
-      for(const rk of Object.keys(r)){
-        if(rk.toLowerCase().replace(/\s/g,'_').replace(/[áàãâä]/gi,'a').replace(/[éèê]/gi,'e').replace(/[íì]/gi,'i').replace(/[óòõô]/gi,'o').replace(/[úù]/gi,'u') ===
-           k.toLowerCase().replace(/\s/g,'_').replace(/[áàãâä]/gi,'a').replace(/[éèê]/gi,'e').replace(/[íì]/gi,'i').replace(/[óòõô]/gi,'o').replace(/[úù]/gi,'u')){
-          const v=r[rk]; if(v!==null&&v!==undefined&&v!=='') return v;
-        }
-      }
-    }
-    return '';
-  };
-  return rows.map(r=>({
-    cod:    String(nk(r,'Cod Cliente','cod_cliente','codigo_cliente')||''),
-    nome:   String(nk(r,'Nome Cliente','nome_cliente','nome')||''),
-    sinal:  parseFloat(nk(r,'Sinal ONU','sinal_onu','sinal')||'NaN'),
-    caixa:  String(nk(r,'Caixa Optica','caixa_optica','Caixa Optica')||''),
-    portaCx:String(nk(r,'Porta Caixa Optica','porta_caixa_optica','Porta Caixa Optica')||''),
-    porta:  String(nk(r,'Porta PON','porta_pon','Porta PON')||''),
-    status: String(nk(r,'Status Servico','status_servico','Status Servico','Status Serviço')||''),
-    cidade: String(nk(r,'Cidade','cidade')||''),
-    bairro: String(nk(r,'Bairro','bairro')||''),
-    proj:   String(nk(r,'Projeto','projeto')||''),
-  })).filter(r=>r.nome||r.cod);
+function processSinais(rows, _nomeIdx) {
+  // _nomeIdx opcional: { codNormalizado → nomeCliente } construído de STATE.rawOS+rawAT
+  const _normCod = c => String(c||'').replace(/[^0-9a-zA-Z]/g,'');
+  return (rows || []).map(r => {
+    // Camada 1 — colunas diretas
+    const nomeDireto = (
+      r['Assinante'] || r['Nome Cliente'] || r['nome_razaosocial'] ||
+      r['nome_razao_social'] || r['Cliente'] || r['Nome do Cliente'] || r['nome'] || ''
+    ).trim();
+    // Camada 2 — findData tolerante
+    const nomeFind = nomeDireto ? '' : findData(r, findData.COLS.CLIENTE);
+    // Código
+    const cod = findData(r, findData.COLS.CODIGO) || findData(r, ['CPF','cnpj','CPF/CNPJ','cpf_cnpj','documento']);
+    // Camada 3 — cruzamento
+    const nomeCruz = (!nomeDireto && !nomeFind && cod && _nomeIdx)
+      ? (_nomeIdx[_normCod(cod)] || '') : '';
+    // Camada 4 — fallback código
+    const nome = nomeDireto || nomeFind || nomeCruz || cod || '';
+
+    const sinalRaw = findData(r, findData.COLS.SINAL);
+    const sinal    = parseFloat(String(sinalRaw || '').replace(',', '.'));
+    const sinalVal = (!sinalRaw || sinalRaw === '0' || isNaN(sinal)) ? NaN : sinal;
+    return {
+      cod:     String(cod || ''),
+      nome:    String(nome),
+      sinal:   sinalVal,
+      sinalTexto: (!sinalRaw || sinalRaw === '0') ? 'Sinal não enviado' : null,
+      caixa:   String(findData(r, ['Caixa Optica','caixa_optica','Caixa Óptica','caixa','CTO','Cto']) || ''),
+      portaCx: String(findData(r, ['Porta Caixa Optica','porta_caixa_optica','Porta Caixa Óptica','porta_cx','Porta CTO']) || ''),
+      porta:   String(findData(r, ['Porta PON','porta_pon','porta']) || ''),
+      status:  String(findData(r, ['Status Servico','status_servico','Status Serviço','status','Status']) || ''),
+      cidade:  String(findData(r, findData.COLS.CIDADE) || ''),
+      bairro:  String(findData(r, findData.COLS.BAIRRO) || ''),
+      proj:    String(findData(r, ['Projeto','projeto']) || ''),
+    };
+  }).filter(r => r.nome || r.cod);
 }
 
 function sinalClass(s) {
