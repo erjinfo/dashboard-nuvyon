@@ -1628,18 +1628,78 @@ window.addEventListener('load', async () => {
   
   <!-- ══════════ ABA BI COMERCIAL ══════════ -->
   <div id="tab-content-bi-comercial" class="tab-content" style="display:none">
-    <div id="bi-upload-screen" style="min-height:300px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:40px 20px;text-align:center">
-      <div style="font-size:36px">💼</div>
-      <div style="font-family:var(--font-head,monospace);font-size:22px;font-weight:800;color:var(--accent)">BI Comercial</div>
-      <div style="color:var(--muted);font-size:13px;max-width:480px;line-height:1.6">
-        Carregue o <strong style="color:var(--text)">CRM Hubsoft</strong> e/ou <strong style="color:var(--text)">Vendas Hubsoft</strong>
-        no painel de upload (acima) para ativar o Ranking da Verdade.<br>
-        <span style="font-size:11px">O relatório Matrix Chat também enriquece a análise de agilidade.</span>
+
+    <!-- ── Upload rápido dentro da aba (não precisa abrir o painel global) ── -->
+    <div id="bi-upload-bar" style="background:var(--panel);border-bottom:1px solid var(--border);padding:14px 20px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">Fontes do Funil:</span>
+
+        <!-- CRM -->
+        <label id="bi-slot-crm" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #8B5CF644;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
+          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('crm',this)">
+          <span id="bi-slot-crm-icon" style="font-size:14px">💼</span>
+          <div>
+            <div style="font-weight:700;color:#8B5CF6;font-size:11px">CRM Hubsoft</div>
+            <div id="bi-slot-crm-name" style="font-size:10px;color:var(--muted)">Clique para carregar</div>
+          </div>
+        </label>
+
+        <!-- Vendas/Serviços -->
+        <label id="bi-slot-vendas" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #10B98144;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
+          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('vendas',this)">
+          <span id="bi-slot-vendas-icon" style="font-size:14px">🛒</span>
+          <div>
+            <div style="font-weight:700;color:#10B981;font-size:11px">Vendas / Serviços</div>
+            <div id="bi-slot-vendas-name" style="font-size:10px;color:var(--muted)">Clique para carregar</div>
+          </div>
+        </label>
+
+        <!-- Matrix / Atendimento Analítico -->
+        <label id="bi-slot-matrix" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #F59E0B44;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:180px">
+          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('matrix',this)">
+          <span id="bi-slot-matrix-icon" style="font-size:14px">💬</span>
+          <div>
+            <div style="font-weight:700;color:#F59E0B;font-size:11px">Atendimento Analítico</div>
+            <div id="bi-slot-matrix-name" style="font-size:10px;color:var(--muted)">Aceite · Matrix Chat</div>
+          </div>
+        </label>
+
+        <!-- OS Abertas -->
+        <label id="bi-slot-osab" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #3B82F644;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
+          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('osab',this)">
+          <span id="bi-slot-osab-icon" style="font-size:14px">🔧</span>
+          <div>
+            <div style="font-weight:700;color:#3B82F6;font-size:11px">OS Abertas</div>
+            <div id="bi-slot-osab-name" style="font-size:10px;color:var(--muted)">Instalações realizadas</div>
+          </div>
+        </label>
+
+        <div id="bi-upload-status" style="font-size:11px;color:var(--muted);margin-left:auto"></div>
       </div>
-      <div id="bi-upload-status" style="font-size:12px;color:var(--muted)"></div>
     </div>
+
+    <!-- Tela vazia (quando nenhum dado está carregado) -->
+    <div id="bi-upload-screen" style="display:none;min-height:300px;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:40px 20px;text-align:center">
+      <div style="font-size:48px">💼</div>
+      <div style="font-size:20px;font-weight:800;color:var(--accent)">BI Comercial</div>
+      <div style="color:var(--muted);font-size:13px;max-width:440px;line-height:1.7">
+        Carregue pelo menos o <strong style="color:var(--text)">CRM Hubsoft</strong> usando os botões acima
+        para ativar o Funil de Conversão e o Ranking da Verdade.
+      </div>
+    </div>
+
     <div id="bi-dashboard" style="display:none;padding:20px">
-      <!-- KPIs -->
+
+      <!-- ── Funil de Conversão ───────────────────────────────────────────── -->
+      <div id="bi-funil-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#8B5CF6,#10B981,#F59E0B,#3B82F6)"></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">📊 Funil Comercial</div>
+        <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:16px">Jornada do Lead → Instalação</div>
+        <div id="bi-funil" style="display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:4px"></div>
+        <div id="bi-funil-fonte" style="font-size:10px;color:var(--muted);margin-top:10px;text-align:right"></div>
+      </div>
+
+      <!-- ── KPIs ─────────────────────────────────────────────────────────── -->
       <div id="bi-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:22px"></div>
       <!-- Ranking da Verdade -->
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;position:relative;overflow:hidden">
@@ -10990,35 +11050,191 @@ const _BI = {
   chartTags: null,
 };
 
+// ── Upload rápido direto da aba BI ─────────────────────────────────────────
+async function biQuickUpload(tipo, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const iconEl = document.getElementById('bi-slot-' + tipo + '-icon');
+  const nameEl = document.getElementById('bi-slot-' + tipo + '-name');
+  if (iconEl) iconEl.textContent = '⏳';
+  if (nameEl) nameEl.textContent = 'Lendo...';
+  try {
+    const rows = await readFileAsRows(file, {
+      raw: true,
+      delimiter: tipo === 'matrix' ? ';' : undefined,
+    });
+    // Aplicar ao STATE igual ao handleFile
+    if      (tipo === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
+    else if (tipo === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
+    else if (tipo === 'matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
+    else if (tipo === 'osab')   { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
+    if (iconEl) iconEl.textContent = '✅';
+    if (nameEl) nameEl.textContent = file.name.slice(0,28) + ' (' + rows.length + ')';
+    // Salvar no GitHub automaticamente se configurado
+    if (GH_SLOT_FILES[tipo] && typeof ghSaveSlot === 'function') {
+      ghSaveSlot(tipo, rows).catch(()=>{});
+    }
+    renderBIComercial();
+  } catch(e) {
+    if (iconEl) iconEl.textContent = '❌';
+    if (nameEl) nameEl.textContent = 'Erro: ' + e.message.slice(0,30);
+  }
+}
+
+// Sincroniza ícones dos slots de upload da aba BI com o STATE actual
+function biSyncSlots() {
+  const slots = {
+    crm   : { data: STATE.rawCRM,               color:'#8B5CF6', icon:'💼' },
+    vendas: { data: STATE.rawVendas,             color:'#10B981', icon:'🛒' },
+    matrix: { data: STATE.relatorioAnalitico,    color:'#F59E0B', icon:'💬' },
+    osab  : { data: STATE.rawOSAb,               color:'#3B82F6', icon:'🔧' },
+  };
+  Object.entries(slots).forEach(([tipo, {data, icon}]) => {
+    const lbl = document.getElementById('bi-slot-' + tipo);
+    const ico = document.getElementById('bi-slot-' + tipo + '-icon');
+    const nm  = document.getElementById('bi-slot-' + tipo + '-name');
+    if (!lbl) return;
+    const loaded = data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0);
+    if (loaded) {
+      lbl.style.borderColor = slots[tipo].color + '88';
+      lbl.style.background  = slots[tipo].color + '11';
+      if (ico) ico.textContent = '✅';
+      if (nm)  nm.textContent  = Array.isArray(data) ? data.length + ' registros' : 'Carregado';
+    }
+  });
+}
+
+// ── Funil de Conversão ────────────────────────────────────────────────────
+function renderBIFunil(crmList, osabRaw, matrixRaw, vendasRaw) {
+  const el = document.getElementById('bi-funil');
+  const fonte = document.getElementById('bi-funil-fonte');
+  if (!el) return;
+
+  // Etapa 1 — Leads (CRM)
+  const totalLeads = crmList.length;
+
+  // Etapa 2 — Aceite / Primeiro Contato (Matrix Analítico)
+  // Conta CPFs do CRM que aparecem no Matrix com status de atendimento
+  let aceites = 0;
+  const cpfsCRM = new Set(crmList.map(l => l.cpf).filter(Boolean));
+  const mxContatos = new Set();
+  (matrixRaw||[]).forEach(r => {
+    const cpf = biNormCPF(r['CPF/CNPJ informado']||r['CPF/CNPJ']||r['CPF']||'');
+    const st  = String(r['Status']||r['status']||'').toLowerCase();
+    // Considera aceite: atendimentos concluídos/resolvidos no Matrix
+    if (cpf && cpfsCRM.has(cpf) && (st.includes('resolv') || st.includes('conclu') || st.includes('encerr') || !st || st === '')) {
+      mxContatos.add(cpf);
+    }
+  });
+  // Se Matrix não tem CPF, usar count de leads convertidos no CRM como proxy
+  aceites = mxContatos.size || crmList.filter(l => l.convertido).length;
+
+  // Etapa 3 — OS Abertas (instalação efetiva)
+  let instalados = 0;
+  const cpfsOsab = new Set();
+  (osabRaw||[]).forEach(r => {
+    const cpf = biNormCPF(r['prospecto_cpf_cnpj']||r['cpf_cnpj']||r['CPF']||r['cpf_cliente']||'');
+    const tipo = String(r['tipo_ordem_servico']||r['tipo']||'').toUpperCase();
+    // Conta OS de ativação (instalação nova)
+    if (cpf && cpfsCRM.has(cpf) && (tipo.includes('ATIVAC') || tipo.includes('INSTAL'))) {
+      cpfsOsab.add(cpf);
+    }
+  });
+  instalados = cpfsOsab.size || crmList.filter(l => l.instalados > 0).length;
+
+  // Etapa 4 — Vendas auditadas (Hubsoft Serviços)
+  let vendasConf = 0;
+  (vendasRaw||[]).forEach(r => {
+    const cpf = biNormCPF(r['cpf_cnpj']||r['CPF']||r['cpf']||'');
+    const st  = String(r['servico_status']||r['status']||'').toLowerCase();
+    if (cpf && cpfsCRM.has(cpf) && (st.includes('habilitado') || st.includes('ativo'))) {
+      vendasConf++;
+    }
+  });
+
+  // Calcular taxas de conversão
+  const pct = (a, b) => b > 0 ? Math.round(a/b*100) : 0;
+
+  const etapas = [
+    { label:'Leads',           n: totalLeads, cor:'#8B5CF6', icon:'💬',
+      desc: 'Total de prospectos no CRM', fonte: 'CRM Hubsoft' },
+    { label:'Aceite / Contato', n: aceites,   cor:'#F59E0B', icon:'🤝',
+      desc: mxContatos.size ? 'CPFs encontrados no Atendimento Analítico' : 'Leads Convertidos (proxy — carregue Matrix para exactidão)',
+      fonte: matrixRaw ? 'Matrix Chat' : 'CRM (proxy)' },
+    { label:'OS Abertas',      n: instalados, cor:'#3B82F6', icon:'🔧',
+      desc: cpfsOsab.size ? 'Leads com OS de ativação' : 'Estimativa — carregue OS Abertas',
+      fonte: osabRaw ? 'OS Abertas' : 'estimativa' },
+    { label:'Vendas Conf.',    n: vendasConf || instalados, cor:'#10B981', icon:'✅',
+      desc: vendasConf ? 'Serviços habilitados no Hubsoft com CPF cruzado' : 'Igual a OS Abertas — carregue Vendas Hubsoft',
+      fonte: vendasRaw ? 'Vendas Hubsoft' : 'OS Abertas' },
+  ];
+
+  // Renderizar funil
+  el.innerHTML = etapas.map((e, i) => {
+    const prev  = i > 0 ? etapas[i-1].n : e.n;
+    const conv  = pct(e.n, prev);
+    const width = totalLeads > 0 ? Math.max(20, Math.round(e.n / totalLeads * 100)) : 100;
+    const isProxy = e.fonte.includes('estimativa') || e.fonte.includes('proxy');
+    return `
+      <div style="flex:1;min-width:140px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 8px;position:relative">
+        ${i > 0 ? `<div style="position:absolute;left:-4px;top:28px;font-size:16px;color:var(--muted)">→</div>` : ''}
+        <div style="font-size:11px;font-weight:700;color:${e.cor};text-transform:uppercase;letter-spacing:.05em;text-align:center">${e.icon} ${e.label}</div>
+        <div style="background:${e.cor}22;border:2px solid ${e.cor}66;border-radius:10px;padding:12px 16px;width:100%;text-align:center;position:relative">
+          <div style="font-size:28px;font-weight:900;color:${e.cor};font-family:monospace;line-height:1">${e.n.toLocaleString('pt-BR')}</div>
+          ${i > 0 ? `<div style="font-size:10px;color:${conv>=50?'#10B981':conv>=20?'#F59E0B':'#EF4444'};font-weight:700;margin-top:2px">${conv}% da etapa anterior</div>` : `<div style="font-size:10px;color:var(--muted);margin-top:2px">100%</div>`}
+          <div style="background:var(--border);border-radius:3px;height:4px;margin-top:8px;overflow:hidden">
+            <div style="height:100%;background:${e.cor};border-radius:3px;width:${width}%;transition:width .6s"></div>
+          </div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);text-align:center;line-height:1.4;max-width:130px">${e.desc}</div>
+        <div style="font-size:9px;background:${isProxy?'#F59E0B22':'var(--panel)'};color:${isProxy?'#F59E0B':'var(--muted)'};border-radius:4px;padding:1px 6px;border:1px solid ${isProxy?'#F59E0B44':'var(--border)'}">${isProxy?'⚠ ':''} ${e.fonte}</div>
+      </div>`;
+  }).join('');
+
+  // Fonte das fontes
+  const fontes = [];
+  if (crmList.length) fontes.push('CRM');
+  if (matrixRaw)      fontes.push('Matrix');
+  if (osabRaw)        fontes.push('OS Abertas');
+  if (vendasRaw)      fontes.push('Vendas Hubsoft');
+  if (fonte) fonte.textContent = 'Fontes activas: ' + (fontes.join(' · ') || '—');
+}
+
 /** renderBIComercial: ponto de entrada — chama quando CRM ou Vendas carregam */
 function renderBIComercial() {
   const crmRaw    = STATE.rawCRM;
   const vendasRaw = STATE.rawVendas;
   const matrixRaw = STATE.relatorioAnalitico;
+  const osabRaw   = STATE.rawOSAb || STATE.rawOSAbertas;
 
-  // Debug: log para console ajuda a rastrear quando é chamada
   console.log('[BI] renderBIComercial — CRM:', crmRaw ? crmRaw.length + ' rows' : 'null',
-              '| Vendas:', vendasRaw ? vendasRaw.length + ' rows' : 'null');
+              '| Vendas:', vendasRaw ? vendasRaw.length + ' rows' : 'null',
+              '| Matrix:', matrixRaw ? matrixRaw.length + ' rows' : 'null',
+              '| OS Abertas:', osabRaw ? osabRaw.length + ' rows' : 'null');
+
+  // Sincronizar ícones dos slots
+  biSyncSlots();
 
   if (!crmRaw && !vendasRaw) {
-    const st = document.getElementById('bi-upload-status');
-    if (st) st.textContent = 'Aguardando CRM ou Vendas...';
+    const up   = document.getElementById('bi-upload-screen');
+    const dash = document.getElementById('bi-dashboard');
+    if (up)   { up.style.display   = 'flex'; }
+    if (dash) { dash.style.display = 'none'; }
     return;
   }
 
-  // Garantir que os elementos existem (podem não existir se a aba ainda não foi renderizada)
+  // Garantir que os elementos existem
   const up   = document.getElementById('bi-upload-screen');
   const dash = document.getElementById('bi-dashboard');
 
-  if (!up || !dash) {
-    // Aba ainda não está no DOM — tentar novamente em 500ms
-    console.warn('[BI] Elementos bi-upload-screen/bi-dashboard não encontrados — retry em 500ms');
+  if (!dash) {
+    console.warn('[BI] bi-dashboard não encontrado — retry em 500ms');
     setTimeout(renderBIComercial, 500);
     return;
   }
 
-  // Mostrar dashboard, esconder tela de upload
-  up.style.display   = 'none';
+  // Mostrar dashboard
+  if (up)   up.style.display   = 'none';
   dash.style.display = 'block';
 
   // ── Processar CRM ──────────────────────────────────────────────────────
@@ -11106,6 +11322,9 @@ function renderBIComercial() {
   rows.sort((a,b) => b.instalados - a.instalados || b.convCRM - a.convCRM);
   _BI.vendRows = rows;
   _BI.allLeads = crmList;
+
+  // Renderizar funil com todas as fontes disponíveis
+  renderBIFunil(crmList, osabRaw, matrixRaw, vendasRaw);
 
   biRenderKPIs(rows, crmList, VendasAuditadas);
   biRenderRanking(rows);
