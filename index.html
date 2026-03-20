@@ -476,14 +476,45 @@ let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
 async function initDB() {
-  showLoginStatus('Conectando ao banco...', 'muted');
-  _USERS_CACHE = await dbLoad();
-  if (!_USERS_CACHE.length) {
-    const hash = await sha256('eric2024');
-    _USERS_CACHE = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
-    await dbSave(_USERS_CACHE);
-    dbLogLocal('Banco inicializado com usuário master padrão');
+  showLoginStatus('Carregando...', 'muted');
+
+  // 1. Tentar GitHub primeiro
+  let loaded = [];
+  const cfg = ghGetConfig();
+  if (cfg && location.protocol !== 'file:') {
+    try {
+      const banco = await ghGet(cfg);
+      if (banco && Array.isArray(banco.users) && banco.users.length) {
+        loaded = banco.users;
+        localStorage.setItem(DB_KEY, JSON.stringify(loaded));
+        setModeIndicator(true);
+        dbLogLocal('Banco carregado do GitHub (' + loaded.length + ' usuários)');
+      }
+    } catch(e) {
+      dbLogLocal('GitHub indisponível — usando cache local: ' + e.message);
+      setModeIndicator(false);
+    }
   }
+
+  // 2. Fallback: localStorage
+  if (!loaded.length) {
+    try { loaded = JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch { loaded = []; }
+  }
+
+  // 3. Criar usuário master padrão se ainda vazio
+  if (!loaded.length) {
+    const hash = await sha256('eric2024');
+    loaded = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
+    localStorage.setItem(DB_KEY, JSON.stringify(loaded));
+    dbLogLocal('Banco criado do zero — usuário padrão: eric / eric2024');
+    // Tentar salvar no GitHub também
+    if (cfg && location.protocol !== 'file:') {
+      try { await ghPut(cfg, { users: loaded, logs: [], updated: new Date().toISOString() }); }
+      catch(e) { dbLogLocal('Não foi possível salvar banco no GitHub: ' + e.message); }
+    }
+  }
+
+  _USERS_CACHE = loaded;
   showLoginStatus('', '');
 }
 
@@ -496,30 +527,52 @@ function showLoginStatus(msg, color) {
 
 /* ── Login ── */
 async function doLogin() {
-  const u = (document.getElementById('login-user').value||'').trim().toLowerCase();
-  const p = document.getElementById('login-pass').value||'';
+  const u   = (document.getElementById('login-user').value||'').trim().toLowerCase();
+  const p   = document.getElementById('login-pass').value||'';
   const err = document.getElementById('login-err');
   err.textContent = '';
-  if (!u||!p) { err.textContent='Preencha usuário e senha.'; return; }
+  if (!u||!p) { err.textContent = 'Preencha usuário e senha.'; return; }
+
   const btn = document.getElementById('login-btn');
-  btn.textContent = 'Verificando...'; btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  btn.disabled    = true;
+
   try {
     const h = await sha256(p);
-    // Recarregar do GitHub para garantir dados mais recentes
-    showLoginStatus('Verificando credenciais...', 'muted');
-    _USERS_CACHE = await dbLoad();
-    const found = _USERS_CACHE.find(x => x.user.toLowerCase()===u && x.hash===h);
+
+    // ── NÃO chamar dbLoad() aqui ──────────────────────────────────────────
+    // _USERS_CACHE já foi carregado pelo initDB no window.onload.
+    // Chamar dbLoad() novamente durante o login pode:
+    //   • Ser lento (GitHub leva 1-3s)
+    //   • Falhar silenciosamente e retornar [] → login quebra
+    // ─────────────────────────────────────────────────────────────────────
+    let cache = _USERS_CACHE;
+
+    // Só usar localStorage como último recurso se cache estiver vazio
+    if (!cache || !cache.length) {
+      try { cache = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch { cache = []; }
+      if (cache.length) _USERS_CACHE = cache;
+    }
+
+    const found = cache.find(x => x.user.toLowerCase() === u && x.hash === h);
+
     if (!found) {
-      err.textContent='❌ Usuário ou senha inválidos.';
-      dbLog('Falha login: ' + u);
+      const n = cache.length;
+      err.textContent = n === 0
+        ? '❌ Banco vazio. Clique em ⚠ Resetar para definir uma senha.'
+        : '❌ Usuário ou senha inválidos.';
+      dbLog('Falha login: ' + u + ' (' + n + ' users no cache)');
       return;
     }
+
     SESSION = found;
     dbLog('Login: ' + SESSION.user);
     document.getElementById('login-overlay').style.display = 'none';
     applySession();
+
   } finally {
-    btn.textContent = 'Entrar'; btn.disabled = false;
+    btn.textContent = 'Entrar';
+    btn.disabled    = false;
     showLoginStatus('', '');
   }
 }
@@ -753,65 +806,58 @@ function dbImport() {
 function loginDiag() {
   var diag = document.getElementById('login-diag');
   if (!diag) return;
-  diag.style.display = 'block';
+  // Toggle
+  diag.style.display = diag.style.display === 'block' ? 'none' : 'block';
+  if (diag.style.display === 'none') return;
   var users = _USERS_CACHE;
   var cfg   = ghGetConfig();
-  var local = '';
-  try { var arr = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); local = arr.length + ' users'; } catch(e) { local = '(vazio)'; }
+  var localUsers = [];
+  try { localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch(e) {}
   var linhas = [
-    '── Usuários em memória: ' + users.length + ' ──',
-    users.length ? users.map(function(u){return '• ' + u.user + ' [' + u.role + ']';}).join(' | ') : '(nenhum)',
-    '',
-    '── localStorage: ' + local + ' ──',
-    '',
-    '── GitHub: ' + (cfg ? cfg.owner+'/'+cfg.repo : 'não configurado') + ' ──',
-    'SHA: ' + (typeof GH_SHA !== 'undefined' && GH_SHA ? GH_SHA.slice(0,12)+'…' : 'null'),
-    '',
-    'Se a senha não funcionar: clique Resetar e defina uma nova senha.',
+    '<strong>Cache (' + users.length + ' usuário(s)):</strong>',
+    users.length
+      ? users.map(function(u){ return '&nbsp;• ' + u.user + ' [' + (u.role||'user') + '] hash:' + (u.hash||'').slice(0,8) + '…'; }).join('<br>')
+      : '<span style="color:var(--red)">VAZIO — clique ⚠ Resetar</span>',
+    '<br><strong>localStorage:</strong> ' + localUsers.length + ' usuário(s)',
+    '<strong>GitHub:</strong> ' + (cfg ? cfg.owner+'/'+cfg.repo : 'não configurado'),
+    '<br><em style="color:var(--muted)">Senha não funciona? Clique ⚠ Resetar.</em>',
   ];
-  diag.innerHTML = linhas.map(function(l){return '<div style="margin-bottom:2px">'+l+'</div>';}).join('');
+  diag.innerHTML = linhas.join('<br>');
 }
 
 async function loginReset() {
-  if (!confirm('Isso redefine o usuário master (eric) com a senha que você digitar.\n\nConfirmar?')) return;
+  const novaSenha = prompt(
+    'RESETAR ACESSO\n\nUsuários no cache: ' + _USERS_CACHE.length + '\n\nNova senha para "eric":'
+  );
+  if (!novaSenha || !novaSenha.trim()) return;
 
-  const novaSenha = prompt('Digite a nova senha para o usuário "eric":');
-  if (!novaSenha || !novaSenha.trim()) {
-    alert('Nenhuma senha digitada. Operação cancelada.');
-    return;
-  }
+  const hash     = await sha256(novaSenha.trim());
+  const newUsers = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
 
-  // Limpar tudo localmente
-  localStorage.removeItem(DB_KEY);
-  localStorage.removeItem('nuvyon_users');
-  localStorage.removeItem('nuvyon_logs');
-  GH_SHA = null;
-
-  // Criar usuário master com a nova senha
-  const hash = await sha256(novaSenha.trim());
-  const newUsers = [{ user: 'eric', hash, abas: ABAS.map(a=>a.id), role: 'master', criado: new Date().toLocaleString('pt-BR') }];
+  // Aplicar em memória imediatamente
   _USERS_CACHE = newUsers;
 
-  // Salvar localmente (evitar busca no GitHub agora)
+  // Gravar localStorage (limpa versões antigas)
+  ['nuvyon_users_v2','nuvyon_users','nuvyon_banco'].forEach(function(k){ localStorage.removeItem(k); });
   localStorage.setItem(DB_KEY, JSON.stringify(newUsers));
+  GH_SHA = null;
 
-  // Tentar salvar no GitHub também (se configurado)
-  const cfg = ghGetConfig();
+  // Tentar GitHub
+  var cfg = ghGetConfig();
   if (cfg && location.protocol !== 'file:') {
-    try {
-      await ghPut(cfg, { users: newUsers, logs: [], updated: new Date().toISOString() });
-      dbLogLocal('Banco resetado e salvo no GitHub');
-    } catch(e) {
-      dbLogLocal('Reset local OK — falha ao salvar no GitHub: ' + e.message);
-    }
+    try { await ghPut(cfg, { users: newUsers, logs: [], updated: new Date().toISOString() }); }
+    catch(e) { dbLogLocal('Reset local OK — GitHub offline: ' + e.message); }
   }
 
-  loginDiag();
-  const errEl = document.getElementById('login-err');
+  // Feedback visual
+  var errEl = document.getElementById('login-err');
   if (errEl) {
-    errEl.style.color = 'var(--accent)';
-    errEl.textContent = '✅ Senha redefinida! Entre com eric / ' + novaSenha.trim();
+    errEl.style.color  = 'var(--accent)';
+    errEl.textContent  = '✅ Senha redefinida! Utilizador: eric / Senha: ' + novaSenha.trim();
   }
+  // Preencher campo usuário automaticamente
+  var userEl = document.getElementById('login-user');
+  if (userEl) userEl.value = 'eric';
 }
 
 /* ── Configuração GitHub ── */
@@ -927,73 +973,58 @@ async function ghSaveRelatorios() {
   const cfg = ghGetConfig();
   if (!cfg || location.protocol === 'file:') return false;
 
-  // Montar payload — só os dados que existem
-  const payload = {
-    version:   RELAT_VERSION,
-    savedAt:   new Date().toISOString(),
-    savedBy:   cfg.owner,
-    arquivos:  {}
-  };
+  // ── Nova estratégia: salvar cada slot como arquivo individual ─────────────
+  // Evita o erro 422 "file too large" da API GitHub (limite ~1MB por PUT).
+  // Cada base_crm.json, base_os.json etc. fica abaixo desse limite.
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Serializar cada arquivo carregado (máx 4MB por arquivo → JSON comprimido)
   const slots = {
     os:           STATE.rawOS,
     at:           STATE.rawAT,
     sac:          STATE.rawSAC,
-    prod:         STATE.rawProd,
     nps:          STATE.rawNPS,
     agentes:      STATE.rawAgentes,
     matrix:       STATE.relatorioAnalitico,
     npsTelefonia: STATE.rawNpsTelefonia,
     osab:         STATE.rawOSAb,
     sinais:       STATE.rawSinais,
-    // BI Comercial — Tarefa 3: incluídos no sync do GitHub
     crm:          STATE.rawCRM,
     vendas:       STATE.rawVendas,
   };
 
+  _setRelatIndicator('saving');
+  let ok = 0, fail = 0;
+
   for (const [key, data] of Object.entries(slots)) {
-    if (data && (Array.isArray(data) ? data.length : Object.keys(data).length)) {
-      try {
-        // Base64-encode para suportar qualquer conteúdo
-        const json = JSON.stringify(data);
-        payload.arquivos[key] = {
-          rows:  json.length,
-          data:  btoa(unescape(encodeURIComponent(json))),
-          nomes: STATE.nomes[key] || null,
-        };
-      } catch(e) {
-        console.warn(`[Nuvyon] Falha ao serializar ${key}:`, e.message);
+    if (!data || (Array.isArray(data) && !data.length)) continue;
+    try {
+      // Verificar tamanho antes de enviar (~750KB limit para base64 seguro)
+      const json   = JSON.stringify(data);
+      const bytes  = new TextEncoder().encode(json).length;
+
+      if (bytes > 750_000) {
+        // Arquivo grande demais: salvar só as primeiras 5000 linhas como amostra
+        const sample = Array.isArray(data) ? data.slice(0, 5000) : data;
+        const jsonS  = JSON.stringify(sample);
+        console.warn(`[Nuvyon] ${key}: ${(bytes/1024).toFixed(0)}KB > 750KB — salvando amostra (${sample.length} rows)`);
+        const saved = await ghSaveSlot(key, sample);
+        saved ? ok++ : fail++;
+      } else {
+        const saved = await ghSaveSlot(key, data);
+        saved ? ok++ : fail++;
       }
+    } catch(e) {
+      console.warn(`[Nuvyon] Erro ao salvar slot ${key}:`, e.message);
+      fail++;
     }
   }
 
-  try {
-    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${RELAT_FILE}`;
-    const body = {
-      // Tarefa 3: sha sempre enviado quando existente → força sobrescrita (não cria duplicata)
-      message: `nuvyon: relatórios atualizados ${new Date().toLocaleString('pt-BR')}`,
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 0)))),
-      sha: RELAT_SHA || undefined   // sobrescrita automática se arquivo já existe
-    };
-    const r = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${cfg.token}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) throw new Error(`PUT ${r.status}: ${await r.text()}`);
-    const resp = await r.json();
-    RELAT_SHA = resp.content.sha;
-    _setRelatIndicator('saved', new Date());
-    console.log('[Nuvyon] Relatórios salvos no GitHub ✅');
+  if (ok > 0) {
+    _setRelatIndicator('saved', new Date(), `${ok} arquivo(s) salvos`);
+    console.log(`[Nuvyon] ✅ ${ok} slot(s) salvos no GitHub` + (fail ? ` · ${fail} falharam` : ''));
     return true;
-  } catch(e) {
-    console.warn('[Nuvyon] Falha ao salvar relatórios:', e.message);
-    _setRelatIndicator('error', null, e.message);
+  } else {
+    _setRelatIndicator('error', null, `${fail} arquivo(s) falharam`);
     return false;
   }
 }
@@ -1011,42 +1042,61 @@ async function ghSaveSlot(key, rows) {
   const fileName = GH_SLOT_FILES[key];
   if (!fileName) return false;
 
+  // Verificar tamanho do conteúdo ANTES de tentar o PUT
+  // GitHub API rejeita com 422 arquivos > ~1MB (encoded em base64 fica ~33% maior)
+  const json    = JSON.stringify(rows);
+  const bytes   = new TextEncoder().encode(json).length;
+  const MAX     = 900_000; // ~900KB margem de segurança
+
+  if (bytes > MAX) {
+    console.warn(`[Nuvyon] ${fileName}: ${(bytes/1024).toFixed(0)}KB excede ${MAX/1024}KB — não será salvo no GitHub`);
+    // Mostrar aviso no badge sem travar
+    const el = document.getElementById('relat-status-badge');
+    if (el) el.textContent = `⚠ ${key}: arquivo muito grande para GitHub`;
+    return false;
+  }
+
+  const content = btoa(unescape(encodeURIComponent(json)));
+  const url     = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
+
+  // Buscar SHA atual para sobrescrita
+  if (!_slotSHAs[key]) {
+    try {
+      const r = await fetch(url, {
+        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (r.ok) { const d = await r.json(); _slotSHAs[key] = d.sha; }
+    } catch(_) {}
+  }
+
   try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(rows))));
-    const url     = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
-
-    // Buscar SHA atual se não tiver em cache
-    if (!_slotSHAs[key]) {
-      try {
-        const r = await fetch(url, {
-          headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-        if (r.ok) {
-          const d = await r.json();
-          _slotSHAs[key] = d.sha;
-        }
-      } catch(_) {}
-    }
-
-    const body = {
-      message : `nuvyon: ${key} atualizado ${new Date().toLocaleString('pt-BR')}`,
-      content,
-      ..._slotSHAs[key] ? { sha: _slotSHAs[key] } : {}
-    };
-
     const resp = await fetch(url, {
-      method  : 'PUT',
-      headers : {
+      method : 'PUT',
+      headers: {
         'Authorization': `token ${cfg.token}`,
         'Accept'       : 'application/vnd.github.v3+json',
         'Content-Type' : 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        message : `nuvyon: ${key} ${new Date().toLocaleString('pt-BR')}`,
+        content,
+        ...(_slotSHAs[key] ? { sha: _slotSHAs[key] } : {}),
+      }),
     });
-    if (!resp.ok) throw new Error(`PUT ${resp.status}`);
+
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      // Erro 422 = arquivo muito grande (não deve chegar aqui com a verificação acima)
+      if (resp.status === 422) {
+        console.warn(`[Nuvyon] ${fileName}: 422 arquivo grande demais (${(bytes/1024).toFixed(0)}KB)`);
+        return false;
+      }
+      throw new Error(`PUT ${resp.status}: ${errBody.slice(0, 120)}`);
+    }
+
     const data = await resp.json();
     _slotSHAs[key] = data.content.sha;
-    console.log(`[Nuvyon] ${fileName} salvo no GitHub ✅`);
+    console.log(`[Nuvyon] ✅ ${fileName} salvo (${(bytes/1024).toFixed(0)}KB)`);
     return true;
   } catch(e) {
     console.warn(`[Nuvyon] Falha ao salvar ${fileName}:`, e.message);
@@ -1063,6 +1113,7 @@ async function ghLoadSlots(silent = false) {
   const cfg = ghGetConfig();
   if (!cfg || location.protocol === 'file:') return 0;
   let count = 0;
+
   for (const [key, fileName] of Object.entries(GH_SLOT_FILES)) {
     try {
       const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
@@ -1073,8 +1124,9 @@ async function ghLoadSlots(silent = false) {
       const data = await r.json();
       _slotSHAs[key] = data.sha;
       const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+      if (!Array.isArray(rows) || !rows.length) continue;
 
-      // Aplicar ao STATE (mesmo mapeamento do handleFile)
+      // Aplicar ao STATE
       if      (key==='crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
       else if (key==='vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
       else if (key==='matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
@@ -1082,10 +1134,201 @@ async function ghLoadSlots(silent = false) {
       else if (key==='os')     { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
       else if (key==='at')     { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
       else if (key==='sac')    { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
+      else if (key==='nps')    { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
+      else if (key==='sinais') { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
 
       count++;
-      if (!silent) console.log(`[Nuvyon] ${fileName} carregado ✅ (${rows.length} rows)`);
-    } catch(_) {}
+      if (!silent) console.log(`[Nuvyon] ${fileName} ✅ (${rows.length} rows)`);
+    } catch(e) {
+      if (!silent) console.warn(`[Nuvyon] ${fileName} falhou:`, e.message);
+    }
+  }
+
+  // FIX: processar e renderizar DEPOIS de carregar todos os slots
+  if (count > 0) {
+    if (typeof _processRestoredState === 'function') _processRestoredState();
+    // BI Comercial: renderizar após sessão estar pronta (aguarda login)
+    const _biRender = () => {
+      if ((STATE.rawCRM || STATE.rawVendas) && typeof renderBIComercial === 'function') {
+        renderBIComercial();
+      }
+    };
+    // Se já logado, renderizar agora; senão, tentar novamente em 2s
+    if (SESSION) { _biRender(); }
+    else { setTimeout(_biRender, 2500); }
+
+    const el = document.getElementById('relat-status-badge');
+    if (!silent && el) el.textContent = `☁ ${count} arquivo(s) sincronizados`;
+    _setRelatIndicator('loaded', new Date(), `${count} slot(s) do GitHub`);
+  }
+
+  return count;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ghLoadAll — varre o repositório INTEIRO e restaura todos os arquivos
+// reconhecidos, independente do nome. Funciona com nomes como:
+//   relatorio_de_crm_2026-03-16T15_55_22_8714-03_00.xlsx (já convertido para JSON)
+//   6relatorio-de-ordens-de-servico-abertas-20260312...xlsx
+// ─────────────────────────────────────────────────────────────────────────────
+async function ghListRepo(cfg, dir = '') {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${dir}`;
+  const r   = await fetch(url, {
+    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`LIST ${r.status}`);
+  const items = await r.json();
+  if (!Array.isArray(items)) return [];
+  const files = [];
+  for (const item of items) {
+    if (item.type === 'file') files.push(item);
+    else if (item.type === 'dir' && dir === '') {
+      try { files.push(...await ghListRepo(cfg, item.path)); } catch(_) {}
+    }
+  }
+  return files;
+}
+
+function _guessSlotKey(filename, rows) {
+  const n    = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cols = (rows && rows[0]) ? Object.keys(rows[0]).map(k => k.toLowerCase()).join(',') : '';
+
+  // Por nome de arquivo
+  if (n.includes('crm') || n.includes('prospecto'))                      return 'crm';
+  if (n.includes('servicos') || n.includes('servico') || (n.includes('vendas') && !n.includes('crm'))) return 'vendas';
+  if (n.includes('matrix') || n.includes('analitico'))                   return 'matrix';
+  if (n.includes('abertas') || n.includes('osab'))                       return 'osab';
+  if (n.includes('ordens') || (n.includes('relatorio') && n.includes('os') && !n.includes('abertas'))) return 'os';
+  if (n.includes('atendimento') && !n.includes('analitico'))             return 'at';
+  if (n.includes('sac') || n.includes('relatoriosac'))                   return 'sac';
+  if (n.includes('nps') && !n.includes('telefon'))                       return 'nps';
+  if (n.includes('nps') && n.includes('telefon'))                        return 'npsTelefonia';
+  if (n.includes('sinais') || n.includes('sinal'))                       return 'sinais';
+  if (n.includes('agentes') || n.includes('agente'))                     return 'agentes';
+  if (n.includes('kml'))                                                  return 'kml';
+
+  // Por colunas do conteúdo
+  if (cols.includes('status_prospecto') || cols.includes('prospecto_cpf'))    return 'crm';
+  if (cols.includes('servico_status') || cols.includes('servico_descricao'))  return 'vendas';
+  if (cols.includes('protocolo') && cols.includes('agente'))                  return 'matrix';
+  if (cols.includes('tipo_ordem_servico') && cols.includes('data_abertura'))  return 'osab';
+  if (cols.includes('numero_ordem_servico') || cols.includes('id_ordem_servico')) return 'os';
+
+  return null;
+}
+
+function _parseCsvSimple(text) {
+  try {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const sep  = (lines[0].match(/;/g)||[]).length >= (lines[0].match(/,/g)||[]).length ? ';' : ',';
+    const hdrs = lines[0].split(sep).map(h => h.replace(/^["']|["']$/g,'').trim());
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = []; let cur = '', inQ = false;
+      for (const ch of lines[i]) {
+        if (ch === '"') { inQ=!inQ; continue; }
+        if (ch === sep && !inQ) { vals.push(cur.trim()); cur=''; continue; }
+        cur += ch;
+      }
+      vals.push(cur.trim());
+      if (vals.every(v=>!v)) continue;
+      rows.push(Object.fromEntries(hdrs.map((h,i)=>[h, vals[i]??''])));
+    }
+    return rows;
+  } catch(e) { return []; }
+}
+
+function ghApplySlot(key, rows) {
+  if (!rows || !Array.isArray(rows) || !rows.length) return;
+  if      (key==='crm')          { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
+  else if (key==='vendas')       { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
+  else if (key==='matrix')       { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
+  else if (key==='osab')         { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
+  else if (key==='os')           { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
+  else if (key==='at')           { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
+  else if (key==='sac')          { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
+  else if (key==='nps')          { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
+  else if (key==='sinais')       { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
+  else if (key==='agentes')      { STATE.rawAgentes=rows; pendingFiles.agentes=rows; STATE.loaded.agentes=true; }
+  else if (key==='npsTelefonia') { STATE.rawNpsTelefonia=rows; pendingFiles.npsTelefonia=rows; STATE.loaded.npsTelefonia=true; }
+}
+
+async function ghLoadAll(silent = false) {
+  const cfg = ghGetConfig();
+  if (!cfg || location.protocol === 'file:') return 0;
+
+  const el = document.getElementById('relat-status-badge');
+  if (!silent && el) el.textContent = '⏳ Lendo repositório...';
+
+  let files;
+  try { files = await ghListRepo(cfg); }
+  catch(e) {
+    console.warn('[Nuvyon] ghLoadAll: falha ao listar repo:', e.message);
+    if (!silent && el) el.textContent = '❌ GitHub: ' + e.message;
+    return 0;
+  }
+
+  if (!files.length) {
+    if (!silent && el) el.textContent = '○ Repositório vazio';
+    return 0;
+  }
+
+  if (!silent && el) el.textContent = `⏳ ${files.length} arquivo(s)...`;
+  let count = 0, loaded = [];
+
+  for (const file of files) {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.json') && !name.endsWith('.csv')) continue;
+    if (file.size > 50*1024*1024) continue;
+    try {
+      let rows = null, resolvedKey = null;
+      if (name.endsWith('.json')) {
+        const r = await fetch(
+          `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${file.path}`,
+          { headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }}
+        );
+        if (!r.ok) continue;
+        const data = await r.json();
+        const slotKey = Object.entries(GH_SLOT_FILES).find(([,v])=>v===file.name)?.[0];
+        if (slotKey) _slotSHAs[slotKey] = data.sha;
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+        // Payload consolidado nuvyon
+        if (decoded && decoded.version && decoded.arquivos) {
+          for (const [key, entry] of Object.entries(decoded.arquivos||{})) {
+            try {
+              const r2 = JSON.parse(decodeURIComponent(escape(atob(entry.data.replace(/\n/g,'')))));
+              ghApplySlot(key, r2);
+              count++; loaded.push(key);
+            } catch(_) {}
+          }
+          continue;
+        }
+        if (Array.isArray(decoded)) { rows=decoded; resolvedKey=slotKey||_guessSlotKey(file.name, decoded); }
+        else if (decoded && Array.isArray(decoded.rows)) { rows=decoded.rows; resolvedKey=slotKey||_guessSlotKey(file.name, decoded.rows); }
+      } else if (name.endsWith('.csv')) {
+        const r = await fetch(file.download_url, { headers: { 'Authorization': `token ${cfg.token}` }});
+        if (!r.ok) continue;
+        rows = _parseCsvSimple(await r.text());
+        resolvedKey = _guessSlotKey(file.name, rows);
+      }
+      if (rows && rows.length && resolvedKey) {
+        ghApplySlot(resolvedKey, rows);
+        count++; loaded.push(resolvedKey);
+        console.log(`[Nuvyon] ✅ ${file.name} → "${resolvedKey}" (${rows.length} rows)`);
+      }
+    } catch(e) { console.warn(`[Nuvyon] ${file.name}:`, e.message); }
+  }
+
+  if (count > 0) {
+    if (typeof _processRestoredState === 'function') _processRestoredState();
+    const _bi = () => { if ((STATE.rawCRM||STATE.rawVendas) && typeof renderBIComercial==='function') renderBIComercial(); };
+    if (SESSION) _bi(); else setTimeout(_bi, 2500);
+    const unique = [...new Set(loaded)];
+    _setRelatIndicator('loaded', new Date(), `${unique.length} slot(s): ${unique.join(', ')}`);
+    if (!silent && el) el.textContent = `☁ ${unique.length} arquivo(s)`;
+  } else {
+    if (!silent && el) el.textContent = '○ Sem dados no GitHub';
   }
   return count;
 }
@@ -1135,19 +1378,8 @@ async function ghLoadRelatorios(silent = false) {
         else if (key === 'npsTelefonia') { STATE.rawNpsTelefonia = rows; pendingFiles.npsTelefonia = rows; STATE.loaded.npsTelefonia = true; }
         else if (key === 'osab')    { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; pendingFiles.osab = rows; STATE.loaded.osab = true; }
         else if (key === 'sinais')  { STATE.rawSinais = rows; pendingFiles.sinais = rows; STATE.loaded.sinais = true; }
-        else if (key === 'crm')     {
-          STATE.rawCRM = rows; pendingFiles.crm = rows; STATE.loaded.crm = true;
-          if (typeof renderBIComercial === 'function') renderBIComercial();
-          // Tarefa 3: enviar ao GitHub se configurado (sobrescreve base_crm.json)
-          ghSaveSlot('crm', rows).catch(()=>{});
-        }
-        else if (key === 'vendas')  {
-          STATE.rawVendas = rows; pendingFiles.vendas = rows; STATE.loaded.vendas = true;
-          if (typeof renderBIComercial === 'function') renderBIComercial();
-          ghSaveSlot('vendas', rows).catch(()=>{});
-        }
-        else if (key === 'crm')     { STATE.rawCRM = rows; pendingFiles.crm = rows; STATE.loaded.crm = true; if (typeof renderBIComercial === 'function') renderBIComercial(); }
-        else if (key === 'vendas')  { STATE.rawVendas = rows; pendingFiles.vendas = rows; STATE.loaded.vendas = true; if (typeof renderBIComercial === 'function') renderBIComercial(); }
+        else if (key === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
+        else if (key === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
 
         if (entry.nomes) STATE.nomes[key] = entry.nomes;
         count++;
@@ -1259,35 +1491,13 @@ function _setRelatIndicator(status, date, extra) {
 
 /* ── Auto-load na inicialização da página ────────────────────── */
 window.addEventListener('load', async () => {
-  // Tarefa 3: ao abrir a página, tentar carregar dados do GitHub automaticamente.
-  // Qualquer usuário com o gh-token configurado verá o dashboard já preenchido.
+  // Ao abrir: varrer o repositório GitHub inteiro e restaurar todos os dados.
+  // ghLoadAll lida com qualquer nome de arquivo — não precisa de nome fixo.
   setTimeout(async () => {
     const cfg = ghGetConfig();
     if (!cfg || location.protocol === 'file:') return;
-
-    const el = document.getElementById('relat-status-badge');
-    if (el) el.textContent = '⏳ Carregando do GitHub...';
-    _setRelatIndicator('saving');
-
-    // 1. Tentar slots individuais (base_crm.json, base_vendas.json, etc.)
-    const slotCount = await ghLoadSlots(false);
-
-    // 2. Fallback: relatório consolidado (nuvyon_relatorios.json)
-    const relCount = await ghLoadRelatorios(true);
-
-    if (slotCount > 0 || relCount) {
-      // Processar dados restaurados
-      if (typeof _processRestoredState === 'function') _processRestoredState();
-      // Inicializar BI Comercial se CRM/Vendas foram carregados
-      if ((STATE.rawCRM || STATE.rawVendas) && typeof renderBIComercial === 'function') {
-        renderBIComercial();
-      }
-      if (el) el.textContent = `☁ ${slotCount} arquivo(s) do GitHub`;
-      console.log(`[Nuvyon] onload: ${slotCount} slot(s) + ${relCount?'relatório consolidado':''} carregados ✅`);
-    } else {
-      if (el) el.textContent = '○ Sem dados no GitHub';
-    }
-  }, 1500); // aguarda auth inicializar
+    await ghLoadAll(false);
+  }, 3000); // 3s — após login completar
 });
 
 
@@ -1361,7 +1571,7 @@ window.addEventListener('load', async () => {
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap" title="Modo do banco de dados">💾 Local</div>
-    <div id="relat-status-badge" onclick="ghLoadRelatorios(false)" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Clique para recarregar relatórios do GitHub">○ Relatórios</div>
+    <div id="relat-status-badge" onclick="ghLoadAll(false)" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Clique para recarregar relatórios do GitHub">○ Relatórios</div>
     <button onclick="openUpload()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:12px">⬆ Carregar Dados</button>
   </div>
 </div>
@@ -1731,7 +1941,7 @@ window.addEventListener('load', async () => {
           Motor de Prioridade: calculateOSPriority (P10/P8/P5/P3)<br>
           BI Comercial: superClean + resolveVendedoraBI (6 passos)<br>
           GitHub Sync: upload automático com sobrescrita por slot<br>
-          Desenvolvido por <strong style="color:var(--accent)">Eng. Eric Jonas</strong> · erj.informatica@gmail.com
+          Desenvolvido por <strong style="color:var(--accent)">Eng. Eric Jonas</strong> · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="422730286c2b2c242d302f23362b212302252f232b2e6c212d2f">[email&#160;protected]</a>
         </div>
       </div>
     </div>
@@ -1970,7 +2180,7 @@ window.addEventListener('load', async () => {
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 /* ═══════════════════════════════════════════════════════════════════
    NUVYON — MOTOR DE INTELIGÊNCIA OPERACIONAL v3.0
    Motor completo: cruzamento real SAC×OS×Atendimento, reincidência
@@ -3106,6 +3316,29 @@ async function handleFile(tipo, input) {
       if (STATE.relatorioAnalitico) setTimeout(() => { renderBonificacao(); renderGestao(); }, 0);
     }
 
+    // ── Auto-aplicar CRM e Vendas (BI Comercial) ─────────────────────────
+    // Aplica imediatamente ao STATE e renderiza o BI sem precisar clicar "Aplicar"
+    if (tipo === 'crm' && rows.length > 0) {
+      STATE.rawCRM     = rows;
+      STATE.loaded.crm = true;
+      pendingFiles.crm = rows;
+      // Salvar no GitHub automaticamente
+      if (typeof ghSaveSlot === 'function') ghSaveSlot('crm', rows).catch(()=>{});
+      // Atualizar slot visual
+      const slotName = document.getElementById('slot-crm-name');
+      if (slotName) slotName.textContent = `✔ ${file.name} (${rows.length} linhas)`;
+      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
+    }
+    if (tipo === 'vendas' && rows.length > 0) {
+      STATE.rawVendas     = rows;
+      STATE.loaded.vendas = true;
+      pendingFiles.vendas = rows;
+      if (typeof ghSaveSlot === 'function') ghSaveSlot('vendas', rows).catch(()=>{});
+      const slotName = document.getElementById('slot-vendas-name');
+      if (slotName) slotName.textContent = `✔ ${file.name} (${rows.length} linhas)`;
+      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
+    }
+
     if (tipo === 'nps') {
       const el = document.getElementById('slot-nps-name');
       const ic = document.getElementById('slot-nps-icon');
@@ -3197,6 +3430,28 @@ function aplicarDados() {
     // Novos arquivos v3.6
     if (pendingFiles.osab)   { STATE.rawOSAb  = pendingFiles.osab;   STATE.rawOSAbertas = pendingFiles.osab; STATE.loaded.osab = true; }
     if (pendingFiles.sinais)  { STATE.rawSinais  = pendingFiles.sinais;  STATE.loaded.sinais  = true; }
+
+    // ── BI Comercial: CRM + Vendas Hubsoft ──────────────────────────────────
+    if (pendingFiles.crm) {
+      STATE.rawCRM = pendingFiles.crm;
+      STATE.loaded.crm = true;
+      if (typeof ghSaveSlot === 'function') ghSaveSlot('crm', pendingFiles.crm).catch(()=>{});
+    }
+    if (pendingFiles.vendas) {
+      STATE.rawVendas = pendingFiles.vendas;
+      STATE.loaded.vendas = true;
+      if (typeof ghSaveSlot === 'function') ghSaveSlot('vendas', pendingFiles.vendas).catch(()=>{});
+    }
+    // BI Comercial: renderizar e navegar para a aba automaticamente
+    if (pendingFiles.crm || pendingFiles.vendas) {
+      setTimeout(() => {
+        if (typeof renderBIComercial === 'function') renderBIComercial();
+        // Navegar para a aba BI Comercial automaticamente após aplicar
+        if (typeof window.showTab === 'function') window.showTab('bi-comercial');
+      }, 100);
+    } else if (STATE.rawCRM || STATE.rawVendas) {
+      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
+    }
     if (pendingFiles.kml) {
       // KML já vem pré-parseado como { codNorm → { id, nome, lat, lng } }
       STATE.rawKML    = pendingFiles.kml;
@@ -5006,7 +5261,11 @@ function showTab(t) {
   if (t === 'bonificacao')  { renderBonificacao(); }
 
   if (t === 'bi-comercial') {
-    if (typeof renderBIComercial === 'function') renderBIComercial();
+    // Renderizar imediatamente se houver dados
+    if (typeof renderBIComercial === 'function') {
+      // Pequeno delay para garantir que o tab-content já está display:block
+      setTimeout(renderBIComercial, 50);
+    }
   }
   if (t === 'config') {
     if (typeof _initConfigTab === 'function') _initConfigTab();
@@ -5028,6 +5287,11 @@ function openUpload() { document.getElementById('upload-overlay').classList.add(
 function closeUpload(e) {
   if (e && e.target !== document.getElementById('upload-overlay')) return;
   document.getElementById('upload-overlay').classList.remove('open');
+  // Se a aba BI Comercial estiver activa e tiver dados, re-renderizar
+  const biTab = document.getElementById('tab-content-bi-comercial');
+  if (biTab && biTab.classList.contains('active') && typeof renderBIComercial === 'function') {
+    setTimeout(renderBIComercial, 100);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -10732,18 +10996,30 @@ function renderBIComercial() {
   const vendasRaw = STATE.rawVendas;
   const matrixRaw = STATE.relatorioAnalitico;
 
+  // Debug: log para console ajuda a rastrear quando é chamada
+  console.log('[BI] renderBIComercial — CRM:', crmRaw ? crmRaw.length + ' rows' : 'null',
+              '| Vendas:', vendasRaw ? vendasRaw.length + ' rows' : 'null');
+
   if (!crmRaw && !vendasRaw) {
-    // Atualizar status de upload
     const st = document.getElementById('bi-upload-status');
-    if (st) st.textContent = '';
+    if (st) st.textContent = 'Aguardando CRM ou Vendas...';
+    return;
+  }
+
+  // Garantir que os elementos existem (podem não existir se a aba ainda não foi renderizada)
+  const up   = document.getElementById('bi-upload-screen');
+  const dash = document.getElementById('bi-dashboard');
+
+  if (!up || !dash) {
+    // Aba ainda não está no DOM — tentar novamente em 500ms
+    console.warn('[BI] Elementos bi-upload-screen/bi-dashboard não encontrados — retry em 500ms');
+    setTimeout(renderBIComercial, 500);
     return;
   }
 
   // Mostrar dashboard, esconder tela de upload
-  const up   = document.getElementById('bi-upload-screen');
-  const dash = document.getElementById('bi-dashboard');
-  if (up)   up.style.display   = 'none';
-  if (dash) dash.style.display = 'block';
+  up.style.display   = 'none';
+  dash.style.display = 'block';
 
   // ── Processar CRM ──────────────────────────────────────────────────────
   const crmList = (crmRaw||[]).map(r => {
@@ -11073,7 +11349,7 @@ function cfgSaveGitHub() {
   ghSetConfig({ owner, repo, token });
   if (msg) { msg.textContent = '✅ Configuração salva!'; msg.style.color='var(--green)'; }
   // Testar conexão imediatamente
-  ghLoadSlots(true).then(n => {
+  ghLoadAll(true).then(n => {
     if (msg) msg.textContent = n > 0
       ? `✅ Conectado! ${n} arquivo(s) encontrados no repo.`
       : '✅ Conectado! Sem arquivos ainda — serão criados no próximo upload.';
@@ -11176,10 +11452,4 @@ function _initConfigTab() {
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button onclick="ghTestAndSave()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:13px;cursor:pointer">✅ Testar e Salvar</button>
-      <button onclick="ghClearConfig();closeGhConfig();showLoginStatus('Configuração removida — modo local ativado','ok')" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:7px;padding:9px 14px;font-size:12px;cursor:pointer">🗑 Remover config</button>
-      <span id="gh-config-msg" style="font-size:12px;color:var(--accent)"></span>
-    </div>
-  </div>
-
-</body>
-</html>
+      <button onclick="ghClearConfig();closeGhConfig();showLoginStatus('Configuração removida — modo local ativado','ok')" style="background:transparent;border:1px solid #
