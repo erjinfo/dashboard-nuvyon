@@ -258,6 +258,202 @@ td{padding:9px}
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════ -->
+<!-- MÓDULO IA NUVYON - Cole antes do </body> -->
+<!-- ═══════════════════════════════════════ -->
+<style>
+#ia-panel *{box-sizing:border-box;font-family:'Inter',sans-serif}
+#ia-box{display:none;flex-direction:column;background:#1e293b;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.5);margin-bottom:64px;width:380px}
+#ia-chat{height:260px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
+#ia-chat::-webkit-scrollbar{width:4px}
+#ia-chat::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.ia-msg{padding:10px 13px;border-radius:12px;font-size:0.82rem;line-height:1.55;max-width:92%;white-space:pre-wrap;word-break:break-word}
+.ia-user{background:#6366f1;color:#fff;align-self:flex-end}
+.ia-bot{background:#0f172a;color:#e2e8f0;align-self:flex-start}
+.ia-sys{background:#1a3a5c;color:#93c5fd;align-self:center;font-size:0.78rem;text-align:center}
+.ia-btn{background:#1e3a5f;border:none;border-radius:8px;padding:7px 11px;color:#93c5fd;font-size:0.76rem;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}
+.ia-btn:hover{background:#274d7a}
+.ia-btn.primary{background:#1d4ed8;color:#fff}
+.ia-btn.primary:hover{background:#1e40af}
+#ia-input{flex:1;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:9px 13px;color:#e2e8f0;font-size:0.85rem;outline:none}
+#ia-input:focus{border-color:#6366f1}
+#ia-toggle{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:50px;padding:13px 20px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,0.5);display:flex;align-items:center;gap:8px;white-space:nowrap}
+#ia-toggle:hover{transform:translateY(-1px);box-shadow:0 6px 26px rgba(99,102,241,0.65)}
+#ia-status{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s}
+#ia-status.ok{background:#22c55e}
+#ia-status.loading{background:#f59e0b}
+</style>
+
+<div id="ia-panel" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:0">
+
+  <div id="ia-box">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:15px 18px;display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="ia-status"></span>
+        <div>
+          <div style="color:#fff;font-weight:700;font-size:0.92rem">🤖 IA Nuvyon</div>
+          <div style="color:rgba(255,255,255,0.6);font-size:0.7rem" id="ia-subtitle">Clique em Carregar dados para começar</div>
+        </div>
+      </div>
+      <button onclick="toggleIA()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:5px 10px;color:#fff;cursor:pointer;font-size:0.85rem">✕</button>
+    </div>
+
+    <!-- Ações rápidas -->
+    <div style="padding:12px 14px;display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid #334155">
+      <button class="ia-btn primary" onclick="carregarDados()">🔄 Carregar dados</button>
+      <button class="ia-btn" onclick="iaAcao('resumo')">📊 Resumo KPIs</button>
+      <button class="ia-btn" onclick="iaAcao('alertas')">🚨 Alertas</button>
+      <button class="ia-btn" onclick="iaAcao('tendencia')">📈 Tendências</button>
+    </div>
+
+    <!-- Chat -->
+    <div id="ia-chat"></div>
+
+    <!-- Input -->
+    <div style="padding:10px 14px;border-top:1px solid #334155;display:flex;gap:8px">
+      <input id="ia-input" type="text" placeholder="Pergunte sobre os dados..." onkeydown="if(event.key==='Enter')iaPergunta()">
+      <button onclick="iaPergunta()" style="background:#6366f1;border:none;border-radius:10px;padding:9px 13px;color:#fff;cursor:pointer;font-size:1rem">➤</button>
+    </div>
+  </div>
+
+  <button id="ia-toggle" onclick="toggleIA()">🤖 IA Nuvyon</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIGURAÇÕES — edite as 2 linhas abaixo
+// ══════════════════════════════════════════════
+const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
+
+async function claude(prompt) {
+  const r = await fetch(IA_WORKER + '?tipo=claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message);
+  return d.content[0].text;
+}
+// ══════════════════════════════════════════════
+let iaDados = {};
+let iaAberto = false;
+
+function toggleIA() {
+  iaAberto = !iaAberto;
+  document.getElementById('ia-box').style.display = iaAberto ? 'flex' : 'none';
+  if (iaAberto && !Object.keys(iaDados).length) {
+    iaMsg('sys', 'Olá! Clique em 🔄 Carregar dados para buscar os relatórios do Hubsoft.');
+  }
+}
+
+function setStatus(s) {
+  const el = document.getElementById('ia-status');
+  el.className = 'ok' === s ? 'ok' : s === 'loading' ? 'loading' : '';
+}
+
+function setSubtitle(t) {
+  document.getElementById('ia-subtitle').textContent = t;
+}
+
+async function carregarDados() {
+  setStatus('loading');
+  setSubtitle('Buscando dados...');
+  iaMsg('sys', '🔄 Conectando ao Hubsoft...');
+  try {
+    const [atend, ordens, prod] = await Promise.all([
+      fetch(IA_WORKER + '?endpoint=/atendimentos').then(r => r.json()).catch(() => ({})),
+      fetch(IA_WORKER + '?endpoint=/ordens-servico').then(r => r.json()).catch(() => ({})),
+      fetch(IA_WORKER + '?endpoint=/produtividade').then(r => r.json()).catch(() => ({})),
+    ]);
+    iaDados = { atendimentos: atend, ordens_servico: ordens, produtividade: prod };
+    const total = (atend?.data?.length || atend?.total || '?');
+    setStatus('ok');
+    setSubtitle('Dados carregados ✓');
+    iaMsg('sys', '✅ Dados do Hubsoft carregados! Use os botões acima ou faça uma pergunta.');
+  } catch(e) {
+    setStatus('');
+    setSubtitle('Erro na conexão');
+    iaMsg('sys', '❌ Erro ao conectar. Verifique se o Worker está ativo.');
+  }
+}
+
+async function claude(prompt) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': IA_CLAUDE,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message);
+  return d.content[0].text;
+}
+
+const prompts = {
+  resumo:    () => `Você é um analista de KPIs de telecomunicações. Analise os dados abaixo e gere um RESUMO EXECUTIVO em português, destacando: principais métricas, pontos positivos e pontos de atenção. Seja objetivo e use bullet points.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
+  alertas:   () => `Você é um analista de performance. Com base nos dados abaixo, liste APENAS os alertas críticos — colaboradores, equipes ou KPIs abaixo do esperado. Para cada alerta, explique o problema em 1 linha.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
+  tendencia: () => `Você é um analista de dados. Identifique TENDÊNCIAS nos dados abaixo — o que está melhorando, o que está piorando, e o que merece atenção nas próximas semanas. Seja direto.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
+};
+
+async function iaAcao(tipo) {
+  if (!Object.keys(iaDados).length) {
+    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
+    return;
+  }
+  const loading = iaMsg('sys', '⏳ Analisando...');
+  try {
+    const resp = await claude(prompts[tipo]());
+    loading.remove();
+    iaMsg('bot', resp);
+  } catch(e) {
+    loading.remove();
+    iaMsg('sys', '❌ Erro: ' + e.message);
+  }
+}
+
+async function iaPergunta() {
+  const inp = document.getElementById('ia-input');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  inp.value = '';
+  iaMsg('user', txt);
+  if (!Object.keys(iaDados).length) {
+    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
+    return;
+  }
+  const loading = iaMsg('sys', '⏳ Pensando...');
+  try {
+    const resp = await claude(
+      `Você é um assistente de análise de KPIs para o time da Artelecom.\nDADOS DISPONÍVEIS: ${JSON.stringify(iaDados, null, 2)}\n\nPERGUNTA: ${txt}\n\nResponda em português, de forma direta e objetiva.`
+    );
+    loading.remove();
+    iaMsg('bot', resp);
+  } catch(e) {
+    loading.remove();
+    iaMsg('sys', '❌ Erro: ' + e.message);
+  }
+}
+
+function iaMsg(tipo, texto) {
+  const chat = document.getElementById('ia-chat');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-' + tipo;
+  div.textContent = texto;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+</script>
 <!-- ADMIN MODAL -->
 <div id="admin-modal">
   <div id="admin-box">
