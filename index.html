@@ -401,25 +401,7 @@ async function carregarDados() {
   }
 }
 
-async function claude(prompt) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': IA_CLAUDE,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
-  return d.content[0].text;
-}
+
 
 const prompts = {
   resumo:    () => `Você é um analista de KPIs de telecomunicações. Analise os dados abaixo e gere um RESUMO EXECUTIVO em português, destacando: principais métricas, pontos positivos e pontos de atenção. Seja objetivo e use bullet points.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
