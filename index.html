@@ -694,25 +694,34 @@ let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
 async function initDB() {
+  showLoginStatus('Sincronizando com a nuvem...', 'muted');
+
   try {
-    // Agora batemos no WORKER, que já tem o Token escondido lá
+    // IMPORTANTE: Trocamos o link direto do GitHub pelo link do seu Worker
+    // O Worker já sabe o Token e o Repositório secreto.
     const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error('Falha ao conectar com o Worker');
     
+    if (!r.ok) throw new Error('O Worker não conseguiu acessar o banco de dados.');
+
     const data = await r.json();
     
-    // O GitHub retorna o conteúdo em Base64 dentro de 'content'
+    // O Worker retorna um objeto com 'content' (Base64) e 'sha'
+    // Precisamos decodificar o conteúdo para ler os usuários
     const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
     
     if (banco && Array.isArray(banco.users)) {
       _USERS_CACHE = banco.users;
-      GH_SHA = data.sha; // Importante para salvar depois
-      console.log('✅ Usuários carregados via Worker');
+      GH_SHA = data.sha; // Guarda o SHA para quando precisar salvar algo
+      localStorage.setItem(DB_KEY, JSON.stringify(_USERS_CACHE));
+      
+      showLoginStatus('Pronto para entrar', 'accent');
+      console.log('✅ Banco de dados carregado via Worker');
     }
   } catch (e) {
-    console.warn('Usando cache local:', e.message);
-    // Fallback para o localStorage se o Worker falhar
+    console.error('Falha ao carregar banco via Worker:', e.message);
+    // Fallback: Se a internet falhar, tenta carregar o que está salvo no PC do usuário
     _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
+    showLoginStatus('Modo Offline ativado', 'yellow');
   }
 }
 
