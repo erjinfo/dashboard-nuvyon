@@ -660,31 +660,8 @@ async function ghPut(cfg, banco) {
 }
 
 
-/* ── dbLoad / dbSave com GitHub + fallback ── */
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
-}
 
-async function dbLoad() {
-  const cfg = ghGetConfig();
-  if (cfg && location.protocol !== 'file:') {
-    try {
-      const banco = await ghGet(cfg);
-      if (banco && Array.isArray(banco.users)) {
-        localStorage.setItem(DB_KEY, JSON.stringify(banco.users)); // cache local
-        dbLogLocal(`Banco carregado do GitHub (${banco.users.length} usuários)`);
-        setModeIndicator(true);
-        return banco.users;
-      }
-    } catch(e) {
-      console.warn('GitHub indisponível, usando cache local:', e.message);
-      dbLogLocal('GitHub indisponível — usando cache local');
-    }
-  }
-  setModeIndicator(false);
-  try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; }
-}
+
 
 async function dbSave(users) {
   // 1. Sempre salvar local primeiro (rápido e seguro)
@@ -727,24 +704,78 @@ let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
 // 1. CARREGAR BANCO (Sem chamar o GitHub direto)
+/* ── MOTOR DE SEGURANÇA NUYVON ── */
+
+// 1. Função de Criptografia (Hash)
+async function sha256(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// 2. Inicializar Banco via Worker (Sem erros 404)
 async function initDB() {
+  console.log("🔄 Tentando carregar usuários via Worker...");
   try {
     const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error("Erro ao acessar Worker");
-    
+    if (!r.ok) throw new Error("Worker offline");
     const data = await r.json();
-    // Decodifica o Base64 que vem do GitHub
     const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    
     if (banco && banco.users) {
       _USERS_CACHE = banco.users;
-      GH_SHA = data.sha; // Guarda o SHA para o Reset funcionar
-      console.log("✅ Usuários carregados com segurança via Worker");
+      GH_SHA = data.sha; // IMPORTANTE para o Reset funcionar
+      console.log("✅ Usuários sincronizados!");
     }
   } catch (e) {
-    console.error("❌ Erro no banco:", e.message);
+    console.error("❌ Falha ao carregar nuvem, usando local:", e.message);
     _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
   }
+}
+
+// 3. Função de Login Blindada
+async function doLogin() {
+  const userInp = document.getElementById('login-user');
+  const passInp = document.getElementById('login-pass');
+  const errEl   = document.getElementById('login-err');
+
+  if (!userInp || !passInp) return;
+
+  const userTxt = userInp.value.trim();
+  const passTxt = passInp.value.trim();
+  const hashDigitado = await sha256(passTxt);
+
+  // Procura o usuário no que foi baixado do Worker
+  const usuario = _USERS_CACHE.find(u => u.user === userTxt && (u.hash === hashDigitado || u.pass === passTxt));
+
+  if (usuario) {
+    SESSION = usuario;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    if(document.getElementById('ia-toggle')) document.getElementById('ia-toggle').style.display = 'flex';
+    iaMsg('sys', `👋 Olá ${usuario.user}, bem-vindo de volta!`);
+  } else {
+    errEl.textContent = '❌ Usuário ou senha incorretos';
+    errEl.style.display = 'block';
+  }
+}
+
+// 4. Reset de Senha que REALMENTE salva no seu Worker
+async function loginReset() {
+  const nova = prompt("Nova senha para 'eric':");
+  if (!nova) return;
+  const hash = await sha256(nova.trim());
+  const novosDados = { users: [{ user: 'eric', hash: hash, role: 'master' }] };
+
+  try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
+    const r = await fetch(`${IA_WORKER}?tipo=gh-db`, {
+      method: 'POST',
+      body: JSON.stringify({ content, sha: GH_SHA })
+    });
+    if (r.ok) {
+      alert("✅ Senha gravada na nuvem! Recarregando...");
+      location.reload();
+    } else { alert("❌ Erro ao salvar. Verifique o Token no Worker."); }
+  } catch (e) { alert("❌ Erro: " + e.message); }
 }
 
 function showLoginStatus(msg, color) {
@@ -755,40 +786,7 @@ function showLoginStatus(msg, color) {
 }
 
 /* ── Login ── */
-async function doLogin() {
-  const userInp = document.getElementById('login-user');
-  const passInp = document.getElementById('login-pass');
-  const errEl   = document.getElementById('login-err'); // Onde aparece "Usuário ou senha incorretos"
 
-  if (!userInp || !passInp) {
-    console.error("IDs de login não encontrados no HTML!");
-    return;
-  }
-
-  const userTxt = userInp.value.trim();
-  const passTxt = passInp.value.trim();
-  const hashDigitado = await sha256(passTxt);
-
-  // Procura o usuário (verifique se seu banco usa .user e .hash)
-  const usuario = _USERS_CACHE.find(u => u.user === userTxt && (u.hash === hashDigitado || u.pass === passTxt));
-
-  if (usuario) {
-    SESSION = usuario;
-    // Tenta esconder a tela de login com segurança
-    const loginScreen = document.getElementById('login-screen');
-    const mainApp = document.getElementById('main-app');
-
-    if (loginScreen) loginScreen.style.display = 'none';
-    if (mainApp) mainApp.style.display = 'flex';
-    
-    iaMsg('sys', `👋 Bem-vindo, ${usuario.user}!`);
-  } else {
-    if (errEl) {
-      errEl.textContent = '❌ Usuário ou senha incorretos';
-      errEl.style.display = 'block';
-    }
-  }
-}
 
 /* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
 function applySession() {
@@ -1038,60 +1036,8 @@ function loginDiag() {
   diag.innerHTML = linhas.join('<br>');
 }
 
-// 2. RESETAR SENHA (Agora enviando para o Worker)
-async function loginReset() {
-  const novaSenha = prompt('Digite a nova senha para o usuário "eric":');
-  if (!novaSenha) return;
-
-  const hash = await sha256(novaSenha.trim());
-  const novosDados = { 
-    users: [{ user: 'eric', hash: hash, role: 'master' }] 
-  };
-
-  try {
-    // Transforma em Base64 para o GitHub aceitar
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-    
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      body: JSON.stringify({ content, sha: GH_SHA })
-    });
-
-    if (r.ok) {
-      alert("✅ Senha resetada com sucesso na nuvem!");
-      location.reload(); // Recarrega para aplicar
-    } else {
-      throw new Error("Erro ao salvar no Worker");
-    }
-  } catch (e) {
-    alert("❌ Falha no reset: " + e.message);
-  }
-}
 
 
-
-/* ── Configuração GitHub ── */
-function openGhConfig() {
-  const cfg = ghGetConfig();
-  if (cfg) {
-    document.getElementById('gh-owner').value = cfg.owner||'';
-    document.getElementById('gh-repo').value  = cfg.repo||'';
-    document.getElementById('gh-token').value = cfg.token||'';
-  }
-  // Mostrar aviso se aberto via file://
-  const det = document.getElementById('gh-config-detail');
-  if (location.protocol === 'file:') {
-    det.style.display = 'block';
-    det.innerHTML = '<span style="color:#f39c12">⚠ Você está abrindo o dashboard como arquivo local (file://).</span><br>' +
-      'O GitHub funcionará normalmente quando acessar via <strong>https://erjinfo.github.io/dashboard-nuvyon/</strong><br>' +
-      'Configure o token aqui — ele fica salvo nesta máquina e será usado automaticamente no acesso via HTTPS.';
-  } else {
-    if (det) { det.style.display='none'; det.textContent=''; }
-  }
-  document.getElementById('gh-config-msg').textContent = '';
-  document.getElementById('gh-config-modal').style.display = 'flex';
-}
-function closeGhConfig() { document.getElementById('gh-config-modal').style.display = 'none'; }
 
 /* vALIDAÇÃO DO WORKER */
 async function ghTestAndSave() {
@@ -1140,225 +1086,7 @@ const GH_SLOT_FILES = {
 const _slotSHAs = {}; // SHA por slot (para sobrescrita)
 
 /* ── Salvar relatórios no GitHub ─────────────────────────────── */
-async function ghSaveRelatorios() {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return false;
 
-  // ── Nova estratégia: salvar cada slot como arquivo individual ─────────────
-  // Evita o erro 422 "file too large" da API GitHub (limite ~1MB por PUT).
-  // Cada base_crm.json, base_os.json etc. fica abaixo desse limite.
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const slots = {
-    os:           STATE.rawOS,
-    at:           STATE.rawAT,
-    sac:          STATE.rawSAC,
-    nps:          STATE.rawNPS,
-    agentes:      STATE.rawAgentes,
-    matrix:       STATE.relatorioAnalitico,
-    npsTelefonia: STATE.rawNpsTelefonia,
-    osab:         STATE.rawOSAb,
-    sinais:       STATE.rawSinais,
-    crm:          STATE.rawCRM,
-    vendas:       STATE.rawVendas,
-  };
-
-  _setRelatIndicator('saving');
-  let ok = 0, fail = 0;
-
-  for (const [key, data] of Object.entries(slots)) {
-    if (!data || (Array.isArray(data) && !data.length)) continue;
-    try {
-      // Verificar tamanho antes de enviar (~750KB limit para base64 seguro)
-      const json   = JSON.stringify(data);
-      const bytes  = new TextEncoder().encode(json).length;
-
-      if (bytes > 750_000) {
-        // Arquivo grande demais: salvar só as primeiras 5000 linhas como amostra
-        const sample = Array.isArray(data) ? data.slice(0, 5000) : data;
-        const jsonS  = JSON.stringify(sample);
-        console.warn(`[Nuvyon] ${key}: ${(bytes/1024).toFixed(0)}KB > 750KB — salvando amostra (${sample.length} rows)`);
-        const saved = await ghSaveSlot(key, sample);
-        saved ? ok++ : fail++;
-      } else {
-        const saved = await ghSaveSlot(key, data);
-        saved ? ok++ : fail++;
-      }
-    } catch(e) {
-      console.warn(`[Nuvyon] Erro ao salvar slot ${key}:`, e.message);
-      fail++;
-    }
-  }
-
-  if (ok > 0) {
-    _setRelatIndicator('saved', new Date(), `${ok} arquivo(s) salvos`);
-    console.log(`[Nuvyon] ✅ ${ok} slot(s) salvos no GitHub` + (fail ? ` · ${fail} falharam` : ''));
-    return true;
-  } else {
-    _setRelatIndicator('error', null, `${fail} arquivo(s) falharam`);
-    return false;
-  }
-}
-
-/* ── Carregar relatórios do GitHub ───────────────────────────── */
-/**
- * ghSaveSlot(key, rows) — Envia um único slot ao GitHub com nome fixo.
- * Isso permite que qualquer usuário com acesso ao repo já abra o dashboard
- * preenchido, sem precisar fazer upload manual.
- * O arquivo é sempre sobrescrito (envia SHA atual se existir).
- */
-async function ghSaveSlot(key, rows) {
-  const cfg = ghGetConfig();
-  if (!cfg || !rows || !rows.length) return false;
-  const fileName = GH_SLOT_FILES[key];
-  if (!fileName) return false;
-
-  // Verificar tamanho do conteúdo ANTES de tentar o PUT
-  // GitHub API rejeita com 422 arquivos > ~1MB (encoded em base64 fica ~33% maior)
-  const json    = JSON.stringify(rows);
-  const bytes   = new TextEncoder().encode(json).length;
-  const MAX     = 900_000; // ~900KB margem de segurança
-
-  if (bytes > MAX) {
-    console.warn(`[Nuvyon] ${fileName}: ${(bytes/1024).toFixed(0)}KB excede ${MAX/1024}KB — não será salvo no GitHub`);
-    // Mostrar aviso no badge sem travar
-    const el = document.getElementById('relat-status-badge');
-    if (el) el.textContent = `⚠ ${key}: arquivo muito grande para GitHub`;
-    return false;
-  }
-
-  const content = btoa(unescape(encodeURIComponent(json)));
-  const url     = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
-
-  // Buscar SHA atual para sobrescrita
-  if (!_slotSHAs[key]) {
-    try {
-      const r = await fetch(url, {
-        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-      });
-      if (r.ok) { const d = await r.json(); _slotSHAs[key] = d.sha; }
-    } catch(_) {}
-  }
-
-  try {
-    const resp = await fetch(url, {
-      method : 'PUT',
-      headers: {
-        'Authorization': `token ${cfg.token}`,
-        'Accept'       : 'application/vnd.github.v3+json',
-        'Content-Type' : 'application/json',
-      },
-      body: JSON.stringify({
-        message : `nuvyon: ${key} ${new Date().toLocaleString('pt-BR')}`,
-        content,
-        ...(_slotSHAs[key] ? { sha: _slotSHAs[key] } : {}),
-      }),
-    });
-
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      // Erro 422 = arquivo muito grande (não deve chegar aqui com a verificação acima)
-      if (resp.status === 422) {
-        console.warn(`[Nuvyon] ${fileName}: 422 arquivo grande demais (${(bytes/1024).toFixed(0)}KB)`);
-        return false;
-      }
-      throw new Error(`PUT ${resp.status}: ${errBody.slice(0, 120)}`);
-    }
-
-    const data = await resp.json();
-    _slotSHAs[key] = data.content.sha;
-    console.log(`[Nuvyon] ✅ ${fileName} salvo (${(bytes/1024).toFixed(0)}KB)`);
-    return true;
-  } catch(e) {
-    console.warn(`[Nuvyon] Falha ao salvar ${fileName}:`, e.message);
-    return false;
-  }
-}
-
-/**
- * ghLoadSlots() — Carrega slots individuais do GitHub no onload.
- * Para cada slot com arquivo no repo, restaura os dados no STATE.
- * Chamado automaticamente no window.onload se gh-token estiver configurado.
- */
-async function ghLoadSlots(silent = false) {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return 0;
-  let count = 0;
-
-  for (const [key, fileName] of Object.entries(GH_SLOT_FILES)) {
-    try {
-      const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
-      const r   = await fetch(url, {
-        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-      });
-      if (!r.ok) continue;
-      const data = await r.json();
-      _slotSHAs[key] = data.sha;
-      const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-      if (!Array.isArray(rows) || !rows.length) continue;
-
-      // Aplicar ao STATE
-      if      (key==='crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-      else if (key==='vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-      else if (key==='matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
-      else if (key==='osab')   { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
-      else if (key==='os')     { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
-      else if (key==='at')     { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
-      else if (key==='sac')    { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
-      else if (key==='nps')    { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
-      else if (key==='sinais') { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
-
-      count++;
-      if (!silent) console.log(`[Nuvyon] ${fileName} ✅ (${rows.length} rows)`);
-    } catch(e) {
-      if (!silent) console.warn(`[Nuvyon] ${fileName} falhou:`, e.message);
-    }
-  }
-
-  // FIX: processar e renderizar DEPOIS de carregar todos os slots
-  if (count > 0) {
-    if (typeof _processRestoredState === 'function') _processRestoredState();
-    // BI Comercial: renderizar após sessão estar pronta (aguarda login)
-    const _biRender = () => {
-      if ((STATE.rawCRM || STATE.rawVendas) && typeof renderBIComercial === 'function') {
-        renderBIComercial();
-      }
-    };
-    // Se já logado, renderizar agora; senão, tentar novamente em 2s
-    if (SESSION) { _biRender(); }
-    else { setTimeout(_biRender, 2500); }
-
-    const el = document.getElementById('relat-status-badge');
-    if (!silent && el) el.textContent = `☁ ${count} arquivo(s) sincronizados`;
-    _setRelatIndicator('loaded', new Date(), `${count} slot(s) do GitHub`);
-  }
-
-  return count;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ghLoadAll — varre o repositório INTEIRO e restaura todos os arquivos
-// reconhecidos, independente do nome. Funciona com nomes como:
-//   relatorio_de_crm_2026-03-16T15_55_22_8714-03_00.xlsx (já convertido para JSON)
-//   6relatorio-de-ordens-de-servico-abertas-20260312...xlsx
-// ─────────────────────────────────────────────────────────────────────────────
-async function ghListRepo(cfg, dir = '') {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${dir}`;
-  const r   = await fetch(url, {
-    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-  });
-  if (!r.ok) throw new Error(`LIST ${r.status}`);
-  const items = await r.json();
-  if (!Array.isArray(items)) return [];
-  const files = [];
-  for (const item of items) {
-    if (item.type === 'file') files.push(item);
-    else if (item.type === 'dir' && dir === '') {
-      try { files.push(...await ghListRepo(cfg, item.path)); } catch(_) {}
-    }
-  }
-  return files;
-}
 
 function _guessSlotKey(filename, rows) {
   const n    = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1504,80 +1232,7 @@ async function ghLoadAll(silent = false) {
   return count;
 }
 
-async function ghLoadRelatorios(silent = false) {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return false;
 
-  try {
-    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${RELAT_FILE}`;
-    const r = await fetch(url, {
-      headers: {
-        'Authorization': `token ${cfg.token}`,
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-
-    if (r.status === 404) {
-      if (!silent) _setRelatIndicator('empty');
-      return false; // ainda não tem relatório salvo
-    }
-    if (!r.ok) throw new Error(`GET ${r.status}`);
-
-    const data = await r.json();
-    RELAT_SHA = data.sha;
-    const payload = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-
-    if (payload.version !== RELAT_VERSION) {
-      console.warn('[Nuvyon] Versão do relatório incompatível:', payload.version);
-      if (!silent) _setRelatIndicator('version');
-      return false;
-    }
-
-    // Restaurar cada arquivo
-    let count = 0;
-    for (const [key, entry] of Object.entries(payload.arquivos || {})) {
-      try {
-        const rows = JSON.parse(decodeURIComponent(escape(atob(entry.data))));
-        // Atribuir ao STATE e pendingFiles conforme o slot
-        if (key === 'os')           { STATE.rawOS  = rows; pendingFiles.os  = rows; STATE.loaded.os  = true;  ghSaveSlot('os',  rows).catch(()=>{}); }
-        else if (key === 'at')      { STATE.rawAT  = rows; pendingFiles.at  = rows; STATE.loaded.at  = true;  ghSaveSlot('at',  rows).catch(()=>{}); }
-        else if (key === 'sac')     { STATE.rawSAC = rows; pendingFiles.sac = rows; STATE.loaded.sac = true;  ghSaveSlot('sac', rows).catch(()=>{}); }
-        else if (key === 'prod')    { STATE.rawProd = rows; pendingFiles.prod = rows; }
-        else if (key === 'nps')     { STATE.rawNPS = rows; pendingFiles.nps = rows; STATE.loaded.nps = true; }
-        else if (key === 'agentes') { STATE.rawAgentes = rows; pendingFiles.agentes = rows; STATE.loaded.agentes = true; }
-        else if (key === 'matrix')  { STATE.relatorioAnalitico = rows; pendingFiles.matrix = rows; STATE.loaded.matrix = true; }
-        else if (key === 'npsTelefonia') { STATE.rawNpsTelefonia = rows; pendingFiles.npsTelefonia = rows; STATE.loaded.npsTelefonia = true; }
-        else if (key === 'osab')    { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; pendingFiles.osab = rows; STATE.loaded.osab = true; }
-        else if (key === 'sinais')  { STATE.rawSinais = rows; pendingFiles.sinais = rows; STATE.loaded.sinais = true; }
-        else if (key === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-        else if (key === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-
-        if (entry.nomes) STATE.nomes[key] = entry.nomes;
-        count++;
-      } catch(e) {
-        console.warn(`[Nuvyon] Falha ao restaurar ${key}:`, e.message);
-      }
-    }
-
-    if (count === 0) return false;
-
-    // Processar dados restaurados (mesmo fluxo do aplicarDados)
-    _processRestoredState();
-
-    const dt = new Date(payload.savedAt);
-    _setRelatIndicator('loaded', dt, `${count} arquivo(s) · salvo por ${payload.savedBy}`);
-    if (!silent) {
-      const prog = document.getElementById('upload-progress');
-      if (prog) prog.textContent = `☁ Relatórios restaurados do GitHub (${count} arquivo(s), salvo em ${dt.toLocaleString('pt-BR')})`;
-    }
-    console.log(`[Nuvyon] ${count} relatório(s) carregados do GitHub ✅`);
-    return true;
-  } catch(e) {
-    console.warn('[Nuvyon] Falha ao carregar relatórios:', e.message);
-    _setRelatIndicator('error', null, e.message);
-    return false;
-  }
-}
 
 /* ── Processar STATE após restauração (reprocessa igual ao aplicarDados) ── */
 function _processRestoredState() {
@@ -2241,41 +1896,12 @@ window.addEventListener('load', async () => {
     <div style="max-width:860px;margin:0 auto;padding:28px 20px">
       <div style="font-family:var(--font-head,monospace);font-size:22px;font-weight:800;color:var(--accent);margin-bottom:6px">⚙️ Configurações</div>
       <div style="color:var(--muted);font-size:13px;margin-bottom:28px">GitHub Sync, Usuários e Preferências do Sistema</div>
+	  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px">
+  <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">☁️ Conexão de Nuvem</div>
+  <div style="color:var(--accent); font-size:12px;">✅ Sincronizado via Cloudflare Worker (Seguro)</div>
+</div>
 
-      <!-- GitHub Sync -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00E5C3,#3B82F6)"></div>
-        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">☁ Sincronização GitHub</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">
-          Quando configurado, os arquivos carregados são enviados automaticamente ao repositório.<br>
-          Qualquer usuário com acesso ao link já abre o dashboard preenchido.
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-          <div>
-            <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">OWNER (usuário GitHub)</label>
-            <input id="cfg-gh-owner" placeholder="ex: erjinfo" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">REPOSITÓRIO</label>
-            <input id="cfg-gh-repo" placeholder="ex: dashboard-nuvyon" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-          </div>
-        </div>
-        <div style="margin-bottom:14px">
-          <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">TOKEN GITHUB (Personal Access Token — permissão: repo)</label>
-          <input id="cfg-gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-        </div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <button onclick="cfgSaveGitHub()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:13px;cursor:pointer">✅ Salvar e Testar</button>
-          <button onclick="cfgClearGitHub()" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer">🗑 Remover</button>
-          <span id="cfg-gh-msg" style="font-size:12px;color:var(--accent)"></span>
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Arquivos sincronizados automaticamente:</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${Object.entries(GH_SLOT_FILES||{}).map(([k,f])=>`<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:10px;font-family:monospace;color:var(--muted2)">${k} → ${f}</span>`).join('')}
-          </div>
-        </div>
-      </div>
+
 
       <!-- Admin / Usuários -->
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px">
@@ -2461,29 +2087,9 @@ window.addEventListener('load', async () => {
         <div class="upload-slot-status" id="slot-kml-icon">○</div>
       </div>
     </div>
-    </div></div><!-- /pane-manual -->
-    <div id="upload-pane-drive" style="display:none;flex-direction:column;gap:10px;margin-bottom:16px">
-      <div id="drive-status-msg" style="font-size:11px;color:var(--muted);text-align:center;min-height:18px"></div>
-      <div id="drive-file-list"></div>
-      <div style="display:flex;gap:8px">
-        <input id="drive-api-key" type="password" placeholder="Google API Key (opcional — para listar pasta)" style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:monospace;outline:none">
-        <button onclick="driveScan()" id="drive-btn-scan" style="background:#4285f4;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">🔍 Escanear</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);line-height:1.5;padding:8px 10px;background:var(--panel);border-radius:6px;border-left:3px solid #4285f444">
-        Pasta: <strong>AR Telecom — Relatórios</strong> &nbsp;·&nbsp;
-        <a href="https://drive.google.com/drive/folders/1SGlZZyPglW181NBEHzxnUpOfXChUX6qR" target="_blank" style="color:#4285f4">Abrir no Drive ↗</a><br>
-        Sem API Key: os arquivos públicos são baixados diretamente. Com API Key: lista e importa tudo automaticamente.
-        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent);margin-left:4px">Obter chave →</a>
-      </div>
-    </div><!-- /pane-drive -->
-    <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
-    <div style="display:flex;gap:10px">
-      <button id="btn-drive-import-all" onclick="driveImportAll()" style="display:none;flex:1;background:#4285f4;color:#fff;border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px;cursor:pointer">☁ Importar Todos</button>
-      <button id="btn-aplicar" onclick="aplicarDados()" disabled style="flex:1;background:var(--border);color:var(--muted);border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px">Carregue ao menos 1 arquivo</button>
-      <button onclick="closeUpload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px 18px;font-weight:600;font-size:13px">Cancelar</button>
-    </div>
-  </div>
-</div>
+    </div></div>
+	<!-- /pane-manual -->
+    
 
 <!-- ══════ MODAL BOLETIM ══════ -->
 <div id="modal-overlay" onclick="closeModal(event)">
@@ -3933,15 +3539,7 @@ function aplicarDados() {
     closeUpload();
     renderAll();
 
-    // ── Auto-salvar relatórios no GitHub após aplicar ─────────────────
-    if (ghGetConfig() && location.protocol !== 'file:') {
-      _setRelatIndicator('saving');
-      setTimeout(async () => {
-        await ghSaveRelatorios();
-      }, 800); // aguarda renderAll() completar
-    }
-  }, 50);
-}
+   
 
 /* ════════════════════════════════════════════════════════════════
    PARTE 6 — RENDERIZAÇÃO
@@ -4098,6 +3696,8 @@ function renderCampo() {
   ];
   document.getElementById('campo-kpis').innerHTML = kpis.map(k =>
     `<div class="kpi"><div class="kpi-icon">${k.icon}</div><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div>${k.sub?`<div class="kpi-sub">${k.sub}</div>`:''}</div>`
+  
+  //Ate aqui
   ).join('');
 
   // Scatter: OS vs taxa reincidência real
@@ -11852,6 +11452,33 @@ function biExportarCSV() {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
+async function sincronizarHubsoftCompleto() {
+  const loading = iaMsg('sys', '🔄 Iniciando sincronização total com Hubsoft...');
+  
+  // Lista de mapeamento (Nome do Relatório -> Endpoint da API)
+  const jobs = [
+    { key: 'os', ep: '/api/v1/ordem-servico/relatorio' },
+    { key: 'at', ep: '/api/v1/atendimento/atendimentos' },
+    { key: 'sac', ep: '/api/v1/atendimento/sac/chat' },
+    { key: 'osab', ep: '/api/v1/ordem-servico/abertas' },
+    { key: 'matrix', ep: '/api/v1/atendimento/analitico' }
+  ];
+
+  for (const job of jobs) {
+    try {
+      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${job.ep}`);
+      const dados = await res.json();
+      ghApplySlot(job.key, dados); // Joga na memória RAM
+      console.log(`✅ ${job.key} sincronizado.`);
+    } catch (e) {
+      console.error(`Erro em ${job.key}:`, e);
+    }
+  }
+
+  _processRestoredState(); // Renderiza tudo na tela de uma vez
+  loading.remove();
+  iaMsg('sys', '✅ Sincronização concluída! Todos os painéis foram atualizados.');
+}
 
 // ── buildGroupedTabbar (Tarefa 4) — gera tabbar com grupos dropdown ────────
 function buildGroupedTabbar() {
@@ -11908,37 +11535,6 @@ const _origApplySession = typeof applySession === 'function' ? applySession : nu
 
 // ── Scroll top button
 
-// ── Configurações GitHub (aba config) ─────────────────────────────────────
-function cfgSaveGitHub() {
-  const owner = document.getElementById('cfg-gh-owner')?.value.trim();
-  const repo  = document.getElementById('cfg-gh-repo')?.value.trim();
-  const token = document.getElementById('cfg-gh-token')?.value.trim();
-  const msg   = document.getElementById('cfg-gh-msg');
-  if (!owner || !repo || !token) {
-    if (msg) { msg.textContent = '❌ Preencha todos os campos'; msg.style.color='var(--red)'; }
-    return;
-  }
-  ghSetConfig({ owner, repo, token });
-  if (msg) { msg.textContent = '✅ Configuração salva!'; msg.style.color='var(--green)'; }
-  // Testar conexão imediatamente
-  ghLoadAll(true).then(n => {
-    if (msg) msg.textContent = n > 0
-      ? `✅ Conectado! ${n} arquivo(s) encontrados no repo.`
-      : '✅ Conectado! Sem arquivos ainda — serão criados no próximo upload.';
-  }).catch(() => {
-    if (msg) { msg.textContent = '⚠️ Token salvo mas falha ao conectar. Verifique permissões.'; msg.style.color='var(--yellow)'; }
-  });
-}
-
-function cfgClearGitHub() {
-  ghClearConfig();
-  ['cfg-gh-owner','cfg-gh-repo','cfg-gh-token'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const msg = document.getElementById('cfg-gh-msg');
-  if (msg) { msg.textContent = 'Configuração removida.'; msg.style.color='var(--muted)'; }
-}
 
 // Preencher campos de config quando a aba é aberta
 function _initConfigTab() {
