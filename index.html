@@ -28,29 +28,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 input,select,textarea{font-family:inherit}
 button{cursor:pointer}
 
-/* ── GAVETA LATERAL ── */
-#nav-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1998;opacity:0;pointer-events:none;transition:opacity .25s}
-#nav-overlay.open{opacity:1;pointer-events:all}
-#nav-drawer{position:fixed;top:0;left:-280px;width:280px;height:100vh;background:var(--card);border-right:1px solid var(--border);z-index:1999;transition:left .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
-#nav-drawer.open{left:0}
-#nav-drawer-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-#nav-drawer-header .logo{font-size:1rem;font-weight:800;color:var(--accent);letter-spacing:.04em}
-#nav-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}
-#nav-close:hover{color:var(--text);background:var(--border)22}
-#nav-scroll{flex:1;overflow-y:auto;padding:10px 0}
-#nav-scroll::-webkit-scrollbar{width:3px}
-#nav-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.nav-group-label{font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:14px 20px 5px;opacity:.7}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:0.88rem;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .15s;user-select:none}
-.nav-item:hover{background:var(--accent)11;color:var(--text);border-left-color:var(--accent)55}
-.nav-item.active{background:var(--accent)18;color:var(--accent);border-left-color:var(--accent);font-weight:600}
-.nav-item .nav-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
-#nav-toggle-btn{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:5px 8px;border-radius:8px;line-height:1;display:flex;align-items:center}
-#nav-toggle-btn:hover{color:var(--accent);background:var(--accent)11}
-/* Esconde tabbar horizontal */
-#tabbar{display:none!important}
-
-
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;min-height:100vh}
 #topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
@@ -281,183 +258,6 @@ td{padding:9px}
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════ -->
-<!-- MÓDULO IA NUVYON - Cole antes do </body> -->
-<!-- ═══════════════════════════════════════ -->
-<style>
-#ia-panel *{box-sizing:border-box;font-family:'Inter',sans-serif}
-#ia-box{display:none;flex-direction:column;background:#1e293b;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.5);margin-bottom:64px;width:380px}
-#ia-chat{height:260px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
-#ia-chat::-webkit-scrollbar{width:4px}
-#ia-chat::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
-.ia-msg{padding:10px 13px;border-radius:12px;font-size:0.82rem;line-height:1.55;max-width:92%;white-space:pre-wrap;word-break:break-word}
-.ia-user{background:#6366f1;color:#fff;align-self:flex-end}
-.ia-bot{background:#0f172a;color:#e2e8f0;align-self:flex-start}
-.ia-sys{background:#1a3a5c;color:#93c5fd;align-self:center;font-size:0.78rem;text-align:center}
-.ia-btn{background:#1e3a5f;border:none;border-radius:8px;padding:7px 11px;color:#93c5fd;font-size:0.76rem;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}
-.ia-btn:hover{background:#274d7a}
-.ia-btn.primary{background:#1d4ed8;color:#fff}
-.ia-btn.primary:hover{background:#1e40af}
-#ia-input{flex:1;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:9px 13px;color:#e2e8f0;font-size:0.85rem;outline:none}
-#ia-input:focus{border-color:#6366f1}
-#ia-toggle{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:50px;padding:13px 20px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,0.5);display:flex;align-items:center;gap:8px;white-space:nowrap}
-#ia-toggle:hover{transform:translateY(-1px);box-shadow:0 6px 26px rgba(99,102,241,0.65)}
-#ia-status{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s}
-#ia-status.ok{background:#22c55e}
-#ia-status.loading{background:#f59e0b}
-</style>
-
-<div id="ia-panel" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:0">
-
-  <div id="ia-box">
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:15px 18px;display:flex;justify-content:space-between;align-items:center">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span id="ia-status"></span>
-        <div>
-          <div style="color:#fff;font-weight:700;font-size:0.92rem">🤖 IA Nuvyon</div>
-          <div style="color:rgba(255,255,255,0.6);font-size:0.7rem" id="ia-subtitle">Clique em Carregar dados para começar</div>
-        </div>
-      </div>
-      <button onclick="toggleIA()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:5px 10px;color:#fff;cursor:pointer;font-size:0.85rem">✕</button>
-    </div>
-
-    <!-- Ações rápidas -->
-    <div style="padding:12px 14px;display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid #334155">
-      <button class="ia-btn primary" onclick="carregarDados()">🔄 Carregar dados</button>
-      <button class="ia-btn" onclick="iaAcao('resumo')">📊 Resumo KPIs</button>
-      <button class="ia-btn" onclick="iaAcao('alertas')">🚨 Alertas</button>
-      <button class="ia-btn" onclick="iaAcao('tendencia')">📈 Tendências</button>
-    </div>
-
-    <!-- Chat -->
-    <div id="ia-chat"></div>
-
-    <!-- Input -->
-    <div style="padding:10px 14px;border-top:1px solid #334155;display:flex;gap:8px">
-      <input id="ia-input" type="text" placeholder="Pergunte sobre os dados..." onkeydown="if(event.key==='Enter')iaPergunta()">
-      <button onclick="iaPergunta()" style="background:#6366f1;border:none;border-radius:10px;padding:9px 13px;color:#fff;cursor:pointer;font-size:1rem">➤</button>
-    </div>
-  </div>
-
-  <button id="ia-toggle" onclick="toggleIA()">🤖 IA Nuvyon</button>
-</div>
-
-<script>
-// ══════════════════════════════════════════════
-//  CONFIGURAÇÕES — edite as 2 linhas abaixo
-// ══════════════════════════════════════════════
-const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
-
-async function claude(prompt) {
-  const r = await fetch(IA_WORKER + '?tipo=claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt })
-  });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
-  return d.content[0].text;
-}
-// ══════════════════════════════════════════════
-let iaDados = {};
-let iaAberto = false;
-
-function toggleIA() {
-  iaAberto = !iaAberto;
-  document.getElementById('ia-box').style.display = iaAberto ? 'flex' : 'none';
-  if (iaAberto && !Object.keys(iaDados).length) {
-    iaMsg('sys', 'Olá! Clique em 🔄 Carregar dados para buscar os relatórios do Hubsoft.');
-  }
-}
-
-function setStatus(s) {
-  const el = document.getElementById('ia-status');
-  el.className = 'ok' === s ? 'ok' : s === 'loading' ? 'loading' : '';
-}
-
-function setSubtitle(t) {
-  document.getElementById('ia-subtitle').textContent = t;
-}
-
-async function carregarDados() {
-  setStatus('loading');
-  setSubtitle('Buscando dados...');
-  iaMsg('sys', '🔄 Conectando ao Hubsoft...');
-  try {
-    const [atend, ordens, prod] = await Promise.all([
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/atendimentos').then(r => r.json()).catch(() => ({})),
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/ordens-servico').then(r => r.json()).catch(() => ({})),
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/produtividade').then(r => r.json()).catch(() => ({})),
-    ]);
-    iaDados = { atendimentos: atend, ordens_servico: ordens, produtividade: prod };
-    setStatus('ok');
-    setSubtitle('Dados carregados ✓');
-    iaMsg('sys', '✅ Dados do Hubsoft carregados! Use os botões acima ou faça uma pergunta.');
-  } catch(e) {
-    setStatus('');
-    setSubtitle('Erro na conexão');
-    iaMsg('sys', '❌ Erro ao conectar. Verifique se o Worker está ativo.');
-  }
-}
-
-
-
-const prompts = {
-  resumo:    () => `Você é um analista de KPIs de telecomunicações. Analise os dados abaixo e gere um RESUMO EXECUTIVO em português, destacando: principais métricas, pontos positivos e pontos de atenção. Seja objetivo e use bullet points.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-  alertas:   () => `Você é um analista de performance. Com base nos dados abaixo, liste APENAS os alertas críticos — colaboradores, equipes ou KPIs abaixo do esperado. Para cada alerta, explique o problema em 1 linha.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-  tendencia: () => `Você é um analista de dados. Identifique TENDÊNCIAS nos dados abaixo — o que está melhorando, o que está piorando, e o que merece atenção nas próximas semanas. Seja direto.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-};
-
-async function iaAcao(tipo) {
-  if (!Object.keys(iaDados).length) {
-    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
-    return;
-  }
-  const loading = iaMsg('sys', '⏳ Analisando...');
-  try {
-    const resp = await claude(prompts[tipo]());
-    loading.remove();
-    iaMsg('bot', resp);
-  } catch(e) {
-    loading.remove();
-    iaMsg('sys', '❌ Erro: ' + e.message);
-  }
-}
-
-async function iaPergunta() {
-  const inp = document.getElementById('ia-input');
-  const txt = inp.value.trim();
-  if (!txt) return;
-  inp.value = '';
-  iaMsg('user', txt);
-  if (!Object.keys(iaDados).length) {
-    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
-    return;
-  }
-  const loading = iaMsg('sys', '⏳ Pensando...');
-  try {
-    const resp = await claude(
-      `Você é um assistente de análise de KPIs para o time da Artelecom.\nDADOS DISPONÍVEIS: ${JSON.stringify(iaDados, null, 2)}\n\nPERGUNTA: ${txt}\n\nResponda em português, de forma direta e objetiva.`
-    );
-    loading.remove();
-    iaMsg('bot', resp);
-  } catch(e) {
-    loading.remove();
-    iaMsg('sys', '❌ Erro: ' + e.message);
-  }
-}
-
-function iaMsg(tipo, texto) {
-  const chat = document.getElementById('ia-chat');
-  const div = document.createElement('div');
-  div.className = 'ia-msg ia-' + tipo;
-  div.textContent = texto;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
-</script>
 <!-- ADMIN MODAL -->
 <div id="admin-modal">
   <div id="admin-box">
@@ -1705,86 +1505,39 @@ window.addEventListener('load', async () => {
    RBAC v3.7 — Menu dinâmico gerado por JS baseado em SESSION.abas
 ═══════════════════════════════════════════════════════════════ */
 const MenuRBAC = {
+  /** Reconstrói o #tabbar inteiro com base nas abas autorizadas */
   build(abasAutorizadas) {
-    const scroll = document.getElementById('nav-scroll');
-    if (!scroll) return;
-    scroll.innerHTML = '';
-
-    ABA_GRUPOS.forEach(grupo => {
-      const abasDeste = grupo.abas.filter(id => abasAutorizadas.includes(id));
-      if (!abasDeste.length) return;
-
-      // Label do grupo
-      const label = document.createElement('div');
-      label.className = 'nav-group-label';
-      label.textContent = grupo.label;
-      scroll.appendChild(label);
-
-      // Itens do grupo
-      abasDeste.forEach(id => {
-        const aba = ABAS.find(a => a.id === id);
-        if (!aba) return;
-        const item = document.createElement('div');
-        item.className = 'nav-item';
-        item.id = 'nav-item-' + id;
-        item.dataset.aba = id;
-
-        // Separar emoji do texto
-        const match = aba.label.match(/^(\S+)\s(.+)$/);
-        const icon = match ? match[1] : '';
-        const text = match ? match[2] : aba.label;
-
-        item.innerHTML = `<span class="nav-icon">${icon}</span><span>${text}</span>`;
-        item.onclick = () => {
-          if (_showTabOrig) _showTabOrig(id);
-          MenuRBAC.activate(id);
-          navClose();
-        };
-        scroll.appendChild(item);
-      });
+    const tabbar = document.getElementById('tabbar');
+    if (!tabbar) return;
+    tabbar.innerHTML = '';
+    ABAS.forEach(aba => {
+      if (!abasAutorizadas.includes(aba.id)) return;
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.id = 'tab-' + aba.id;
+      btn.textContent = aba.label;
+      btn.onclick = () => window.showTab(aba.id);
+      tabbar.appendChild(btn);
     });
-
-    // Logout no final
-    const sep = document.createElement('div');
-    sep.style.cssText = 'margin:12px 16px;border-top:1px solid var(--border);opacity:.4';
-    scroll.appendChild(sep);
-
-    const logout = document.createElement('div');
-    logout.className = 'nav-item';
-    logout.innerHTML = '<span class="nav-icon">🚪</span><span>Sair</span>';
-    logout.onclick = doLogout;
-    scroll.appendChild(logout);
+    // Botão logoff sempre no fim
+    const lo = document.createElement('button');
+    lo.className = 'tab-btn';
+    lo.id = 'tab-logoff';
+    lo.textContent = '🚪 Sair';
+    lo.title = 'Sair do sistema';
+    lo.style.cssText = 'margin-left:auto;color:#e74c3c;border-bottom-color:transparent';
+    lo.onclick = doLogout;
+    tabbar.appendChild(lo);
   },
-
+  /** Ativa visualmente o botão da aba corrente */
   activate(id) {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const el = document.getElementById('nav-item-' + id);
-    if (el) {
-      el.classList.add('active');
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
+    document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tab-' + id);
+    if (btn) btn.classList.add('active');
   },
-
-  firstAllowed(abas) {
-    for (const g of ABA_GRUPOS) {
-      const found = g.abas.find(id => abas.includes(id));
-      if (found) return found;
-    }
-    return abas[0] || 'gestao';
-  }
+  /** Retorna a primeira aba autorizada */
+  firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
 };
-
-function navOpen()  {
-  document.getElementById('nav-drawer').classList.add('open');
-  document.getElementById('nav-overlay').classList.add('open');
-}
-function navClose() {
-  document.getElementById('nav-drawer').classList.remove('open');
-  document.getElementById('nav-overlay').classList.remove('open');
-}
-
-// Fechar com ESC
-document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
 
 /* ── INIT: após TODO o JavaScript do app carregar ── */
 window.addEventListener('load', async () => {
@@ -1809,22 +1562,6 @@ window.addEventListener('load', async () => {
 });
 </script>
 
-
-<!-- OVERLAY -->
-<div id="nav-overlay" onclick="navClose()"></div>
-
-<!-- GAVETA LATERAL -->
-<div id="nav-drawer">
-  <div id="nav-drawer-header">
-    <span class="logo">▶ Nuvyon</span>
-    <button id="nav-close" onclick="navClose()">✕</button>
-  </div>
-  <div id="nav-scroll" id="nav-menu-scroll">
-    <!-- preenchido pelo MenuRBAC -->
-  </div>
-</div>
-
-
 <!-- TOP BAR -->
 <div id="topbar">
   <div>
@@ -1832,7 +1569,6 @@ window.addEventListener('load', async () => {
     <p id="topbar-stats">Aguardando dados...</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-  <button id="nav-toggle-btn" onclick="navOpen()" title="Menu">☰</button>
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap" title="Modo do banco de dados">💾 Local</div>
     <div id="relat-status-badge" onclick="ghLoadAll(false)" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Clique para recarregar relatórios do GitHub">○ Relatórios</div>
@@ -3949,7 +3685,6 @@ function healthBar(h) {
   const c = hColor(h);
   return `<div class="health-bar"><div class="bar"><div class="fill" style="width:${h}%;background:${c}"></div></div><span style="color:${c};font-weight:800;font-size:12px;min-width:28px">${h}</span></div>`;
 }
-
 
 /* ── TOPBAR ── */
 function renderTopbar() {
