@@ -383,23 +383,27 @@ function setSubtitle(t) {
 }
 
 async function carregarDados() {
-  setStatus('loading');
-  setSubtitle('Buscando dados...');
-  iaMsg('sys', '🔄 Conectando ao Hubsoft...');
+  iaMsg('sys', '🔄 Conectando ao Hubsoft via Worker...');
+  
   try {
+    // Buscamos os 3 principais relatórios de uma vez
     const [atend, ordens, prod] = await Promise.all([
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/atendimentos').then(r => r.json()).catch(() => ({})),
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/ordens-servico').then(r => r.json()).catch(() => ({})),
-      fetch(IA_WORKER + '?tipo=hubsoft&endpoint=/produtividade').then(r => r.json()).catch(() => ({})),
+      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/atendimentos`).then(r => r.json()).catch(() => ({})),
+      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/ordens-servico`).then(r => r.json()).catch(() => ({})),
+      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/produtividade`).then(r => r.json()).catch(() => ({})),
     ]);
-    iaDados = { atendimentos: atend, ordens_servico: ordens, produtividade: prod };
-    setStatus('ok');
-    setSubtitle('Dados carregados ✓');
-    iaMsg('sys', '✅ Dados do Hubsoft carregados! Use os botões acima ou faça uma pergunta.');
+
+    // Alimentamos a variável iaDados que a IA usa para ler
+    iaDados = { 
+        atendimentos: atend, 
+        ordens_servico: ordens, 
+        produtividade: prod,
+        timestamp: new Date().toLocaleString()
+    };
+
+    iaMsg('sys', '✅ Dados do Hubsoft carregados com sucesso! Agora você pode usar os botões de Resumo ou me fazer perguntas.');
   } catch(e) {
-    setStatus('');
-    setSubtitle('Erro na conexão');
-    iaMsg('sys', '❌ Erro ao conectar. Verifique se o Worker está ativo.');
+    iaMsg('sys', '❌ Erro ao conectar com o Hubsoft. Verifique se o Token no Worker está correto.');
   }
 }
 
@@ -450,14 +454,45 @@ async function iaPergunta() {
   }
 }
 
+// Cria a bolha de mensagem no chat
 function iaMsg(tipo, texto) {
   const chat = document.getElementById('ia-chat');
+  if (!chat) return; // Segurança caso o elemento não exista
+  
   const div = document.createElement('div');
-  div.className = 'ia-msg ia-' + tipo;
+  div.className = 'ia-msg ia-' + tipo; // Tipos: 'sys', 'user', 'bot'
   div.textContent = texto;
   chat.appendChild(div);
+  
+  // Rola o chat para o final automaticamente
   chat.scrollTop = chat.scrollHeight;
   return div;
+}
+
+// Função disparada pelo botão "Enviar" ou tecla Enter no chat
+async function iaPergunta() {
+  const inp = document.getElementById('ia-input');
+  const txt = inp.value.trim();
+  if (!txt) return;
+
+  inp.value = '';
+  iaMsg('user', txt);
+
+  const loading = iaMsg('sys', '⏳ Pensando...');
+  try {
+    // Aqui usamos a função claude() que você já tem no código
+    const resp = await claude(
+      `CONTEXTO: Você é um assistente de BI para a empresa Artelecom.
+       DADOS DO HUBSOFT: ${JSON.stringify(iaDados)}
+       PERGUNTA DO USUÁRIO: ${txt}
+       RESPONDA EM PORTUGUÊS DE FORMA DIRETA.`
+    );
+    loading.remove();
+    iaMsg('bot', resp);
+  } catch(e) {
+    loading.remove();
+    iaMsg('sys', '❌ Erro na resposta da IA: ' + e.message);
+  }
 }
 </script>
 <!-- ADMIN MODAL -->
@@ -694,34 +729,27 @@ let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
 async function initDB() {
-  showLoginStatus('Sincronizando com a nuvem...', 'muted');
-
+  // Limpa o erro 404 do console parando de chamar o GitHub direto
+  console.log("🔄 Iniciando banco via Worker...");
+  
   try {
-    // IMPORTANTE: Trocamos o link direto do GitHub pelo link do seu Worker
-    // O Worker já sabe o Token e o Repositório secreto.
+    // ESTA LINHA É A MAIS IMPORTANTE:
     const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
     
-    if (!r.ok) throw new Error('O Worker não conseguiu acessar o banco de dados.');
+    if (!r.ok) throw new Error("Worker indisponível");
 
     const data = await r.json();
-    
-    // O Worker retorna um objeto com 'content' (Base64) e 'sha'
-    // Precisamos decodificar o conteúdo para ler os usuários
     const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
     
-    if (banco && Array.isArray(banco.users)) {
+    if (banco && banco.users) {
       _USERS_CACHE = banco.users;
-      GH_SHA = data.sha; // Guarda o SHA para quando precisar salvar algo
-      localStorage.setItem(DB_KEY, JSON.stringify(_USERS_CACHE));
-      
-      showLoginStatus('Pronto para entrar', 'accent');
-      console.log('✅ Banco de dados carregado via Worker');
+      GH_SHA = data.sha;
+      console.log("✅ Usuários carregados com sucesso!");
     }
   } catch (e) {
-    console.error('Falha ao carregar banco via Worker:', e.message);
-    // Fallback: Se a internet falhar, tenta carregar o que está salvo no PC do usuário
+    console.error("❌ Falha crítica: O código ainda está tentando buscar do GitHub antigo ou o Worker está fora.");
+    // Tenta carregar do PC se a nuvem falhar
     _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-    showLoginStatus('Modo Offline ativado', 'yellow');
   }
 }
 
