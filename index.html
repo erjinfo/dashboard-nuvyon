@@ -273,9 +273,7 @@ td{padding:9px}
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <div id="login-diag" style="font-size:11px;color:var(--muted);text-align:left;background:var(--panel);border-radius:7px;padding:10px;display:none;max-height:140px;overflow-y:auto;font-family:monospace;word-break:break-all"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
-        <button onclick="openGhConfig()" style="background:#00C9A722;border:1px solid #00C9A744;color:var(--accent);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-weight:700">☁ Configurar GitHub</button>
-        <button onclick="loginDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">🔍 Diagnóstico</button>
-        <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
+             <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
       </div>
     </div>
   </div>
@@ -728,27 +726,23 @@ let _showTabOrig = null;
 let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
+// 1. CARREGAR BANCO (Sem chamar o GitHub direto)
 async function initDB() {
-  // Limpa o erro 404 do console parando de chamar o GitHub direto
-  console.log("🔄 Iniciando banco via Worker...");
-  
   try {
-    // ESTA LINHA É A MAIS IMPORTANTE:
     const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
+    if (!r.ok) throw new Error("Erro ao acessar Worker");
     
-    if (!r.ok) throw new Error("Worker indisponível");
-
     const data = await r.json();
+    // Decodifica o Base64 que vem do GitHub
     const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
     
     if (banco && banco.users) {
       _USERS_CACHE = banco.users;
-      GH_SHA = data.sha;
-      console.log("✅ Usuários carregados com sucesso!");
+      GH_SHA = data.sha; // Guarda o SHA para o Reset funcionar
+      console.log("✅ Usuários carregados com segurança via Worker");
     }
   } catch (e) {
-    console.error("❌ Falha crítica: O código ainda está tentando buscar do GitHub antigo ou o Worker está fora.");
-    // Tenta carregar do PC se a nuvem falhar
+    console.error("❌ Erro no banco:", e.message);
     _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
   }
 }
@@ -1044,40 +1038,36 @@ function loginDiag() {
   diag.innerHTML = linhas.join('<br>');
 }
 
-/* FUNÇÃO DE RESETAR SENHA */
+// 2. RESETAR SENHA (Agora enviando para o Worker)
 async function loginReset() {
-  const novaSenha = prompt('RESETAR ACESSO\n\nNova senha para "eric":');
-  if (!novaSenha || !novaSenha.trim()) return;
+  const novaSenha = prompt('Digite a nova senha para o usuário "eric":');
+  if (!novaSenha) return;
 
   const hash = await sha256(novaSenha.trim());
-  // Note que usei "hash" como nome da propriedade para bater com seu diagnóstico
-  const newUsers = [{ 
-    user: 'eric', 
-    hash: hash, 
-    abas: ABAS.map(a => a.id), 
-    role: 'master', 
-    criado: new Date().toLocaleString('pt-BR') 
-  }];
-
-  _USERS_CACHE = newUsers;
-  localStorage.setItem(DB_KEY, JSON.stringify(newUsers));
+  const novosDados = { 
+    users: [{ user: 'eric', hash: hash, role: 'master' }] 
+  };
 
   try {
-    // Chamada segura via Worker (sem token no JS)
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify({ users: newUsers }))));
+    // Transforma em Base64 para o GitHub aceitar
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
     
-    await fetch(`${IA_WORKER}?tipo=gh-db`, {
+    const r = await fetch(`${IA_WORKER}?tipo=gh-db`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, sha: GH_SHA })
     });
-    
-    alert('✅ Reset concluído e sincronizado com sucesso!');
-  } catch(e) {
-    console.error('Erro ao sincronizar reset:', e);
-    alert('⚠ Reset local OK, mas falhou ao sincronizar com nuvem.');
+
+    if (r.ok) {
+      alert("✅ Senha resetada com sucesso na nuvem!");
+      location.reload(); // Recarrega para aplicar
+    } else {
+      throw new Error("Erro ao salvar no Worker");
+    }
+  } catch (e) {
+    alert("❌ Falha no reset: " + e.message);
   }
 }
+
 
 
 /* ── Configuração GitHub ── */
