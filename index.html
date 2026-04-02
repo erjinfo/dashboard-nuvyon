@@ -28,29 +28,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 input,select,textarea{font-family:inherit}
 button{cursor:pointer}
 
-/* ── GAVETA LATERAL ── */
-#nav-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1998;opacity:0;pointer-events:none;transition:opacity .25s}
-#nav-overlay.open{opacity:1;pointer-events:all}
-#nav-drawer{position:fixed;top:0;left:-280px;width:280px;height:100vh;background:var(--card);border-right:1px solid var(--border);z-index:1999;transition:left .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
-#nav-drawer.open{left:0}
-#nav-drawer-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-#nav-drawer-header .logo{font-size:1rem;font-weight:800;color:var(--accent);letter-spacing:.04em}
-#nav-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}
-#nav-close:hover{color:var(--text);background:var(--border)22}
-#nav-scroll{flex:1;overflow-y:auto;padding:10px 0}
-#nav-scroll::-webkit-scrollbar{width:3px}
-#nav-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.nav-group-label{font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:14px 20px 5px;opacity:.7}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:0.88rem;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .15s;user-select:none}
-.nav-item:hover{background:var(--accent)11;color:var(--text);border-left-color:var(--accent)55}
-.nav-item.active{background:var(--accent)18;color:var(--accent);border-left-color:var(--accent);font-weight:600}
-.nav-item .nav-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
-#nav-toggle-btn{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:5px 8px;border-radius:8px;line-height:1;display:flex;align-items:center}
-#nav-toggle-btn:hover{color:var(--accent);background:var(--accent)11}
-/* Esconde tabbar horizontal */
-#tabbar{display:none!important}
-
-
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;min-height:100vh}
 #topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
@@ -273,226 +250,14 @@ td{padding:9px}
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <div id="login-diag" style="font-size:11px;color:var(--muted);text-align:left;background:var(--panel);border-radius:7px;padding:10px;display:none;max-height:140px;overflow-y:auto;font-family:monospace;word-break:break-all"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
-             <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
+        <button onclick="openGhConfig()" style="background:#00C9A722;border:1px solid #00C9A744;color:var(--accent);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-weight:700">☁ Configurar GitHub</button>
+        <button onclick="loginDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">🔍 Diagnóstico</button>
+        <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════ -->
-<!-- MÓDULO IA NUVYON - Cole antes do </body> -->
-<!-- ═══════════════════════════════════════ -->
-<style>
-#ia-panel *{box-sizing:border-box;font-family:'Inter',sans-serif}
-#ia-box{display:none;flex-direction:column;background:#1e293b;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.5);margin-bottom:64px;width:380px}
-#ia-chat{height:260px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
-#ia-chat::-webkit-scrollbar{width:4px}
-#ia-chat::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
-.ia-msg{padding:10px 13px;border-radius:12px;font-size:0.82rem;line-height:1.55;max-width:92%;white-space:pre-wrap;word-break:break-word}
-.ia-user{background:#6366f1;color:#fff;align-self:flex-end}
-.ia-bot{background:#0f172a;color:#e2e8f0;align-self:flex-start}
-.ia-sys{background:#1a3a5c;color:#93c5fd;align-self:center;font-size:0.78rem;text-align:center}
-.ia-btn{background:#1e3a5f;border:none;border-radius:8px;padding:7px 11px;color:#93c5fd;font-size:0.76rem;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}
-.ia-btn:hover{background:#274d7a}
-.ia-btn.primary{background:#1d4ed8;color:#fff}
-.ia-btn.primary:hover{background:#1e40af}
-#ia-input{flex:1;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:9px 13px;color:#e2e8f0;font-size:0.85rem;outline:none}
-#ia-input:focus{border-color:#6366f1}
-#ia-toggle{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:50px;padding:13px 20px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,0.5);display:flex;align-items:center;gap:8px;white-space:nowrap}
-#ia-toggle:hover{transform:translateY(-1px);box-shadow:0 6px 26px rgba(99,102,241,0.65)}
-#ia-status{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s}
-#ia-status.ok{background:#22c55e}
-#ia-status.loading{background:#f59e0b}
-</style>
-
-<div id="ia-panel" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:0">
-
-  <div id="ia-box">
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:15px 18px;display:flex;justify-content:space-between;align-items:center">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span id="ia-status"></span>
-        <div>
-          <div style="color:#fff;font-weight:700;font-size:0.92rem">🤖 IA Nuvyon</div>
-          <div style="color:rgba(255,255,255,0.6);font-size:0.7rem" id="ia-subtitle">Clique em Carregar dados para começar</div>
-        </div>
-      </div>
-      <button onclick="toggleIA()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:5px 10px;color:#fff;cursor:pointer;font-size:0.85rem">✕</button>
-    </div>
-
-    <!-- Ações rápidas -->
-    <div style="padding:12px 14px;display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid #334155">
-      <button class="ia-btn primary" onclick="carregarDados()">🔄 Carregar dados</button>
-      <button class="ia-btn" onclick="iaAcao('resumo')">📊 Resumo KPIs</button>
-      <button class="ia-btn" onclick="iaAcao('alertas')">🚨 Alertas</button>
-      <button class="ia-btn" onclick="iaAcao('tendencia')">📈 Tendências</button>
-    </div>
-
-    <!-- Chat -->
-    <div id="ia-chat"></div>
-
-    <!-- Input -->
-    <div style="padding:10px 14px;border-top:1px solid #334155;display:flex;gap:8px">
-      <input id="ia-input" type="text" placeholder="Pergunte sobre os dados..." onkeydown="if(event.key==='Enter')iaPergunta()">
-      <button onclick="iaPergunta()" style="background:#6366f1;border:none;border-radius:10px;padding:9px 13px;color:#fff;cursor:pointer;font-size:1rem">➤</button>
-    </div>
-  </div>
-
-  <button id="ia-toggle" onclick="toggleIA()">🤖 IA Nuvyon|ERJ</button>
-</div>
-
-<script>
-// ══════════════════════════════════════════════
-//  CONFIGURAÇÕES — SOBRE COMPORTAMENTO DA IA
-// ══════════════════════════════════════════════
-const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
-
-// Garante que a função 'claude' exista para a interface não quebrar
-async function claude(prompt) {
-  // Chamamos o seu Worker que agora usa Gemini internamente
-  const r = await fetch(IA_WORKER + '?tipo=gemini', { 
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt })
-  });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
-  return d.content[0].text;
-}
-// ══════════════════════════════════════════════
-let iaDados = {};
-let iaAberto = false;
-
-function toggleIA() {
-  iaAberto = !iaAberto;
-  document.getElementById('ia-box').style.display = iaAberto ? 'flex' : 'none';
-  if (iaAberto && !Object.keys(iaDados).length) {
-    iaMsg('sys', 'Olá! Clique em 🔄 Carregar dados para buscar os relatórios do Hubsoft.');
-  }
-}
-
-function setStatus(s) {
-  const el = document.getElementById('ia-status');
-  el.className = 'ok' === s ? 'ok' : s === 'loading' ? 'loading' : '';
-}
-
-function setSubtitle(t) {
-  document.getElementById('ia-subtitle').textContent = t;
-}
-
-async function carregarDados() {
-  iaMsg('sys', '🔄 Conectando ao Hubsoft via Worker...');
-  
-  try {
-    // Buscamos os 3 principais relatórios de uma vez
-    const [atend, ordens, prod] = await Promise.all([
-      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/atendimentos`).then(r => r.json()).catch(() => ({})),
-      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/ordens-servico`).then(r => r.json()).catch(() => ({})),
-      fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/produtividade`).then(r => r.json()).catch(() => ({})),
-    ]);
-
-    // Alimentamos a variável iaDados que a IA usa para ler
-    iaDados = { 
-        atendimentos: atend, 
-        ordens_servico: ordens, 
-        produtividade: prod,
-        timestamp: new Date().toLocaleString()
-    };
-
-    iaMsg('sys', '✅ Dados do Hubsoft carregados com sucesso! Agora você pode usar os botões de Resumo ou me fazer perguntas.');
-  } catch(e) {
-    iaMsg('sys', '❌ Erro ao conectar com o Hubsoft. Verifique se o Token no Worker está correto.');
-  }
-}
-
-
-
-const prompts = {
-  resumo:    () => `Você é um analista de KPIs de telecomunicações. Analise os dados abaixo e gere um RESUMO EXECUTIVO em português, destacando: principais métricas, pontos positivos e pontos de atenção. Seja objetivo e use bullet points.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-  alertas:   () => `Você é um analista de performance. Com base nos dados abaixo, liste APENAS os alertas críticos — colaboradores, equipes ou KPIs abaixo do esperado. Para cada alerta, explique o problema em 1 linha.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-  tendencia: () => `Você é um analista de dados. Identifique TENDÊNCIAS nos dados abaixo — o que está melhorando, o que está piorando, e o que merece atenção nas próximas semanas. Seja direto.\n\nDADOS:\n${JSON.stringify(iaDados, null, 2)}`,
-};
-
-async function iaAcao(tipo) {
-  if (!Object.keys(iaDados).length) {
-    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
-    return;
-  }
-  const loading = iaMsg('sys', '⏳ Analisando...');
-  try {
-    const resp = await claude(prompts[tipo]());
-    loading.remove();
-    iaMsg('bot', resp);
-  } catch(e) {
-    loading.remove();
-    iaMsg('sys', '❌ Erro: ' + e.message);
-  }
-}
-
-async function iaPergunta() {
-  const inp = document.getElementById('ia-input');
-  const txt = inp.value.trim();
-  if (!txt) return;
-  inp.value = '';
-  iaMsg('user', txt);
-  if (!Object.keys(iaDados).length) {
-    iaMsg('sys', '⚠️ Clique em 🔄 Carregar dados primeiro!');
-    return;
-  }
-  const loading = iaMsg('sys', '⏳ Pensando...');
-  try {
-    const resp = await claude(
-      `Você é um assistente de análise de KPIs para o time da Artelecom.\nDADOS DISPONÍVEIS: ${JSON.stringify(iaDados, null, 2)}\n\nPERGUNTA: ${txt}\n\nResponda em português, de forma direta e objetiva.`
-    );
-    loading.remove();
-    iaMsg('bot', resp);
-  } catch(e) {
-    loading.remove();
-    iaMsg('sys', '❌ Erro: ' + e.message);
-  }
-}
-
-// Cria a bolha de mensagem no chat
-function iaMsg(tipo, texto) {
-  const chat = document.getElementById('ia-chat');
-  if (!chat) return; // Segurança caso o elemento não exista
-  
-  const div = document.createElement('div');
-  div.className = 'ia-msg ia-' + tipo; // Tipos: 'sys', 'user', 'bot'
-  div.textContent = texto;
-  chat.appendChild(div);
-  
-  // Rola o chat para o final automaticamente
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
-
-// Função disparada pelo botão "Enviar" ou tecla Enter no chat
-async function iaPergunta() {
-  const inp = document.getElementById('ia-input');
-  const txt = inp.value.trim();
-  if (!txt) return;
-
-  inp.value = '';
-  iaMsg('user', txt);
-
-  const loading = iaMsg('sys', '⏳ Pensando...');
-  try {
-    // Aqui usamos a função claude() que você já tem no código
-    const resp = await claude(
-      `CONTEXTO: Você é um assistente de BI para a empresa Artelecom.
-       DADOS DO HUBSOFT: ${JSON.stringify(iaDados)}
-       PERGUNTA DO USUÁRIO: ${txt}
-       RESPONDA EM PORTUGUÊS DE FORMA DIRETA.`
-    );
-    loading.remove();
-    iaMsg('bot', resp);
-  } catch(e) {
-    loading.remove();
-    iaMsg('sys', '❌ Erro na resposta da IA: ' + e.message);
-  }
-}
-</script>
 <!-- ADMIN MODAL -->
 <div id="admin-modal">
   <div id="admin-box">
@@ -622,66 +387,73 @@ function setModeIndicator(mode) {
 }
 
 /* ── GitHub API helpers ── */
-// Esta função substitui o upload manual e a busca no GitHub
-async function carregarRelatorioHubsoft(tipoRelatorio, endpoint) {
-  try {
-    iaMsg('sys', `🔄 Buscando ${tipoRelatorio} no Hubsoft...`);
-    
-    const response = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${endpoint}`);
-    
-    if (!response.ok) throw new Error('Erro na conexão com o Worker');
-    
-    const dados = await response.json();
-    
-    // Salva na memória RAM do navegador para a IA usar
-    iaDados[tipoRelatorio] = dados;
-    
-    iaMsg('sys', `✅ ${tipoRelatorio} carregado com sucesso!`);
-    return true;
-  } catch (e) {
-    iaMsg('sys', `❌ Erro ao buscar ${tipoRelatorio}: ` + e.message);
-    return false;
-  }
-}
-async function ghGet() {
-  // O Worker já sabe o Token, você só pede os dados
-  const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
+async function ghGet(cfg) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
+  const r = await fetch(url, { headers: {
+    'Authorization': `token ${cfg.token}`,
+    'Accept': 'application/vnd.github.v3+json'
+  }});
+  if (r.status === 404) return null; // arquivo não existe ainda
+  if (!r.ok) throw new Error(`GitHub GET ${r.status}: ${await r.text()}`);
   const data = await r.json();
   GH_SHA = data.sha;
-  return JSON.parse(atob(data.content));
+  return JSON.parse(atob(data.content.replace(/\n/g,'')));
 }
 
 async function ghPut(cfg, banco) {
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(banco))));
-  await fetch(`${IA_WORKER}?tipo=gh-db`, {
-    method: 'POST',
-    body: JSON.stringify({ content, sha: GH_SHA })
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
+  const body = {
+    message: `nuvyon: atualização do banco ${new Date().toLocaleString('pt-BR')}`,
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(banco, null, 2)))),
+    ...(GH_SHA ? { sha: GH_SHA } : {})
+  };
+  const r = await fetch(url, { method: 'PUT',
+    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
+  if (!r.ok) throw new Error(`GitHub PUT ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  GH_SHA = data.content.sha;
 }
 
+/* ── dbLoad / dbSave com GitHub + fallback ── */
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
 
-
-
+async function dbLoad() {
+  const cfg = ghGetConfig();
+  if (cfg && location.protocol !== 'file:') {
+    try {
+      const banco = await ghGet(cfg);
+      if (banco && Array.isArray(banco.users)) {
+        localStorage.setItem(DB_KEY, JSON.stringify(banco.users)); // cache local
+        dbLogLocal(`Banco carregado do GitHub (${banco.users.length} usuários)`);
+        setModeIndicator(true);
+        return banco.users;
+      }
+    } catch(e) {
+      console.warn('GitHub indisponível, usando cache local:', e.message);
+      dbLogLocal('GitHub indisponível — usando cache local');
+    }
+  }
+  setModeIndicator(false);
+  try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; }
+}
 
 async function dbSave(users) {
-  // 1. Sempre salvar local primeiro (rápido e seguro)
+  // Sempre salvar local primeiro (imediato)
   localStorage.setItem(DB_KEY, JSON.stringify(users));
-
   const cfg = ghGetConfig();
   if (!cfg || location.protocol === 'file:') { setModeIndicator(false); return; }
-
   try {
-    // IMPORTANTE: Aqui você deve enviar APENAS os usuários e logs administrativos.
-    // NUNCA envie a variável 'iaDados' ou relatórios do Hubsoft para o GitHub.
-    const dadosParaGitHub = { 
-      users, 
-      updated: new Date().toISOString() 
-    };
-
-    await ghPut(cfg, dadosParaGitHub);
+    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+    await ghPut(cfg, { users, logs, updated: new Date().toISOString() });
     setModeIndicator(true);
   } catch(e) {
-    console.warn('Falha ao sincronizar usuários no GitHub:', e.message);
+    console.warn('Falha ao salvar no GitHub:', e.message);
+    dbLogLocal('Falha ao gravar no GitHub: ' + e.message);
     setModeIndicator(false);
   }
 }
@@ -703,79 +475,47 @@ let _showTabOrig = null;
 let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
-// 1. CARREGAR BANCO (Sem chamar o GitHub direto)
-/* ── MOTOR DE SEGURANÇA NUYVON ── */
-
-// 1. Função de Criptografia (Hash)
-async function sha256(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-// 2. Inicializar Banco via Worker (Sem erros 404)
 async function initDB() {
-  console.log("🔄 Tentando carregar usuários via Worker...");
-  try {
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error("Worker offline");
-    const data = await r.json();
-    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    if (banco && banco.users) {
-      _USERS_CACHE = banco.users;
-      GH_SHA = data.sha; // IMPORTANTE para o Reset funcionar
-      console.log("✅ Usuários sincronizados!");
+  showLoginStatus('Carregando...', 'muted');
+
+  // 1. Tentar GitHub primeiro
+  let loaded = [];
+  const cfg = ghGetConfig();
+  if (cfg && location.protocol !== 'file:') {
+    try {
+      const banco = await ghGet(cfg);
+      if (banco && Array.isArray(banco.users) && banco.users.length) {
+        loaded = banco.users;
+        localStorage.setItem(DB_KEY, JSON.stringify(loaded));
+        setModeIndicator(true);
+        dbLogLocal('Banco carregado do GitHub (' + loaded.length + ' usuários)');
+      }
+    } catch(e) {
+      dbLogLocal('GitHub indisponível — usando cache local: ' + e.message);
+      setModeIndicator(false);
     }
-  } catch (e) {
-    console.error("❌ Falha ao carregar nuvem, usando local:", e.message);
-    _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
   }
-}
 
-// 3. Função de Login Blindada
-async function doLogin() {
-  const userInp = document.getElementById('login-user');
-  const passInp = document.getElementById('login-pass');
-  const errEl   = document.getElementById('login-err');
-
-  if (!userInp || !passInp) return;
-
-  const userTxt = userInp.value.trim();
-  const passTxt = passInp.value.trim();
-  const hashDigitado = await sha256(passTxt);
-
-  // Procura o usuário no que foi baixado do Worker
-  const usuario = _USERS_CACHE.find(u => u.user === userTxt && (u.hash === hashDigitado || u.pass === passTxt));
-
-  if (usuario) {
-    SESSION = usuario;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
-    if(document.getElementById('ia-toggle')) document.getElementById('ia-toggle').style.display = 'flex';
-    iaMsg('sys', `👋 Olá ${usuario.user}, bem-vindo de volta!`);
-  } else {
-    errEl.textContent = '❌ Usuário ou senha incorretos';
-    errEl.style.display = 'block';
+  // 2. Fallback: localStorage
+  if (!loaded.length) {
+    try { loaded = JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch { loaded = []; }
   }
-}
 
-// 4. Reset de Senha que REALMENTE salva no seu Worker
-async function loginReset() {
-  const nova = prompt("Nova senha para 'eric':");
-  if (!nova) return;
-  const hash = await sha256(nova.trim());
-  const novosDados = { users: [{ user: 'eric', hash: hash, role: 'master' }] };
+  // 3. Criar usuário master padrão se ainda vazio
+  if (!loaded.length) {
+    const hash = await sha256('eric2024');
+    loaded = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
+    localStorage.setItem(DB_KEY, JSON.stringify(loaded));
+    dbLogLocal('Banco criado do zero — usuário padrão: eric / eric2024');
+    // Tentar salvar no GitHub também
+    if (cfg && location.protocol !== 'file:') {
+      try { await ghPut(cfg, { users: loaded, logs: [], updated: new Date().toISOString() }); }
+      catch(e) { dbLogLocal('Não foi possível salvar banco no GitHub: ' + e.message); }
+    }
+  }
 
-  try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      body: JSON.stringify({ content, sha: GH_SHA })
-    });
-    if (r.ok) {
-      alert("✅ Senha gravada na nuvem! Recarregando...");
-      location.reload();
-    } else { alert("❌ Erro ao salvar. Verifique o Token no Worker."); }
-  } catch (e) { alert("❌ Erro: " + e.message); }
+  _USERS_CACHE = loaded;
+  showLoginStatus('', '');
 }
 
 function showLoginStatus(msg, color) {
@@ -786,7 +526,56 @@ function showLoginStatus(msg, color) {
 }
 
 /* ── Login ── */
+async function doLogin() {
+  const u   = (document.getElementById('login-user').value||'').trim().toLowerCase();
+  const p   = document.getElementById('login-pass').value||'';
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!u||!p) { err.textContent = 'Preencha usuário e senha.'; return; }
 
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Verificando...';
+  btn.disabled    = true;
+
+  try {
+    const h = await sha256(p);
+
+    // ── NÃO chamar dbLoad() aqui ──────────────────────────────────────────
+    // _USERS_CACHE já foi carregado pelo initDB no window.onload.
+    // Chamar dbLoad() novamente durante o login pode:
+    //   • Ser lento (GitHub leva 1-3s)
+    //   • Falhar silenciosamente e retornar [] → login quebra
+    // ─────────────────────────────────────────────────────────────────────
+    let cache = _USERS_CACHE;
+
+    // Só usar localStorage como último recurso se cache estiver vazio
+    if (!cache || !cache.length) {
+      try { cache = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch { cache = []; }
+      if (cache.length) _USERS_CACHE = cache;
+    }
+
+    const found = cache.find(x => x.user.toLowerCase() === u && x.hash === h);
+
+    if (!found) {
+      const n = cache.length;
+      err.textContent = n === 0
+        ? '❌ Banco vazio. Clique em ⚠ Resetar para definir uma senha.'
+        : '❌ Usuário ou senha inválidos.';
+      dbLog('Falha login: ' + u + ' (' + n + ' users no cache)');
+      return;
+    }
+
+    SESSION = found;
+    dbLog('Login: ' + SESSION.user);
+    document.getElementById('login-overlay').style.display = 'none';
+    applySession();
+
+  } finally {
+    btn.textContent = 'Entrar';
+    btn.disabled    = false;
+    showLoginStatus('', '');
+  }
+}
 
 /* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
 function applySession() {
@@ -1036,30 +825,124 @@ function loginDiag() {
   diag.innerHTML = linhas.join('<br>');
 }
 
+async function loginReset() {
+  const novaSenha = prompt(
+    'RESETAR ACESSO\n\nUsuários no cache: ' + _USERS_CACHE.length + '\n\nNova senha para "eric":'
+  );
+  if (!novaSenha || !novaSenha.trim()) return;
 
+  const hash     = await sha256(novaSenha.trim());
+  const newUsers = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
 
+  // Aplicar em memória imediatamente
+  _USERS_CACHE = newUsers;
 
-/* vALIDAÇÃO DO WORKER */
-async function ghTestAndSave() {
-  const msg = document.getElementById('gh-config-msg');
-  msg.textContent = '🔄 Testando conexão com o Worker...';
+  // Gravar localStorage (limpa versões antigas)
+  ['nuvyon_users_v2','nuvyon_users','nuvyon_banco'].forEach(function(k){ localStorage.removeItem(k); });
+  localStorage.setItem(DB_KEY, JSON.stringify(newUsers));
+  GH_SHA = null;
 
-  try {
-    // Tenta buscar o banco via Worker
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error('Worker recusou a conexão');
-    
-    const data = await r.json();
-    GH_SHA = data.sha; // Armazena o SHA necessário para futuros PUTs
-    
-    msg.style.color = 'var(--accent)';
-    msg.textContent = '✅ Conectado ao Worker e GitHub!';
-  } catch(e) {
-    msg.style.color = '#e74c3c';
-    msg.textContent = '❌ Erro: ' + e.message;
+  // Tentar GitHub
+  var cfg = ghGetConfig();
+  if (cfg && location.protocol !== 'file:') {
+    try { await ghPut(cfg, { users: newUsers, logs: [], updated: new Date().toISOString() }); }
+    catch(e) { dbLogLocal('Reset local OK — GitHub offline: ' + e.message); }
   }
+
+  // Feedback visual
+  var errEl = document.getElementById('login-err');
+  if (errEl) {
+    errEl.style.color  = 'var(--accent)';
+    errEl.textContent  = '✅ Senha redefinida! Utilizador: eric / Senha: ' + novaSenha.trim();
+  }
+  // Preencher campo usuário automaticamente
+  var userEl = document.getElementById('login-user');
+  if (userEl) userEl.value = 'eric';
 }
 
+/* ── Configuração GitHub ── */
+function openGhConfig() {
+  const cfg = ghGetConfig();
+  if (cfg) {
+    document.getElementById('gh-owner').value = cfg.owner||'';
+    document.getElementById('gh-repo').value  = cfg.repo||'';
+    document.getElementById('gh-token').value = cfg.token||'';
+  }
+  // Mostrar aviso se aberto via file://
+  const det = document.getElementById('gh-config-detail');
+  if (location.protocol === 'file:') {
+    det.style.display = 'block';
+    det.innerHTML = '<span style="color:#f39c12">⚠ Você está abrindo o dashboard como arquivo local (file://).</span><br>' +
+      'O GitHub funcionará normalmente quando acessar via <strong>https://erjinfo.github.io/dashboard-nuvyon/</strong><br>' +
+      'Configure o token aqui — ele fica salvo nesta máquina e será usado automaticamente no acesso via HTTPS.';
+  } else {
+    if (det) { det.style.display='none'; det.textContent=''; }
+  }
+  document.getElementById('gh-config-msg').textContent = '';
+  document.getElementById('gh-config-modal').style.display = 'flex';
+}
+function closeGhConfig() { document.getElementById('gh-config-modal').style.display = 'none'; }
+
+async function ghTestAndSave() {
+  // Limpar URL se usuário colou a URL completa
+  let owner = document.getElementById('gh-owner').value.trim()
+    .replace(/https?:\/\/(www\.)?(github\.com|github\.io)\/?/gi, '')
+    .replace(/\/.*/,'').trim();
+  document.getElementById('gh-owner').value = owner; // atualizar o campo
+  let repo  = document.getElementById('gh-repo').value.trim()
+    .replace(/https?:\/\/[^/]+\//gi,'').replace(/\.git$/,'').trim();
+  document.getElementById('gh-repo').value = repo;
+  const token = document.getElementById('gh-token').value.trim();
+  const msg   = document.getElementById('gh-config-msg');
+  const det   = document.getElementById('gh-config-detail');
+  if (!owner||!repo||!token) { msg.style.color='#e74c3c'; msg.textContent='❌ Preencha todos os campos'; return; }
+
+  // Salvar config sempre (funciona no HTTPS mesmo configurando via file://)
+  ghSetConfig({ owner, repo, token });
+
+  // Se estiver rodando como file://, não pode fazer fetch — apenas salva e orienta
+  if (location.protocol === 'file:') {
+    msg.style.color='#f39c12'; msg.textContent='⚠ Configuração salva (modo local)';
+    det.style.display='block';
+    det.innerHTML = '<strong style="color:#f39c12">⚠ Arquivo aberto localmente (file://)</strong><br><br>' +
+      'O browser bloqueia conexões externas neste modo. A configuração foi salva e funcionará automaticamente quando acessar via:<br><br>' +
+      '<strong style="color:var(--accent)">https://erjinfo.github.io/dashboard-nuvyon/</strong><br><br>' +
+      'Coloque o arquivo HTML no repositório e acesse pelo GitHub Pages — o banco do GitHub será sincronizado normalmente.';
+    setModeIndicator(false);
+    return;
+  }
+
+  msg.style.color='var(--muted)'; msg.textContent='🔄 Testando conexão...';
+  det.style.display='none';
+  try {
+    const r = await fetch('https://api.github.com/repos/' + owner + '/' + repo, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (r.status === 401) throw new Error('Token inválido ou expirado. Gere um novo em github.com/settings/tokens');
+    if (r.status === 404) throw new Error('Repo "' + owner + '/' + repo + '" não encontrado. Verifique o nome e se o token tem permissão "repo".');
+    if (!r.ok) throw new Error('Erro HTTP ' + r.status);
+    const repoData = await r.json();
+    if (!repoData.private) {
+      if (!confirm('Repositório PÚBLICO: o nuvyon_banco.json ficará visível (senhas são hash SHA-256).\n\nContinuar?')) return;
+    }
+    msg.style.color='var(--accent)'; msg.textContent='✅ Conectado! Sincronizando...';
+    det.style.display='block';
+    det.textContent = 'Repo: ' + repoData.full_name + ' | Privado: ' + repoData.private + ' | OK';
+    const localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]');
+    _USERS_CACHE = localUsers.length ? localUsers : _USERS_CACHE;
+    if (_USERS_CACHE.length) {
+      GH_SHA = null;
+      try { await ghGet({owner,repo,token}); } catch {}
+      await dbSave(_USERS_CACHE);
+      msg.textContent = '✅ ' + _USERS_CACHE.length + ' usuário(s) sincronizados no GitHub!';
+    }
+    setModeIndicator(true);
+    setTimeout(closeGhConfig, 2500);
+  } catch(e) {
+    msg.style.color='#e74c3c'; msg.textContent='❌ ' + e.message;
+    det.style.display='block'; det.textContent = e.toString();
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════
    NUVYON — PERSISTÊNCIA DE RELATÓRIOS NO GITHUB
@@ -1086,7 +969,225 @@ const GH_SLOT_FILES = {
 const _slotSHAs = {}; // SHA por slot (para sobrescrita)
 
 /* ── Salvar relatórios no GitHub ─────────────────────────────── */
+async function ghSaveRelatorios() {
+  const cfg = ghGetConfig();
+  if (!cfg || location.protocol === 'file:') return false;
 
+  // ── Nova estratégia: salvar cada slot como arquivo individual ─────────────
+  // Evita o erro 422 "file too large" da API GitHub (limite ~1MB por PUT).
+  // Cada base_crm.json, base_os.json etc. fica abaixo desse limite.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const slots = {
+    os:           STATE.rawOS,
+    at:           STATE.rawAT,
+    sac:          STATE.rawSAC,
+    nps:          STATE.rawNPS,
+    agentes:      STATE.rawAgentes,
+    matrix:       STATE.relatorioAnalitico,
+    npsTelefonia: STATE.rawNpsTelefonia,
+    osab:         STATE.rawOSAb,
+    sinais:       STATE.rawSinais,
+    crm:          STATE.rawCRM,
+    vendas:       STATE.rawVendas,
+  };
+
+  _setRelatIndicator('saving');
+  let ok = 0, fail = 0;
+
+  for (const [key, data] of Object.entries(slots)) {
+    if (!data || (Array.isArray(data) && !data.length)) continue;
+    try {
+      // Verificar tamanho antes de enviar (~750KB limit para base64 seguro)
+      const json   = JSON.stringify(data);
+      const bytes  = new TextEncoder().encode(json).length;
+
+      if (bytes > 750_000) {
+        // Arquivo grande demais: salvar só as primeiras 5000 linhas como amostra
+        const sample = Array.isArray(data) ? data.slice(0, 5000) : data;
+        const jsonS  = JSON.stringify(sample);
+        console.warn(`[Nuvyon] ${key}: ${(bytes/1024).toFixed(0)}KB > 750KB — salvando amostra (${sample.length} rows)`);
+        const saved = await ghSaveSlot(key, sample);
+        saved ? ok++ : fail++;
+      } else {
+        const saved = await ghSaveSlot(key, data);
+        saved ? ok++ : fail++;
+      }
+    } catch(e) {
+      console.warn(`[Nuvyon] Erro ao salvar slot ${key}:`, e.message);
+      fail++;
+    }
+  }
+
+  if (ok > 0) {
+    _setRelatIndicator('saved', new Date(), `${ok} arquivo(s) salvos`);
+    console.log(`[Nuvyon] ✅ ${ok} slot(s) salvos no GitHub` + (fail ? ` · ${fail} falharam` : ''));
+    return true;
+  } else {
+    _setRelatIndicator('error', null, `${fail} arquivo(s) falharam`);
+    return false;
+  }
+}
+
+/* ── Carregar relatórios do GitHub ───────────────────────────── */
+/**
+ * ghSaveSlot(key, rows) — Envia um único slot ao GitHub com nome fixo.
+ * Isso permite que qualquer usuário com acesso ao repo já abra o dashboard
+ * preenchido, sem precisar fazer upload manual.
+ * O arquivo é sempre sobrescrito (envia SHA atual se existir).
+ */
+async function ghSaveSlot(key, rows) {
+  const cfg = ghGetConfig();
+  if (!cfg || !rows || !rows.length) return false;
+  const fileName = GH_SLOT_FILES[key];
+  if (!fileName) return false;
+
+  // Verificar tamanho do conteúdo ANTES de tentar o PUT
+  // GitHub API rejeita com 422 arquivos > ~1MB (encoded em base64 fica ~33% maior)
+  const json    = JSON.stringify(rows);
+  const bytes   = new TextEncoder().encode(json).length;
+  const MAX     = 900_000; // ~900KB margem de segurança
+
+  if (bytes > MAX) {
+    console.warn(`[Nuvyon] ${fileName}: ${(bytes/1024).toFixed(0)}KB excede ${MAX/1024}KB — não será salvo no GitHub`);
+    // Mostrar aviso no badge sem travar
+    const el = document.getElementById('relat-status-badge');
+    if (el) el.textContent = `⚠ ${key}: arquivo muito grande para GitHub`;
+    return false;
+  }
+
+  const content = btoa(unescape(encodeURIComponent(json)));
+  const url     = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
+
+  // Buscar SHA atual para sobrescrita
+  if (!_slotSHAs[key]) {
+    try {
+      const r = await fetch(url, {
+        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (r.ok) { const d = await r.json(); _slotSHAs[key] = d.sha; }
+    } catch(_) {}
+  }
+
+  try {
+    const resp = await fetch(url, {
+      method : 'PUT',
+      headers: {
+        'Authorization': `token ${cfg.token}`,
+        'Accept'       : 'application/vnd.github.v3+json',
+        'Content-Type' : 'application/json',
+      },
+      body: JSON.stringify({
+        message : `nuvyon: ${key} ${new Date().toLocaleString('pt-BR')}`,
+        content,
+        ...(_slotSHAs[key] ? { sha: _slotSHAs[key] } : {}),
+      }),
+    });
+
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      // Erro 422 = arquivo muito grande (não deve chegar aqui com a verificação acima)
+      if (resp.status === 422) {
+        console.warn(`[Nuvyon] ${fileName}: 422 arquivo grande demais (${(bytes/1024).toFixed(0)}KB)`);
+        return false;
+      }
+      throw new Error(`PUT ${resp.status}: ${errBody.slice(0, 120)}`);
+    }
+
+    const data = await resp.json();
+    _slotSHAs[key] = data.content.sha;
+    console.log(`[Nuvyon] ✅ ${fileName} salvo (${(bytes/1024).toFixed(0)}KB)`);
+    return true;
+  } catch(e) {
+    console.warn(`[Nuvyon] Falha ao salvar ${fileName}:`, e.message);
+    return false;
+  }
+}
+
+/**
+ * ghLoadSlots() — Carrega slots individuais do GitHub no onload.
+ * Para cada slot com arquivo no repo, restaura os dados no STATE.
+ * Chamado automaticamente no window.onload se gh-token estiver configurado.
+ */
+async function ghLoadSlots(silent = false) {
+  const cfg = ghGetConfig();
+  if (!cfg || location.protocol === 'file:') return 0;
+  let count = 0;
+
+  for (const [key, fileName] of Object.entries(GH_SLOT_FILES)) {
+    try {
+      const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
+      const r   = await fetch(url, {
+        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (!r.ok) continue;
+      const data = await r.json();
+      _slotSHAs[key] = data.sha;
+      const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+      if (!Array.isArray(rows) || !rows.length) continue;
+
+      // Aplicar ao STATE
+      if      (key==='crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
+      else if (key==='vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
+      else if (key==='matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
+      else if (key==='osab')   { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
+      else if (key==='os')     { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
+      else if (key==='at')     { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
+      else if (key==='sac')    { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
+      else if (key==='nps')    { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
+      else if (key==='sinais') { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
+
+      count++;
+      if (!silent) console.log(`[Nuvyon] ${fileName} ✅ (${rows.length} rows)`);
+    } catch(e) {
+      if (!silent) console.warn(`[Nuvyon] ${fileName} falhou:`, e.message);
+    }
+  }
+
+  // FIX: processar e renderizar DEPOIS de carregar todos os slots
+  if (count > 0) {
+    if (typeof _processRestoredState === 'function') _processRestoredState();
+    // BI Comercial: renderizar após sessão estar pronta (aguarda login)
+    const _biRender = () => {
+      if ((STATE.rawCRM || STATE.rawVendas) && typeof renderBIComercial === 'function') {
+        renderBIComercial();
+      }
+    };
+    // Se já logado, renderizar agora; senão, tentar novamente em 2s
+    if (SESSION) { _biRender(); }
+    else { setTimeout(_biRender, 2500); }
+
+    const el = document.getElementById('relat-status-badge');
+    if (!silent && el) el.textContent = `☁ ${count} arquivo(s) sincronizados`;
+    _setRelatIndicator('loaded', new Date(), `${count} slot(s) do GitHub`);
+  }
+
+  return count;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ghLoadAll — varre o repositório INTEIRO e restaura todos os arquivos
+// reconhecidos, independente do nome. Funciona com nomes como:
+//   relatorio_de_crm_2026-03-16T15_55_22_8714-03_00.xlsx (já convertido para JSON)
+//   6relatorio-de-ordens-de-servico-abertas-20260312...xlsx
+// ─────────────────────────────────────────────────────────────────────────────
+async function ghListRepo(cfg, dir = '') {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${dir}`;
+  const r   = await fetch(url, {
+    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`LIST ${r.status}`);
+  const items = await r.json();
+  if (!Array.isArray(items)) return [];
+  const files = [];
+  for (const item of items) {
+    if (item.type === 'file') files.push(item);
+    else if (item.type === 'dir' && dir === '') {
+      try { files.push(...await ghListRepo(cfg, item.path)); } catch(_) {}
+    }
+  }
+  return files;
+}
 
 function _guessSlotKey(filename, rows) {
   const n    = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1232,7 +1333,80 @@ async function ghLoadAll(silent = false) {
   return count;
 }
 
+async function ghLoadRelatorios(silent = false) {
+  const cfg = ghGetConfig();
+  if (!cfg || location.protocol === 'file:') return false;
 
+  try {
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${RELAT_FILE}`;
+    const r = await fetch(url, {
+      headers: {
+        'Authorization': `token ${cfg.token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (r.status === 404) {
+      if (!silent) _setRelatIndicator('empty');
+      return false; // ainda não tem relatório salvo
+    }
+    if (!r.ok) throw new Error(`GET ${r.status}`);
+
+    const data = await r.json();
+    RELAT_SHA = data.sha;
+    const payload = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+
+    if (payload.version !== RELAT_VERSION) {
+      console.warn('[Nuvyon] Versão do relatório incompatível:', payload.version);
+      if (!silent) _setRelatIndicator('version');
+      return false;
+    }
+
+    // Restaurar cada arquivo
+    let count = 0;
+    for (const [key, entry] of Object.entries(payload.arquivos || {})) {
+      try {
+        const rows = JSON.parse(decodeURIComponent(escape(atob(entry.data))));
+        // Atribuir ao STATE e pendingFiles conforme o slot
+        if (key === 'os')           { STATE.rawOS  = rows; pendingFiles.os  = rows; STATE.loaded.os  = true;  ghSaveSlot('os',  rows).catch(()=>{}); }
+        else if (key === 'at')      { STATE.rawAT  = rows; pendingFiles.at  = rows; STATE.loaded.at  = true;  ghSaveSlot('at',  rows).catch(()=>{}); }
+        else if (key === 'sac')     { STATE.rawSAC = rows; pendingFiles.sac = rows; STATE.loaded.sac = true;  ghSaveSlot('sac', rows).catch(()=>{}); }
+        else if (key === 'prod')    { STATE.rawProd = rows; pendingFiles.prod = rows; }
+        else if (key === 'nps')     { STATE.rawNPS = rows; pendingFiles.nps = rows; STATE.loaded.nps = true; }
+        else if (key === 'agentes') { STATE.rawAgentes = rows; pendingFiles.agentes = rows; STATE.loaded.agentes = true; }
+        else if (key === 'matrix')  { STATE.relatorioAnalitico = rows; pendingFiles.matrix = rows; STATE.loaded.matrix = true; }
+        else if (key === 'npsTelefonia') { STATE.rawNpsTelefonia = rows; pendingFiles.npsTelefonia = rows; STATE.loaded.npsTelefonia = true; }
+        else if (key === 'osab')    { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; pendingFiles.osab = rows; STATE.loaded.osab = true; }
+        else if (key === 'sinais')  { STATE.rawSinais = rows; pendingFiles.sinais = rows; STATE.loaded.sinais = true; }
+        else if (key === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
+        else if (key === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
+
+        if (entry.nomes) STATE.nomes[key] = entry.nomes;
+        count++;
+      } catch(e) {
+        console.warn(`[Nuvyon] Falha ao restaurar ${key}:`, e.message);
+      }
+    }
+
+    if (count === 0) return false;
+
+    // Processar dados restaurados (mesmo fluxo do aplicarDados)
+    _processRestoredState();
+
+    const dt = new Date(payload.savedAt);
+    _setRelatIndicator('loaded', dt, `${count} arquivo(s) · salvo por ${payload.savedBy}`);
+    if (!silent) {
+      const prog = document.getElementById('upload-progress');
+      if (prog) prog.textContent = `☁ Relatórios restaurados do GitHub (${count} arquivo(s), salvo em ${dt.toLocaleString('pt-BR')})`;
+    }
+    console.log(`[Nuvyon] ${count} relatório(s) carregados do GitHub ✅`);
+    return true;
+  } catch(e) {
+    console.warn('[Nuvyon] Falha ao carregar relatórios:', e.message);
+    _setRelatIndicator('error', null, e.message);
+    return false;
+  }
+}
 
 /* ── Processar STATE após restauração (reprocessa igual ao aplicarDados) ── */
 function _processRestoredState() {
@@ -1331,113 +1505,39 @@ window.addEventListener('load', async () => {
    RBAC v3.7 — Menu dinâmico gerado por JS baseado em SESSION.abas
 ═══════════════════════════════════════════════════════════════ */
 const MenuRBAC = {
+  /** Reconstrói o #tabbar inteiro com base nas abas autorizadas */
   build(abasAutorizadas) {
-    const scroll = document.getElementById('nav-scroll');
-    if (!scroll) return;
-    scroll.innerHTML = '';
-
-    ABA_GRUPOS.forEach(grupo => {
-      const abasDeste = grupo.abas.filter(id => abasAutorizadas.includes(id));
-      if (!abasDeste.length) return;
-
-      const groupDiv = document.createElement('div');
-      groupDiv.className = 'nav-group';
-
-      // Botão do grupo (acordeão)
+    const tabbar = document.getElementById('tabbar');
+    if (!tabbar) return;
+    tabbar.innerHTML = '';
+    ABAS.forEach(aba => {
+      if (!abasAutorizadas.includes(aba.id)) return;
       const btn = document.createElement('button');
-      btn.className = 'nav-group-btn';
-      btn.innerHTML = `<span>${grupo.label}</span><span class="nav-group-arrow">▶</span>`;
-      btn.onclick = () => {
-        const items = groupDiv.querySelector('.nav-items');
-        const isOpen = items.classList.contains('open');
-        // Fecha todos
-        scroll.querySelectorAll('.nav-items.open').forEach(el => el.classList.remove('open'));
-        scroll.querySelectorAll('.nav-group-btn.open').forEach(el => el.classList.remove('open'));
-        // Abre este se estava fechado
-        if (!isOpen) {
-          items.classList.add('open');
-          btn.classList.add('open');
-        }
-      };
-      groupDiv.appendChild(btn);
-
-      // Itens do grupo
-      const itemsDiv = document.createElement('div');
-      itemsDiv.className = 'nav-items';
-
-      abasDeste.forEach(id => {
-        const aba = ABAS.find(a => a.id === id);
-        if (!aba) return;
-        const item = document.createElement('div');
-        item.className = 'nav-item';
-        item.id = 'nav-item-' + id;
-        item.dataset.aba = id;
-        const match = aba.label.match(/^(\S+)\s(.+)$/);
-        const icon = match ? match[1] : '';
-        const text = match ? match[2] : aba.label;
-        item.innerHTML = `<span class="nav-icon">${icon}</span><span>${text}</span>`;
-        item.onclick = () => {
-          if (_showTabOrig) _showTabOrig(id);
-          MenuRBAC.activate(id);
-        };
-        itemsDiv.appendChild(item);
-      });
-
-      groupDiv.appendChild(itemsDiv);
-      scroll.appendChild(groupDiv);
+      btn.className = 'tab-btn';
+      btn.id = 'tab-' + aba.id;
+      btn.textContent = aba.label;
+      btn.onclick = () => window.showTab(aba.id);
+      tabbar.appendChild(btn);
     });
-
-    // Separador + Sair
-    const sep = document.createElement('div');
-    sep.className = 'nav-separator';
-    scroll.appendChild(sep);
-    const sair = document.createElement('div');
-    sair.className = 'nav-sair';
-    sair.innerHTML = '<span class="nav-icon">🚪</span><span>Sair</span>';
-    sair.onclick = doLogout;
-    scroll.appendChild(sair);
+    // Botão logoff sempre no fim
+    const lo = document.createElement('button');
+    lo.className = 'tab-btn';
+    lo.id = 'tab-logoff';
+    lo.textContent = '🚪 Sair';
+    lo.title = 'Sair do sistema';
+    lo.style.cssText = 'margin-left:auto;color:#e74c3c;border-bottom-color:transparent';
+    lo.onclick = doLogout;
+    tabbar.appendChild(lo);
   },
-
+  /** Ativa visualmente o botão da aba corrente */
   activate(id) {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const el = document.getElementById('nav-item-' + id);
-    if (!el) return;
-    el.classList.add('active');
-    // Abre o grupo pai automaticamente
-    const items = el.closest('.nav-items');
-    const btn = el.closest('.nav-group')?.querySelector('.nav-group-btn');
-    if (items && btn) {
-      // Fecha todos primeiro
-      document.querySelectorAll('.nav-items.open').forEach(e => e.classList.remove('open'));
-      document.querySelectorAll('.nav-group-btn.open').forEach(e => e.classList.remove('open'));
-      items.classList.add('open');
-      btn.classList.add('open');
-    }
+    document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tab-' + id);
+    if (btn) btn.classList.add('active');
   },
-
-  firstAllowed(abas) {
-    for (const g of ABA_GRUPOS) {
-      const found = g.abas.find(id => abas.includes(id));
-      if (found) return found;
-    }
-    return abas[0] || 'gestao';
-  }
+  /** Retorna a primeira aba autorizada */
+  firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
 };
-
-function navOpen()  {}
-function navClose() {}
-
-function navOpen()  {
-  document.getElementById('nav-drawer').classList.add('open');
-  document.getElementById('nav-overlay').classList.add('open');
-}
-function navClose() {
-  document.getElementById('nav-drawer').classList.remove('open');
-  document.getElementById('nav-overlay').classList.remove('open');
-}
-
-// Fechar com ESC
-document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
 
 /* ── INIT: após TODO o JavaScript do app carregar ── */
 window.addEventListener('load', async () => {
@@ -1462,51 +1562,6 @@ window.addEventListener('load', async () => {
 });
 </script>
 
-<!-- OVERLAY -->
-<div id="nav-overlay" onclick="navClose()"></div>
-
-<!-- MENU LATERAL -->
-<div id="nav-drawer">
-  <div id="nav-drawer-header">
-    <span class="logo">▶ Nuvyon</span>
-  </div>
-  <div id="nav-scroll"></div>
-</div>
-
-<style>
-/* ── MENU LATERAL FIXO ── */
-#nav-overlay { display: none }
-#nav-drawer {
-  position: fixed;
-  top: 0; left: 0;
-  width: 220px;
-  height: 100vh;
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-#nav-drawer-header {
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-#nav-drawer-header .logo { font-size: 0.95rem; font-weight: 800; color: var(--accent) }
-#nav-close { display: none }
-#nav-toggle-btn { display: none }
-#nav-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 }
-#nav-scroll::-webkit-scrollbar { width: 3px }
-#nav-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px }
-#topbar { margin-left: 220px; position: sticky; top: 0; z-index: 999 }
-#main   { margin-left: 220px }
-</style>
-
-
 <!-- TOP BAR -->
 <div id="topbar">
   <div>
@@ -1514,7 +1569,6 @@ window.addEventListener('load', async () => {
     <p id="topbar-stats">Aguardando dados...</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-  
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap" title="Modo do banco de dados">💾 Local</div>
     <div id="relat-status-badge" onclick="ghLoadAll(false)" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Clique para recarregar relatórios do GitHub">○ Relatórios</div>
@@ -1691,8 +1745,7 @@ window.addEventListener('load', async () => {
   <!-- ══════════ ABA VISÃO 360 ══════════ -->
   <div class="tab-content" id="tab-content-visao360">
     <!-- UPLOAD -->
-    <div>
-	id="visao360-upload-zone" onclick="document.getElementById('visao360-file-input').click()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border);border-radius:16px;padding:80px 40px;text-align:center;cursor:pointer;transition:all .3s">
+    <div id="visao360-upload-zone" onclick="document.getElementById('visao360-file-input').click()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border);border-radius:16px;padding:80px 40px;text-align:center;cursor:pointer;transition:all .3s">
       <div style="font-size:48px;margin-bottom:16px">📂</div>
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:8px">Importe seu Relatório de OS</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:24px">Arraste e solte o arquivo aqui, ou clique para selecionar.<br>O arquivo não sai do seu computador — tudo é processado localmente.</div>
@@ -1896,12 +1949,41 @@ window.addEventListener('load', async () => {
     <div style="max-width:860px;margin:0 auto;padding:28px 20px">
       <div style="font-family:var(--font-head,monospace);font-size:22px;font-weight:800;color:var(--accent);margin-bottom:6px">⚙️ Configurações</div>
       <div style="color:var(--muted);font-size:13px;margin-bottom:28px">GitHub Sync, Usuários e Preferências do Sistema</div>
-	  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px">
-  <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">☁️ Conexão de Nuvem</div>
-  <div style="color:var(--accent); font-size:12px;">✅ Sincronizado via Cloudflare Worker (Seguro)</div>
-</div>
 
-
+      <!-- GitHub Sync -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00E5C3,#3B82F6)"></div>
+        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">☁ Sincronização GitHub</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">
+          Quando configurado, os arquivos carregados são enviados automaticamente ao repositório.<br>
+          Qualquer usuário com acesso ao link já abre o dashboard preenchido.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">OWNER (usuário GitHub)</label>
+            <input id="cfg-gh-owner" placeholder="ex: erjinfo" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">REPOSITÓRIO</label>
+            <input id="cfg-gh-repo" placeholder="ex: dashboard-nuvyon" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">TOKEN GITHUB (Personal Access Token — permissão: repo)</label>
+          <input id="cfg-gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button onclick="cfgSaveGitHub()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:13px;cursor:pointer">✅ Salvar e Testar</button>
+          <button onclick="cfgClearGitHub()" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer">🗑 Remover</button>
+          <span id="cfg-gh-msg" style="font-size:12px;color:var(--accent)"></span>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Arquivos sincronizados automaticamente:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${Object.entries(GH_SLOT_FILES||{}).map(([k,f])=>`<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:10px;font-family:monospace;color:var(--muted2)">${k} → ${f}</span>`).join('')}
+          </div>
+        </div>
+      </div>
 
       <!-- Admin / Usuários -->
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px">
@@ -2087,9 +2169,29 @@ window.addEventListener('load', async () => {
         <div class="upload-slot-status" id="slot-kml-icon">○</div>
       </div>
     </div>
-    </div></div>
-	<!-- /pane-manual -->
-    
+    </div></div><!-- /pane-manual -->
+    <div id="upload-pane-drive" style="display:none;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div id="drive-status-msg" style="font-size:11px;color:var(--muted);text-align:center;min-height:18px"></div>
+      <div id="drive-file-list"></div>
+      <div style="display:flex;gap:8px">
+        <input id="drive-api-key" type="password" placeholder="Google API Key (opcional — para listar pasta)" style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:monospace;outline:none">
+        <button onclick="driveScan()" id="drive-btn-scan" style="background:#4285f4;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">🔍 Escanear</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.5;padding:8px 10px;background:var(--panel);border-radius:6px;border-left:3px solid #4285f444">
+        Pasta: <strong>AR Telecom — Relatórios</strong> &nbsp;·&nbsp;
+        <a href="https://drive.google.com/drive/folders/1SGlZZyPglW181NBEHzxnUpOfXChUX6qR" target="_blank" style="color:#4285f4">Abrir no Drive ↗</a><br>
+        Sem API Key: os arquivos públicos são baixados diretamente. Com API Key: lista e importa tudo automaticamente.
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent);margin-left:4px">Obter chave →</a>
+      </div>
+    </div><!-- /pane-drive -->
+    <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
+    <div style="display:flex;gap:10px">
+      <button id="btn-drive-import-all" onclick="driveImportAll()" style="display:none;flex:1;background:#4285f4;color:#fff;border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px;cursor:pointer">☁ Importar Todos</button>
+      <button id="btn-aplicar" onclick="aplicarDados()" disabled style="flex:1;background:var(--border);color:var(--muted);border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px">Carregue ao menos 1 arquivo</button>
+      <button onclick="closeUpload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px 18px;font-weight:600;font-size:13px">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════ MODAL BOLETIM ══════ -->
 <div id="modal-overlay" onclick="closeModal(event)">
@@ -3539,7 +3641,15 @@ function aplicarDados() {
     closeUpload();
     renderAll();
 
-   
+    // ── Auto-salvar relatórios no GitHub após aplicar ─────────────────
+    if (ghGetConfig() && location.protocol !== 'file:') {
+      _setRelatIndicator('saving');
+      setTimeout(async () => {
+        await ghSaveRelatorios();
+      }, 800); // aguarda renderAll() completar
+    }
+  }, 50);
+}
 
 /* ════════════════════════════════════════════════════════════════
    PARTE 6 — RENDERIZAÇÃO
@@ -3575,7 +3685,6 @@ function healthBar(h) {
   const c = hColor(h);
   return `<div class="health-bar"><div class="bar"><div class="fill" style="width:${h}%;background:${c}"></div></div><span style="color:${c};font-weight:800;font-size:12px;min-width:28px">${h}</span></div>`;
 }
-
 
 /* ── TOPBAR ── */
 function renderTopbar() {
@@ -3696,8 +3805,6 @@ function renderCampo() {
   ];
   document.getElementById('campo-kpis').innerHTML = kpis.map(k =>
     `<div class="kpi"><div class="kpi-icon">${k.icon}</div><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div>${k.sub?`<div class="kpi-sub">${k.sub}</div>`:''}</div>`
-  
-  //Ate aqui
   ).join('');
 
   // Scatter: OS vs taxa reincidência real
@@ -6692,37 +6799,6 @@ function renderAll() {
   renderBonificacao();
 }
 
-function renderizarDashVisao360() {
-  // Busca os dados da memória (pode usar STATE ou iaDados)
-  const dados = STATE.rawOS || iaDados['os_abertas'];
-  
-  if (!dados || dados.length === 0) {
-    console.warn("Sem dados para renderizar Visão 360");
-    return;
-  }
-
-  // 1. COMANDO MÁGICO: Faz a aba aparecer
-  const uploadZone = document.getElementById('visao360-upload-zone');
-  const dashboard = document.getElementById('visao360-dashboard');
-  
-  if (uploadZone) uploadZone.style.display = 'none';
-  if (dashboard) dashboard.style.display = 'block';
-
-  // 2. Preenche os KPIs
-  const kpiRow = document.getElementById('visao360-kpi-row');
-  if (kpiRow) {
-    kpiRow.innerHTML = `
-      <div class="card" style="padding:15px;text-align:center;border-left:4px solid var(--accent)">
-        <div style="font-size:12px;color:var(--muted)">Total de OS Processadas</div>
-        <div style="font-size:24px;font-weight:700;color:var(--accent)">${dados.length.toLocaleString('pt-BR')}</div>
-      </div>
-    `;
-  }
-
-  // 3. Notifica a interface
-  iaMsg('sys', '✅ Dashboard Visão 360 renderizado com sucesso.');
-}
-
 function renderGestao() {
   // ROI primeiro — renderiza o Dashboard de Ativações vs Cancelamentos no topo
   renderROI();
@@ -7061,80 +7137,170 @@ function renderVisao360() {
   }
 }
 
-async function handleVisao360FileUpload(file) {
-  if (!file) return;
+function handleVisao360FileUpload(file) {
+  if (!file) {
+    console.error('Nenhum arquivo selecionado');
+    return;
+  }
   
-  // Mostra um feedback visual de carregamento
+  console.log('Arquivo recebido:', file.name, file.size, 'bytes');
+  
+  const ext = file.name.split('.').pop().toLowerCase();
+  console.log('Extensão detectada:', ext);
+  
+  if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+    alert('❌ Formato não suportado. Use CSV, XLS ou XLSX');
+    return;
+  }
+  
+  // Mostrar loading
   const uploadZone = document.getElementById('visao360-upload-zone');
   if (uploadZone) {
-    uploadZone.innerHTML = '<div style="text-align:center"><div class="spinner"></div><br>Processando arquivo pesado...</div>';
+    uploadZone.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:24px;animation:pulse 1s infinite">⏳</div><div style="color:var(--muted);margin-top:12px">Processando arquivo grande...</div><div style="color:var(--muted);font-size:11px;margin-top:8px">Isso pode levar alguns segundos...</div></div>';
   }
-
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      const data = e.target.result;
+  
+  // Usar setTimeout para não bloquear a UI
+  setTimeout(() => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      console.log('Arquivo lido, iniciando parse...');
       
-      // 1. Processar os dados (CSV ou Excel)
-      // Substitua 'processarOS' pela sua função real de parse (PapaParse ou XLSX)
-      let registros = [];
-      if (file.name.endsWith('.csv')) {
-        registros = processarCSV(data); // Sua função de parse de CSV
-      } else {
-        registros = processarExcel(data); // Sua função de parse de Excel
+      // Parse em thread separada (setTimeout) para não bloquear UI
+      setTimeout(() => {
+        try {
+          let data = [];
+          
+          if (ext === 'csv') {
+            console.log('Modo: CSV');
+            const text = e.target.result;
+            // Usar PapaParse para lidar corretamente com campos entre aspas e vírgulas internas
+            const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
+            if (parsed.errors.length > 0) {
+              console.warn('PapaParse avisos:', parsed.errors.slice(0,3));
+            }
+            data = parsed.data;
+            console.log('CSV parsado com', data.length, 'linhas');
+            
+          } else if (ext === 'xlsx' || ext === 'xls') {
+            console.log('Modo: Excel - iniciando leitura com XLSX');
+            
+            if (typeof XLSX === 'undefined') {
+              throw new Error('Biblioteca XLSX não carregada. Tente com CSV.');
+            }
+            
+            console.log('Lendo arquivo Excel...');
+            const arrayBuffer = e.target.result;
+            console.log('ArrayBuffer tamanho:', arrayBuffer.byteLength);
+            
+            // XLSX.read é pesado, fazer em etapas
+            const wb = XLSX.read(arrayBuffer, { 
+              type: 'array',
+              defval: '',
+              cellFormula: false,
+              cellStyles: false
+            });
+            
+            console.log('Sheets disponíveis:', wb.SheetNames);
+            
+            if (wb.SheetNames.length === 0) {
+              throw new Error('Nenhuma planilha encontrada');
+            }
+            
+            const firstSheetName = wb.SheetNames[0];
+            console.log('Convertendo sheet:', firstSheetName);
+            
+            const ws = wb.Sheets[firstSheetName];
+            console.log('Sheet range:', ws['!ref']);
+            
+            // Converter com opções otimizadas
+            data = XLSX.utils.sheet_to_json(ws, { 
+              defval: '',
+              blankrows: false
+            });
+            
+            console.log('Excel parsado com', data.length, 'linhas');
+            if (data.length > 0) {
+              console.log('Primeira linha:', Object.keys(data[0]));
+            }
+          }
+          
+          if (!data || data.length === 0) {
+            throw new Error('Nenhum dado foi extraído do arquivo');
+          }
+          
+          console.log('✅ Iniciando análise com', data.length, 'registros');
+          console.log('Chamando analyzeVisao360Data...');
+          
+          // Chamar análise também em setTimeout para não bloquear
+          setTimeout(() => {
+            analyzeVisao360Data(data);
+          }, 100);
+          
+        } catch (err) {
+          console.error('❌ Erro ao processar:', err.message, err.stack);
+          alert('❌ Erro ao processar arquivo:\n' + err.message);
+          renderVisao360();
+        }
+      }, 100);
+    };
+    
+    reader.onerror = (err) => {
+      console.error('❌ Erro ao ler arquivo:', err);
+      alert('❌ Erro ao ler o arquivo');
+      renderVisao360();
+    };
+    
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percentComplete = Math.round((e.loaded / e.total) * 100);
+        console.log('Leitura:', percentComplete, '%');
       }
-
-      // 2. SALVAR APENAS NA MEMÓRIA (STATE)
-      // É aqui que resolvemos o erro: NÃO chamamos dbSave() ou ghPut() aqui!
-      STATE.rawOS = registros;
-      STATE.nomes = STATE.nomes || {};
-      STATE.nomes.os = file.name;
-
-      iaMsg('sys', `📂 ${file.name} carregado com ${registros.length} linhas.`);
-
-      // 3. EXECUTAR A ANÁLISE E MOSTRAR O DASHBOARD
-      analyzeVisao360Data(registros);
-
-    } catch (err) {
-      console.error(err);
-      iaMsg('sys', '❌ Erro ao processar arquivo: ' + err.message);
-      resetVisao360Dashboard(); // Volta para a tela de upload se der erro
+    };
+    
+    console.log('Iniciando leitura do arquivo...');
+    if (ext === 'xlsx' || ext === 'xls') {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file, 'UTF-8');
     }
-  };
-
-  if (file.name.endsWith('.csv')) {
-    reader.readAsText(file, 'UTF-8');
-  } else {
-    reader.readAsBinaryString(file);
-  }
+    
+    // Fallback de encoding para CSV: se UTF-8 produzir menos de 2 linhas, tentar ISO-8859-1
+    reader.addEventListener('load', function utf8Check() {
+      if (ext === 'csv') {
+        const txt = reader.result;
+        if (typeof txt === 'string' && txt.includes('\ufffd')) {
+          console.warn('Detectados caracteres inválidos (UTF-8 falhou), tentando ISO-8859-1...');
+          const reader2 = new FileReader();
+          reader2.onload = (ev) => {
+            setTimeout(() => {
+              try {
+                const parsed2 = Papa.parse(ev.target.result, { header: true, skipEmptyLines: true, dynamicTyping: false });
+                if (parsed2.data.length > 0) {
+                  console.log('ISO-8859-1 OK, reiniciando análise com', parsed2.data.length, 'linhas');
+                  setTimeout(() => analyzeVisao360Data(parsed2.data), 100);
+                }
+              } catch(e2) { console.error('Fallback ISO também falhou:', e2); }
+            }, 50);
+          };
+          reader2.readAsText(file, 'ISO-8859-1');
+        }
+      }
+    }, { once: true });
+    
+  }, 50);
 }
 
 function analyzeVisao360Data(rawData) {
-  // 1. Verificação inicial
   if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
-    alert('❌ Arquivo vazio ou inválido'); 
-    renderVisao360(); 
-    return;
+    alert('❌ Arquivo vazio ou inválido'); renderVisao360(); return;
   }
 
   try {
     const data = rawData.filter(r => r && Object.values(r).some(v => v));
-    if (data.length === 0) { 
-      alert('❌ Nenhum dado válido encontrado'); 
-      renderVisao360(); 
-      return; 
-    }
+    if (data.length === 0) { alert('❌ Nenhum dado válido encontrado'); renderVisao360(); return; }
 
-    // ─── AQUI ESTÁ O CONSERTO DAS ABAS ───
-    // Comando para esconder o upload e mostrar o dashboard IMEDIATAMENTE
-    const uploadZone = document.getElementById('visao360-upload-zone');
-    const dashboard = document.getElementById('visao360-dashboard');
-    
-    if (uploadZone) uploadZone.style.display = 'none';
-    if (dashboard) dashboard.style.display = 'block';
-    // ─────────────────────────────────────
-
-    // ── Detectar índices de colunas (Sua lógica original que está ótima) ──
+    // ── Detectar índices de colunas UMA ÚNICA VEZ na primeira linha ──
     const firstKeys = Object.keys(data[0]);
     let colCidade=-1, colTecnico=-1, colDataAb=-1, colDataFim=-1,
         colCliente=-1, colCodigo=-1, colNumOs=-1, colMotivo=-1,
@@ -7142,22 +7308,23 @@ function analyzeVisao360Data(rawData) {
 
     firstKeys.forEach((k, i) => {
       const kl = k.toLowerCase();
-      if (colCidade   < 0 && (kl.includes('cidade') || kl === 'city')) colCidade = i;
-      if (colBairro   < 0 && (kl.includes('bairro') || kl === 'neighborhood')) colBairro = i;
-      if (colTecnico  < 0 && (kl.includes('tecnico') || kl.includes('técnico') || kl.includes('tech'))) colTecnico = i;
-      if (colDataAb   < 0 && (kl.includes('data_abertura') || kl.includes('data_inicio'))) colDataAb = i;
-      if (colDataFim  < 0 && (kl.includes('data_termino') || kl.includes('data fechamento'))) colDataFim = i;
-      if (colCliente  < 0 && (kl.includes('cliente') || kl === 'nome')) colCliente = i;
-      if (colCodigo   < 0 && (kl.includes('codigo_cliente') || kl.includes('cod_cliente'))) colCodigo = i;
-      if (colNumOs    < 0 && (kl.includes('numero_ordem') || kl.includes('num_os'))) colNumOs = i;
-      if (colMotivo   < 0 && (kl.includes('motivo'))) colMotivo = i;
-      if (colDescricao< 0 && (kl.includes('descricao_fechamento') || kl.includes('descrição'))) colDescricao = i;
+      if (colCidade   < 0 && (kl.includes('cidade') || kl === 'city'))                                          colCidade   = i;
+      if (colBairro   < 0 && (kl.includes('bairro') || kl === 'neighborhood' || kl.includes('district')))      colBairro   = i;
+      if (colTecnico  < 0 && (kl.includes('tecnico') || kl.includes('técnico') || kl.includes('tech')))        colTecnico  = i;
+      if (colDataAb   < 0 && (kl.includes('data_abertura') || kl.includes('data abertura') || kl.includes('data_inicio') || kl.includes('data de início'))) colDataAb = i;
+      if (colDataFim  < 0 && (kl.includes('data_termino') || kl.includes('data de término') || kl.includes('hora_termino') || kl.includes('data fechamento'))) colDataFim = i;
+      if (colCliente  < 0 && (kl.includes('nome_razaosocial') || kl === 'cliente' || (kl === 'nome' && colCliente < 0))) colCliente = i;
+      if (colCodigo   < 0 && (kl.includes('codigo_cliente') || kl.includes('cod_cliente')))                     colCodigo   = i;
+      if (colNumOs    < 0 && (kl.includes('numero_ordem') || kl.includes('num_os') || kl.includes('numero_os') || kl.includes('protocolo'))) colNumOs = i;
+      if (colMotivo   < 0 && (kl.includes('motivo') || kl.includes('motivo_fechamento')))                       colMotivo   = i;
+      if (colDescricao< 0 && (kl.includes('descricao_fechamento') || kl.includes('descricao fechamento') || kl.includes('descrição'))) colDescricao = i;
     });
 
-    // ── Passagem ÚNICA em todos os dados (Sua lógica de mapeamento) ──
+    // ── Passagem ÚNICA em todos os dados ──
     const cityMap   = {};
     const techMap   = {};
     const durations = [];
+    // clientMap guarda metadados + lista de OS já indexada (elimina o O(n²))
     const clientMap = {};
 
     for (let i = 0; i < data.length; i++) {
@@ -7175,6 +7342,7 @@ function analyzeVisao360Data(rawData) {
       const dataAb   = colDataAb   >= 0 ? String(vals[colDataAb]  ||'').trim() : '';
       const dataFim  = colDataFim  >= 0 ? String(vals[colDataFim] ||'').trim() : '';
 
+      // city × tech
       if (cidade && tecnico) {
         if (!cityMap[cidade]) cityMap[cidade] = new Set();
         cityMap[cidade].add(tecnico);
@@ -7183,10 +7351,12 @@ function analyzeVisao360Data(rawData) {
         techMap[tecnico].cidadeSet.add(cidade);
       }
 
+      // clientMap — construir lista de OS inline (sem 2ª varredura)
       const clientKey = cliente || codigo;
       if (clientKey) {
         if (!clientMap[clientKey]) {
-          clientMap[clientKey] = { nome: cliente, codigo, osCount: 0, tecnicos: new Set(), cidades: new Set(), osList: [] };
+          clientMap[clientKey] = { nome: cliente, codigo, osCount: 0,
+            tecnicos: new Set(), cidades: new Set(), osList: [] };
         }
         clientMap[clientKey].osCount++;
         if (tecnico) clientMap[clientKey].tecnicos.add(tecnico);
@@ -7194,23 +7364,25 @@ function analyzeVisao360Data(rawData) {
         if (numeroOs) clientMap[clientKey].osList.push({ numero: numeroOs, tecnico, motivo, descricao, data: dataFim, cidade, bairro });
       }
 
+      // durações
       if (dataAb && dataFim && tecnico) {
         try {
           const d1 = new Date(dataAb), d2 = new Date(dataFim);
-          if (!isNaN(d1) && !isNaN(d2) && d2 > d1) durations.push({ tecnico, hours: (d2 - d1) / 3600000 });
+          if (!isNaN(d1) && !isNaN(d2) && d2 > d1)
+            durations.push({ tecnico, hours: (d2 - d1) / 3600000 });
         } catch(e) {}
       }
     }
 
+    // Converter cidadeSet → array simples para techMap
     Object.values(techMap).forEach(t => { t.cidade = Array.from(t.cidadeSet); delete t.cidadeSet; });
 
-    // Renderiza o visual final (KPIs, Gráficos, etc)
     renderVisao360Analysis(data, cityMap, techMap, durations, clientMap);
 
   } catch (err) {
     console.error('Erro na análise:', err);
     alert('❌ Erro ao analisar dados:\n' + err.message);
-    renderVisao360(); // Volta para a tela de upload em caso de falha crítica
+    renderVisao360();
   }
 }
 
@@ -7447,45 +7619,22 @@ function renderVisao360Analysis(data, cityMap, techMap, durations, clientMap) {
 }
 
 function resetVisao360Dashboard() {
-  // 1. LIMPEZA DE MEMÓRIA (Essencial para arquivos grandes)
-  STATE.rawOS = null; 
-  if (iaDados) iaDados['os_abertas'] = null;
-
-  // 2. RESET VISUAL (O que você já fez)
-  const uploadZone = document.getElementById('visao360-upload-zone');
-  const dashboard = document.getElementById('visao360-dashboard');
+  document.getElementById('visao360-upload-zone').style.display = 'flex';
+  document.getElementById('visao360-dashboard').style.display = 'none';
+  document.getElementById('visao360-file-input').value = '';
+  // Re-inicializar os event listeners da zona de upload
   const fileInput = document.getElementById('visao360-file-input');
-
-  if (uploadZone) uploadZone.style.display = 'flex';
-  if (dashboard) dashboard.style.display = 'none';
-  if (fileInput) fileInput.value = '';
-
-  // 3. RE-INICIALIZAÇÃO DOS LISTENERS (Mantendo sua lógica que está boa)
   if (fileInput) {
     fileInput.onchange = (e) => {
       if (e.target.files && e.target.files[0]) handleVisao360FileUpload(e.target.files[0]);
     };
   }
-
+  const uploadZone = document.getElementById('visao360-upload-zone');
   if (uploadZone) {
-    uploadZone.ondragover = (e) => { 
-        e.preventDefault(); 
-        uploadZone.style.background='rgba(0,229,200,.1)'; 
-        uploadZone.style.borderColor='var(--accent)'; 
-    };
-    uploadZone.ondragleave = () => { 
-        uploadZone.style.background='transparent'; 
-        uploadZone.style.borderColor='var(--border)'; 
-    };
-    uploadZone.ondrop = (e) => { 
-        e.preventDefault(); 
-        uploadZone.style.background='transparent'; 
-        uploadZone.style.borderColor='var(--border)'; 
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) handleVisao360FileUpload(e.dataTransfer.files[0]); 
-    };
+    uploadZone.ondragover = (e) => { e.preventDefault(); uploadZone.style.background='rgba(0,229,200,.1)'; uploadZone.style.borderColor='var(--accent)'; };
+    uploadZone.ondragleave = () => { uploadZone.style.background='transparent'; uploadZone.style.borderColor='var(--border)'; };
+    uploadZone.ondrop = (e) => { e.preventDefault(); uploadZone.style.background='transparent'; uploadZone.style.borderColor='var(--border)'; if (e.dataTransfer.files && e.dataTransfer.files[0]) handleVisao360FileUpload(e.dataTransfer.files[0]); };
   }
-
-  iaMsg('sys', '🔄 Dashboard resetado. Pronto para nova importação.');
 }
 
 /* Dados de demonstração para o primeiro carregamento */
@@ -8034,143 +8183,70 @@ function renderDespacho() {
       </div>
     </div>`;
 
-    
-    // Lista OS dentro do Cluster
+    // Lista OS
     html += '<div style="padding:12px 16px">';
     cluster.os.forEach(os => {
       const tipoPrio = DispatchEngine.TIPO_PRIO[os.tipo] || 10;
-      let osCor = tipoPrio <= 2 ? 'var(--red)' : tipoPrio <= 4 ? 'var(--orange)' : tipoPrio <= 6 ? 'var(--yellow)' : 'var(--muted)';
-      const hasOsGeo = os.lat || ((typeof kmlLookup === 'function') && kmlLookup(os.cod)?.lat);
+      let osCor = tipoPrio<=2?'var(--red)':tipoPrio<=4?'var(--orange)':tipoPrio<=6?'var(--yellow)':'var(--muted)';
+      const hasOsGeo = os.lat || ((typeof kmlLookup==='function')&&kmlLookup(os.cod)?.lat);
 
       html += `<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          
-          <!-- Lado Esquerdo: Info do Cliente -->
           <div style="flex:1;min-width:0">
             <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                 title="${(os.nome || '').replace(/"/g, '&quot;')}">
-              ${hasOsGeo ? '📍 ' : ''}<span>${(os.nome || '—').slice(0,34)}</span>
+                 title="${(os.nome||'').replace(/"/g,'&quot;')}">
+              ${hasOsGeo?'📍 ':''}<span>${(os.nome||'—').slice(0,34)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px">
-              ${os.prioObj ? `<span style="background:${os.prioObj.cor}22;color:${os.prioObj.cor};border:1px solid ${os.prioObj.cor}55;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:800">${os.prioObj.badge} P${os.prioObj.peso} ${os.prioObj.label}</span>` : ''}
-              <span style="font-size:10px;color:var(--muted2)">${(os.tipo || '—').slice(0,30)}</span>
+              ${os.prioObj?`<span style="background:${os.prioObj.cor}22;color:${os.prioObj.cor};border:1px solid ${os.prioObj.cor}55;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:800">${os.prioObj.badge} P${os.prioObj.peso} ${os.prioObj.label}</span>`:''}
+              <span style="font-size:10px;color:var(--muted2)">${(os.tipo||'—').slice(0,30)}</span>
             </div>
-            ${os.sched ? `<div style="font-size:10px;color:var(--accent);margin-top:3px;font-weight:600">⏰ ${os.sched}</div>` : ''}
-            
-            <!-- Badges de Horário extraídos pelo Engine -->
-            ${(() => { 
-              const _b = DispatchEngine.extractDescBadges(os.desc); 
-              return _b.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${_b.map(bg => `<span style="background:${bg.cor}22;color:${bg.cor};border:1px solid ${bg.cor}44;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">${bg.label}</span>`).join('')}</div>` : ''; 
-            })()}
+            ${os.sched?`<div style="font-size:10px;color:var(--accent);margin-top:3px;font-weight:600">⏰ ${os.sched}</div>`:''}
+            ${(()=>{ const _b=DispatchEngine.extractDescBadges(os.desc); return _b.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${_b.map(bg=>`<span style="background:${bg.cor}22;color:${bg.cor};border:1px solid ${bg.cor}44;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">${bg.label}</span>`).join('')}</div>`:''; })()}
+            ${os.desc?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                title="${(os.desc||'').replace(/"/g,'&quot;')}">${os.desc.slice(0,65)}${os.desc.length>65?'…':''}</div>`:''}
           </div>
-
-          <!-- Lado Direito: Tags e Botão de Agendamento -->
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
             <span style="background:${osCor}22;color:${osCor};border:1px solid ${osCor}55;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">#${tipoPrio}</span>
-            ${os.fone ? `<span style="font-size:9px;color:var(--muted)">${os.fone.slice(0,15)}</span>` : ''}
-            
-            <!-- BOTÃO DE AGENDAMENTO INDIVIDUAL -->
-            <button onclick="prepararAgendamentoIndividual('${os.id}', '${(os.nome||'').replace(/'/g,"\\'")}')" 
-                    style="margin-top:4px; background:var(--accent); color:#000; border:none; border-radius:4px; padding:4px 8px; font-size:10px; font-weight:800; cursor:pointer; transition: opacity 0.2s"
-                    onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-              📅 AGENDAR
-            </button>
+            ${os.fone?`<span style="font-size:9px;color:var(--muted)">${os.fone.slice(0,15)}</span>`:''}
           </div>
         </div>
-
-        <!-- Descrição cortada (opcional) -->
-        ${os.desc ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            title="${(os.desc || '').replace(/"/g, '&quot;')}">${os.desc.slice(0,65)}${os.desc.length > 65 ? '…' : ''}</div>` : ''}
       </div>`;
     });
+
+    // Botões
+    html += `<div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="tec-${clusterId}"
+        style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;outline:none">
+        <option value="">— Selecionar Técnico —</option>
+        ${tecnicos.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('')}
+      </select>
+      <button onclick="despacharCluster('${clusterId}',this)"
+        style="background:var(--accent);color:#000;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">
+        🚀 Despachar
+      </button>
+      ${mapsUrl?`<a href="${mapsUrl}" target="_blank" rel="noopener"
+        title="${geoCount} pontos com GPS real"
+        style="display:inline-flex;align-items:center;gap:5px;background:${hasGeo?'var(--accent)22':'#1a73e822'};
+          color:${hasGeo?'var(--accent)':'#4285f4'};
+          border:1px solid ${hasGeo?'var(--accent)44':'#4285f444'};
+          border-radius:7px;padding:7px 13px;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap">
+        ${hasGeo?`📍 Rota GPS (${geoCount})`:'🗺 Ver Rota no Maps'}
+      </a>`:''}
+    </div>`;
+
+    html += '</div></div>'; // padding + card
+  });
+
+  html += '</div></div>'; // grid + outer
+  el.innerHTML = html;
+}
 
 function _dKpi(label, val, cor) {
   return `<div style="background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">
     <div style="font-size:24px;font-weight:800;color:${cor};font-family:monospace">${val}</div>
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:3px">${label}</div>
   </div>`;
-}
-
-/* ── Funções de Ação: Agendamento via API Hubsoft ── */
-
-// 1. Função que prepara os dados (abre o prompt/escolha)
-async function prepararAgendamentoIndividual(idOS, nomeCliente) {
-  // Pega a lista de técnicos do sistema (usando o que você já tem no código)
-  const tecnicos = (typeof TECNICOS_VALIDOS !== 'undefined' && TECNICOS_VALIDOS) || [];
-  
-  if (tecnicos.length === 0) {
-    alert("⚠️ Nenhum técnico carregado. Verifique o cadastro de agentes.");
-    return;
-  }
-
-  // Pergunta a Data
-  const dataPadrao = new Date().toISOString().split('T')[0];
-  const data = prompt(`📅 AGENDAR O.S. #${idOS}\nCliente: ${nomeCliente}\n\nInforme a DATA (AAAA-MM-DD):`, dataPadrao);
-  if (!data) return;
-
-  // Pergunta o Horário
-  const hora = prompt(`⏰ Informe o HORÁRIO (HH:MM):`, "08:00");
-  if (!hora) return;
-
-  // Pergunta o Técnico (mostra a lista numerada)
-  const listaTec = tecnicos.map((t, i) => `${i + 1} - ${t}`).join('\n');
-  const escolha = prompt(`👷 Escolha o TÉCNICO (digite o NÚMERO):\n\n${listaTec}`, "1");
-  
-  if (escolha) {
-    const index = parseInt(escolha) - 1;
-    const tecnicoEscolhido = tecnicos[index];
-    
-    if (tecnicoEscolhido) {
-      // Chama a função que realmente faz o POST no Worker/Hubsoft
-      // O horário precisa de :00 no final para o padrão SQL do Hubsoft
-      await agendarOSNoHubsoft(idOS, tecnicoEscolhido, data, hora + ":00");
-    } else {
-      alert("❌ Escolha de técnico inválida.");
-    }
-  }
-}
-
-// 2. Função que faz a comunicação Real com o Worker -> Hubsoft
-async function agendarOSNoHubsoft(idOS, tecnico, data, horario) {
-  const loadingMsg = iaMsg('sys', `⏳ Sincronizando agendamento da O.S. ${idOS} com o Hubsoft...`);
-
-  try {
-    // Monta o endpoint de agendamento conforme a API do Hubsoft
-    // Importante: Verifique se este é o caminho exato no seu Hubsoft
-    const endpoint = `/ordem-servico/${idOS}/agendar`; 
-
-    const response = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tecnico: tecnico,
-        data: data,
-        hora: horario,
-        observacao: "Agendado via Nuvyon v4.0"
-      })
-    });
-
-    const resultado = await response.json();
-
-    if (response.ok) {
-      loadingMsg.remove();
-      iaMsg('sys', `✅ SUCESSO! O.S. #${idOS} agendada para ${tecnico} em ${data} às ${horario}.`);
-      
-      // Atualiza o STATE local para não mostrar mais essa OS como pendente (opcional)
-      if (STATE.rawOSAbertas) {
-        STATE.rawOSAbertas = STATE.rawOSAbertas.filter(os => 
-          (os.id_ordem_servico || os.id_os || os.numero_ordem_servico) != idOS
-        );
-        renderDespacho(); // Re-renderiza a tela para sumir o card agendado
-      }
-    } else {
-      throw new Error(resultado.error?.message || 'Erro desconhecido no Hubsoft');
-    }
-  } catch (err) {
-    loadingMsg.remove();
-    iaMsg('sys', `❌ FALHA NO AGENDAMENTO: ${err.message}`);
-    alert(`Erro ao agendar: ${err.message}`);
-  }
 }
 
 function despacharCluster(clusterId, btn) {
@@ -8187,35 +8263,6 @@ function despacharCluster(clusterId, btn) {
   if (typeof dbLog === 'function') dbLog('Despacho: técnico "' + sel.value + '" — bloco ' + clusterId + ' (' + new Date().toLocaleString('pt-BR') + ')');
 }
 
-async function agendarOSNoHubsoft(idOS, idTecnico, dataAgendada, horario) {
-  try {
-    iaMsg('sys', `⏳ Agendando O.S. ${idOS} no Hubsoft...`);
-
-    const corpoAgendamento = {
-      id_tecnico: idTecnico,
-      data: dataAgendada, // Formato YYYY-MM-DD
-      horario: horario,    // Formato HH:mm:ss
-      // Adicione outros campos que o Hubsoft exigir
-    };
-
-    const response = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=/ordem-servico/${idOS}/agendar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(corpoAgendamento)
-    });
-
-    const resultado = await response.json();
-
-    if (response.ok) {
-      iaMsg('sys', `✅ O.S. ${idOS} agendada com sucesso para ${dataAgendada}!`);
-      renderDespacho(); // Atualiza a tela para remover a OS da lista de "Abertas"
-    } else {
-      throw new Error(resultado.message || 'Erro ao agendar');
-    }
-  } catch (err) {
-    iaMsg('sys', `❌ Falha no agendamento: ${err.message}`);
-  }
-}
 /* ═══════════════════════════════════════════════════════════════
    NUVYON v3.7 — InfraEngine (Análise de Infraestrutura)
 ═══════════════════════════════════════════════════════════════ */
@@ -11452,33 +11499,6 @@ function biExportarCSV() {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-async function sincronizarHubsoftCompleto() {
-  const loading = iaMsg('sys', '🔄 Iniciando sincronização total com Hubsoft...');
-  
-  // Lista de mapeamento (Nome do Relatório -> Endpoint da API)
-  const jobs = [
-    { key: 'os', ep: '/api/v1/ordem-servico/relatorio' },
-    { key: 'at', ep: '/api/v1/atendimento/atendimentos' },
-    { key: 'sac', ep: '/api/v1/atendimento/sac/chat' },
-    { key: 'osab', ep: '/api/v1/ordem-servico/abertas' },
-    { key: 'matrix', ep: '/api/v1/atendimento/analitico' }
-  ];
-
-  for (const job of jobs) {
-    try {
-      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${job.ep}`);
-      const dados = await res.json();
-      ghApplySlot(job.key, dados); // Joga na memória RAM
-      console.log(`✅ ${job.key} sincronizado.`);
-    } catch (e) {
-      console.error(`Erro em ${job.key}:`, e);
-    }
-  }
-
-  _processRestoredState(); // Renderiza tudo na tela de uma vez
-  loading.remove();
-  iaMsg('sys', '✅ Sincronização concluída! Todos os painéis foram atualizados.');
-}
 
 // ── buildGroupedTabbar (Tarefa 4) — gera tabbar com grupos dropdown ────────
 function buildGroupedTabbar() {
@@ -11535,6 +11555,37 @@ const _origApplySession = typeof applySession === 'function' ? applySession : nu
 
 // ── Scroll top button
 
+// ── Configurações GitHub (aba config) ─────────────────────────────────────
+function cfgSaveGitHub() {
+  const owner = document.getElementById('cfg-gh-owner')?.value.trim();
+  const repo  = document.getElementById('cfg-gh-repo')?.value.trim();
+  const token = document.getElementById('cfg-gh-token')?.value.trim();
+  const msg   = document.getElementById('cfg-gh-msg');
+  if (!owner || !repo || !token) {
+    if (msg) { msg.textContent = '❌ Preencha todos os campos'; msg.style.color='var(--red)'; }
+    return;
+  }
+  ghSetConfig({ owner, repo, token });
+  if (msg) { msg.textContent = '✅ Configuração salva!'; msg.style.color='var(--green)'; }
+  // Testar conexão imediatamente
+  ghLoadAll(true).then(n => {
+    if (msg) msg.textContent = n > 0
+      ? `✅ Conectado! ${n} arquivo(s) encontrados no repo.`
+      : '✅ Conectado! Sem arquivos ainda — serão criados no próximo upload.';
+  }).catch(() => {
+    if (msg) { msg.textContent = '⚠️ Token salvo mas falha ao conectar. Verifique permissões.'; msg.style.color='var(--yellow)'; }
+  });
+}
+
+function cfgClearGitHub() {
+  ghClearConfig();
+  ['cfg-gh-owner','cfg-gh-repo','cfg-gh-token'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const msg = document.getElementById('cfg-gh-msg');
+  if (msg) { msg.textContent = 'Configuração removida.'; msg.style.color='var(--muted)'; }
+}
 
 // Preencher campos de config quando a aba é aberta
 function _initConfigTab() {
