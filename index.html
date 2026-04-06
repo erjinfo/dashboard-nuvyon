@@ -358,25 +358,109 @@ td{padding:9px}
 </div>
 
 <script>
-/* ── CONFIGURAÇÕES GLOBAIS ── */
 /* ══════════════════════════════════════════════════════════════
-   NUVYON v5.0 — CONFIGURAÇÕES E MOTORES CORE
+   NUVYON CORE ENGINE v5.5 — ORGANIZAÇÃO POR CAMADAS
+   1. Configurações | 2. Segurança | 3. Interface | 4. Dados
 ══════════════════════════════════════════════════════════════ */
-const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
-let _USERS_CACHE = [];
-let GH_SHA = null;
-const DB_KEY = 'nuvyon_users_v2';
 
-// --- 1. INTERFACE (Mensagens e Telas) ---
+// ── CAMADA 1: CONFIGURAÇÕES GLOBAIS ──
+const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
+const DB_KEY = 'nuvyon_users_v2';
+let _USERS_CACHE = []; // Gaveta ÚNICA para usuários
+let GH_SHA = null;
+let SESSION = null;
+let iaDados = {};
+const pendingFiles = { os: null, at: null, sac: null, osab: null, matrix: null };
+
+const ABAS = [
+  { id:'gestao', label:'📊 Gestão Geral' },
+  { id:'clientes', label:'🩺 Saúde do Cliente' },
+  { id:'gestor', label:'⚖️ Gestor Justo' },
+  { id:'visao360', label:'🔍 Visão 360' },
+  { id:'sac', label:'🎧 Auditoria SAC' },
+  { id:'bonificacao', label:'🏅 Bonificação' },
+  { id:'despacho', label:'🚚 Logística' },
+  { id:'infra', label:'📡 Análise Infra' },
+  { id:'campo', label:'🔧 Qualidade Técnica' },
+  { id:'config', label:'⚙️ Configurações' }
+];
+
+const ABA_GRUPOS = [
+  { id:'gestao', label:'📊 Gestão', icon:'📊', abas:['gestao','clientes','gestor','config'] },
+  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360'] },
+  { id:'sac', label:'🎧 SAC', icon:'🎧', abas:['sac','bonificacao'] },
+  { id:'tecnica', label:'🔧 Técnica', icon:'🔧', abas:['despacho','infra','campo'] }
+];
+
+// ── CAMADA 2: SEGURANÇA (HASH E LOGIN) ──
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function initDB() {
+  console.log("🔄 Conectando ao Cofre Cloudflare...");
+  try {
+    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
+    if (!r.ok) throw new Error("Worker offline");
+    const data = await r.json();
+    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    _USERS_CACHE = banco.users;
+    GH_SHA = data.sha;
+    console.log("✅ Usuários sincronizados da nuvem.");
+  } catch (e) {
+    console.warn("⚠️ Usando backup local.");
+    _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
+  }
+}
+
+async function doLogin() {
+  const uInp = document.getElementById('login-user');
+  const pInp = document.getElementById('login-pass');
+  const err  = document.getElementById('login-err');
+  
+  if (!uInp || !pInp) return;
+  const u = uInp.value.trim().toLowerCase();
+  const p = pInp.value.trim();
+
+  const h = await sha256(p);
+  const found = _USERS_CACHE.find(x => x.user.toLowerCase() === u && x.hash === h);
+
+  if (found) {
+    SESSION = found;
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'flex';
+    if(document.getElementById('ia-toggle')) document.getElementById('ia-toggle').style.display = 'flex';
+    applySession();
+    iaMsg('bot', `Bem-vindo, ${found.user}! Sincronizando Hubsoft...`);
+    sincronizarTudoHubsoft();
+  } else {
+    if(err) err.textContent = '❌ Usuário ou senha incorretos.';
+  }
+}
+
+async function loginReset() {
+  const nova = prompt("RESETAR ACESSO\nNova senha para 'eric':");
+  if (!nova) return;
+  const h = await sha256(nova.trim());
+  const novosDados = { users: [{ user: 'eric', hash: h, role: 'master', abas: ABAS.map(a=>a.id) }] };
+  try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
+    const res = await fetch(`${IA_WORKER}?tipo=gh-db`, {
+      method: 'POST',
+      body: JSON.stringify({ content, sha: GH_SHA })
+    });
+    if (res.ok) { alert("✅ Senha gravada na nuvem!"); location.reload(); }
+  } catch (e) { alert("❌ Erro: " + e.message); }
+}
+
+// ── CAMADA 3: INTERFACE E IA ──
 function iaMsg(tipo, texto) {
   const chat = document.getElementById('ia-chat');
-  if (!chat) return { remove: () => {} };
+  if (!chat) return;
   const div = document.createElement('div');
-  div.style.padding = '10px';
-  div.style.borderRadius = '10px';
-  div.style.marginBottom = '10px';
-  div.style.fontSize = '12px';
-  div.style.maxWidth = '85%';
+  div.style.padding = '10px'; div.style.borderRadius = '10px'; div.style.marginBottom = '10px';
+  div.style.fontSize = '12px'; div.style.maxWidth = '85%';
   div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
   div.style.color = tipo === 'user' ? '#000' : '#fff';
   div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
@@ -386,54 +470,6 @@ function iaMsg(tipo, texto) {
   return div;
 }
 
-function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
-function closeUpload() { document.getElementById('upload-overlay').classList.remove('open'); }
-
-// --- 2. PONTE DE DADOS (API + LOCAL) ---
-function ghApplySlot(key, rows) {
-  if (!rows || !Array.isArray(rows) || !rows.length) return;
-  
-  // Organiza nas gavetas do STATE
-  if      (key === 'os')     STATE.rawOS = rows;
-  else if (key === 'at')     STATE.rawAT = rows;
-  else if (key === 'sac')    STATE.rawSAC = rows;
-  else if (key === 'osab')   { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
-  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
-  
-  STATE.loaded[key] = true;
-  
-  // Atualiza o visual do modal se estiver aberto
-  const icon = document.getElementById(`slot-${key}-icon`);
-  if (icon) icon.textContent = '✅';
-  const slot = document.getElementById(`slot-${key}`);
-  if (slot) slot.classList.add('ok');
-}
-
-// --- 3. SINCRONIZADOR API HUBSOFT ---
-async function sincronizarTudoHubsoft() {
-  iaMsg('bot', '🔄 Conectando ao Hubsoft... Aguarde a sincronização.');
-  
-  const jobs = [
-    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
-    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
-    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
-    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
-  ];
-
-  for (const j of jobs) {
-    try {
-      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
-      const dados = await res.json();
-      ghApplySlot(j.k, dados);
-    } catch (e) { console.error("Erro ao puxargaveta: " + j.k); }
-  }
-
-  if (typeof _processRestoredState === 'function') _processRestoredState();
-  iaMsg('bot', '✅ Sincronização Hubsoft completa! Painéis atualizados.');
-  closeUpload();
-}
-
-// --- 4. IA GEMINI (O "Cérebro" Analista) ---
 function toggleIA() {
   const box = document.getElementById('ia-box');
   box.style.display = box.style.display === 'none' ? 'flex' : 'none';
@@ -443,720 +479,59 @@ async function iaPergunta() {
   const inp = document.getElementById('ia-input');
   const txt = inp.value.trim();
   if(!txt) return;
-  
-  inp.value = '';
-  iaMsg('user', txt);
-  const loading = iaMsg('bot', '⏳ Analisando dados técnicos...');
-
+  inp.value = ''; iaMsg('user', txt);
+  const loading = iaMsg('bot', '⏳ Analisando...');
   try {
-    const response = await fetch(`${IA_WORKER}?tipo=gemini`, {
+    const res = await fetch(`${IA_WORKER}?tipo=gemini`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: `Analise para Artelecom: ${txt}` })
+      body: JSON.stringify({ prompt: txt })
     });
-    const data = await response.json();
+    const data = await res.json();
     loading.remove();
     iaMsg('bot', data.content[0].text);
-  } catch (e) { loading.textContent = '❌ Erro na comunicação com a IA.'; }
+  } catch (e) { loading.textContent = '❌ Erro na IA.'; }
 }
 
-// --- 5. LOGIN E SESSÃO (RBAC + AUTO-SYNC) ---
-async function applySession() {
-  if (!SESSION) return;
-  console.log("🚀 Iniciando interface para:", SESSION.user);
-
-  try {
-    // 1. Mostra o botão da IA IMEDIATAMENTE (antes de qualquer outro erro)
-    const btnIA = document.getElementById('ia-toggle');
-    if (btnIA) btnIA.style.display = 'flex';
-
-    // 2. Define o que o usuário pode ver
-    // Se for master vê tudo, se não, vê só o que está no banco
-    const idsAutorizados = SESSION.role === 'master' 
-      ? ABAS.map(a => a.id) 
-      : (SESSION.abas || []);
-
-    // 3. Constrói a Sidebar (Onde estavam dando os erros)
-    if (typeof buildSidebar === 'function') {
-      buildSidebar(idsAutorizados);
-    }
-    
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.display = 'flex';
-
-    // 4. Vai para a aba inicial
-    showTab('gestao');
-
-    // 5. Avisa a IA para começar a trabalhar
-    iaMsg('bot', `Olá ${SESSION.user}, estou pronta! Os dados demo já estão na tela, clique em Sincronizar para buscar dados reais.`);
-
-  } catch (e) {
-    console.error("❌ Erro ao montar interface:", e.message);
-  }
-}
-
-// 2. Função para abrir o painel de Upload
-function openUpload() {
-  const overlay = document.getElementById('upload-overlay');
-  if (overlay) overlay.classList.add('open');
-}
-
-// 3. Função para fechar o painel de Upload
-function closeUpload() {
-  const overlay = document.getElementById('upload-overlay');
-  if (overlay) overlay.classList.remove('open');
-}
-
-
-
-
-
-// 1. Criptografia
-
-async function dbLoad() {
-  try { return JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]'); }
-  catch(_) { return []; }
-}
-
-async function dbSave(users) {
-  localStorage.setItem('nuvyon_users_v2', JSON.stringify(users));
-}
-
-function dbLogLocal(msg) {
-  try {
-    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-    logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
-    localStorage.setItem('nuvyon_logs', JSON.stringify(logs.slice(0,100)));
-  } catch {}
-}
-async function dbLog(msg) {
-  dbLogLocal(msg);
-  // Sincronizar logs no GitHub junto com próximo dbSave (não bloqueia)
-}
-
-let SESSION   = null;
-let _showTabOrig = null;
-
-
-/* ── SEGURANÇA E LOGIN ── */
-
-
-
-function showLoginStatus(msg, color) {
-  const el = document.getElementById('login-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = color === 'muted' ? 'var(--muted)' : color === 'ok' ? 'var(--accent)' : '#e74c3c';
-}
-
-// 2. Compara a senha digitada com o Hash do banco
-// 3. Login Assertivo
-/* ── MOTOR DE ACESSO NUYVON v5.0 ── */
-
-// 1. Inicializar Banco
-async function initDB() {
-  console.log("🔄 Conectando ao Cofre Cloudflare...");
-  try {
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error("Worker offline");
-    const data = await r.json();
-    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    _USERS_CACHE = banco.users; // Gaveta de usuários na memória
-    GH_SHA = data.sha; // Chave de segurança para o Reset
-    console.log("✅ Usuários carregados da nuvem.");
-  } catch (e) {
-    console.warn("⚠️ Usando backup local.");
-    _USERS_CACHE = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]');
-  }
-}
-
-// 2. Função de Login
-/* ── MOTOR DE ACESSO NUYVON v5.0 (CLOUDFLARE) ── */
-
-// 1. Função de Criptografia (Garante que a senha vire o código longo do seu GitHub)
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
-}
-
-// 2. Inicializar Banco (Conecta ao seu Worker e baixa os usuários)
-async function initDB() {
-  console.log("🔄 Conectando ao Worker...");
-  try {
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error("Worker não respondeu.");
-    const data = await r.json();
-    
-    // Decodifica o banco que vem do GitHub
-    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    
-    if (banco && banco.users) {
-      _USERS_CACHE = banco.users;
-      GH_SHA = data.sha; // Guarda a chave para o Reset funcionar
-      localStorage.setItem('nuvyon_users_v2', JSON.stringify(_USERS_CACHE));
-      console.log("✅ Usuários sincronizados com sucesso!");
-    }
-  } catch (e) {
-    console.error("⚠️ Falha na nuvem. Usando backup local:", e.message);
-    _USERS_CACHE = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]');
-  }
-}
-
-// 3. Função de Login (Compara o que você digitou com o que está no banco)
-async function doLogin() {
-  const u = document.getElementById('login-user').value.trim().toLowerCase();
-  const p = document.getElementById('login-pass').value.trim();
-  const err = document.getElementById('login-err');
-
-  if (!u || !p) { alert('Preencha usuário e senha.'); return; }
-
-  const h = await sha256(p); // Transforma sua senha em Hash
-  const found = _USERS_CACHE.find(x => x.user.toLowerCase() === u && x.hash === h);
-
-  if (found) {
-    SESSION = found;
-    document.getElementById('login-overlay').style.display = 'none';
-    // MOSTRAR O BOTÃO DA IA
-    const btnIA = document.getElementById('ia-toggle');
-    if (btnIA) btnIA.style.display = 'flex';
-    
-    applySession(); // Abre o painel
-    iaMsg('bot', `Bem-vindo de volta, ${found.user}! Como posso te ajudar hoje?`);
-  } else {
-    if(err) err.textContent = '❌ Usuário ou senha incorretos.';
-    else alert('❌ Usuário ou senha incorretos.');
-  }
-}
-
-// 4. Função de Reset (Grava a nova senha na Nuvem/GitHub)
-async function loginReset() {
-  const nova = prompt("RESETAR ACESSO\nNova senha para 'eric':");
-  if (!nova) return;
-  const h = await sha256(nova.trim());
-  const novosDados = { users: [{ user: 'eric', hash: h, role: 'master', abas: ABAS.map(a=>a.id) }] };
-
-  try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-    const res = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      body: JSON.stringify({ content, sha: GH_SHA })
-    });
-    if (res.ok) {
-      alert("✅ Senha gravada na nuvem! O sistema vai reiniciar.");
-      location.reload();
-    } else {
-      alert("❌ Erro ao salvar na nuvem. Verifique o Worker.");
-    }
-  } catch (e) {
-    alert("❌ Falha crítica: " + e.message);
-  }
-}
-
-/* ── PONTE DE DADOS: Organiza os dados na memória RAM ── */
+// ── CAMADA 4: SINCRONIA DE DADOS HUBSOFT ──
 function ghApplySlot(key, rows) {
-  // Se não houver dados, não faz nada
-  if (!rows || !Array.isArray(rows) || !rows.length) return;
-
-  // Distribui os dados para as "gavetas" corretas do objeto STATE
-  if (key === 'os') { 
-    STATE.rawOS = rows; 
-    STATE.loaded.os = true; 
-  }
-  else if (key === 'at') { 
-    STATE.rawAT = rows; 
-    STATE.loaded.at = true; 
-  }
-  else if (key === 'sac') { 
-    STATE.rawSAC = rows; 
-    STATE.loaded.sac = true; 
-  }
-  else if (key === 'osab') { 
-    STATE.rawOSAb = rows; 
-    STATE.rawOSAbertas = rows; 
-    STATE.loaded.osab = true; 
-  }
-  else if (key === 'matrix') { 
-    STATE.relatorioAnalitico = rows; 
-    STATE.loaded.matrix = true; 
-  }
-  else if (key === 'crm') { 
-    STATE.rawCRM = rows; 
-    STATE.loaded.crm = true; 
-  }
-  else if (key === 'vendas') { 
-    STATE.rawVendas = rows; 
-    STATE.loaded.vendas = true; 
-  }
-  else if (key === 'nps') { 
-    STATE.rawNPS = rows; 
-    STATE.loaded.nps = true; 
-  }
-  else if (key === 'sinais') { 
-    STATE.rawSinais = rows; 
-    STATE.loaded.sinais = true; 
-  }
-  else if (key === 'agentes') { 
-    STATE.rawAgentes = rows; 
-    STATE.loaded.agentes = true; 
-  }
-
-  console.log(`📥 Dados da gaveta "${key}" carregados na memória.`);
+  if (!rows || !Array.isArray(rows)) return;
+  if      (key === 'os')     STATE.rawOS = rows;
+  else if (key === 'at')     STATE.rawAT = rows;
+  else if (key === 'sac')    STATE.rawSAC = rows;
+  else if (key === 'osab')   { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
+  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
+  STATE.loaded[key] = true;
+  const slot = document.getElementById(`slot-${key}`);
+  if(slot) slot.classList.add('ok');
 }
 
-
-
-
-/* ── MOTOR DE SINCRONIZAÇÃO AUTOMÁTICA HUBSOFT ── */
 async function sincronizarTudoHubsoft() {
-  const progresso = document.getElementById('upload-progress');
-  if (progresso) progresso.textContent = '🔄 Conectando ao servidor Hubsoft...';
-
-  // Mapeamento dos relatórios que o sistema vai puxar da API
   const jobs = [
-    { tipo: 'os', endpoint: '/api/v1/ordem-servico/relatorio' },
-    { tipo: 'at', endpoint: '/api/v1/atendimento/atendimentos' },
-    { tipo: 'sac', endpoint: '/api/v1/atendimento/sac/chat' },
-    { tipo: 'osab', endpoint: '/api/v1/ordem-servico/abertas' }
+    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
+    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
+    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
+    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
   ];
-
-  for (const job of jobs) {
+  for (const j of jobs) {
     try {
-      console.log(`Buscando ${job.tipo}...`);
-      
-      // Faz a chamada para o seu Worker da Cloudflare
-      const response = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${job.endpoint}`);
-      
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      
-      const dados = await response.json();
-      
-      // ghApplySlot é a função que já existe no seu código 
-      // para salvar o arquivo na memória RAM do navegador
-      ghApplySlot(job.tipo, dados);
-      
-      console.log(`✅ ${job.tipo} sincronizado com sucesso.`);
-      
-      // Atualiza o visual dos slots se o modal estiver aberto
-      const slotIcon = document.getElementById(`slot-${job.tipo}-icon`);
-      if (slotIcon) slotIcon.textContent = '✅';
-      
-    } catch (e) {
-      console.error(`Falha ao sincronizar ${job.tipo}:`, e.message);
-      iaMsg('sys', `❌ Erro ao buscar ${job.tipo}.`);
-    }
+      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
+      const dados = await res.json();
+      ghApplySlot(j.k, dados);
+    } catch (e) { console.error("Erro no job " + j.k); }
   }
-
-  // APÓS BUSCAR TUDO: Roda o motor de renderização que você já tem no código
-  // para desenhar as tabelas e os gráficos na tela.
-  if (typeof _processRestoredState === 'function') {
-    _processRestoredState();
-  }
-
-  iaMsg('bot', '✅ Sincronização Hubsoft completa. Todos os painéis foram atualizados com dados em tempo real!');
-  if (progresso) progresso.textContent = '';
+  if (typeof _processRestoredState === 'function') _processRestoredState();
 }
 
+function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
+function closeUpload() { document.getElementById('upload-overlay').classList.remove('open'); }
 
-
-/* ── Aplicar sessão v4.0 (RBAC + IA + Auto-Sync) 
-async function applySession() {
-  if (!SESSION) return;
-
-  // 1. Badge de usuário no topbar (Sua lógica original)
-  let badge = document.getElementById('user-badge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'user-badge';
-    badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap';
-    const btns = document.querySelector('#topbar > div:last-child');
-    if (btns) btns.insertBefore(badge, btns.firstChild);
-  }
-  const isMaster = SESSION.role === 'master';
-  badge.innerHTML = '👤 <strong style="color:var(--text)">' + SESSION.user + '</strong>'
-    + (isMaster ? ' <span style="background:var(--accent);color:#000;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800">MASTER</span>' : '');
-  badge.onclick = isMaster ? openAdmin : null;
-
-  // 2. Construir menus com RBAC
-  const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
-  if (typeof MenuRBAC !== 'undefined') MenuRBAC.build(abasAutorizadas);
-  
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.style.display = 'flex'; // Garante que a sidebar apareça
-    if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
-  }
-
-  // 3. Cleanup de telas
-  document.querySelectorAll('.tab-content').forEach(el => {
-    el.classList.remove('active');
-    el.style.display = 'none';
-  });
-
-  // 4. Navegar para primeira aba e ativar IA
-  const first = MenuRBAC.firstAllowed(abasAutorizadas);
-  showTab(first);
-
-  // --- MELHORIA: Ligar o botão da IA ---
-  const btnIA = document.getElementById('ia-toggle');
-  if (btnIA) btnIA.style.display = 'flex';
-
-  // --- MELHORIA: Sincronização Automática Hubsoft ---
-  iaMsg('bot', `Olá ${SESSION.user}, estou sincronizando os dados do Hubsoft agora...`);
-  await sincronizarTudoHubsoft(); 
-}── */
+// INICIALIZAÇÃO
+window.addEventListener('load', () => { initDB(); });
 
 
 
 
 
-/* ── Logoff ── */
-function doLogout() {
-  if (!confirm('Deseja sair?')) return;
-  dbLog(`Logout: ${SESSION?.user}`);
-  SESSION = null;
-  location.reload();
-}
-
-/* ── Admin sub-tabs ── */
-function admTab(t) {
-  ['usuarios','novo','logs','banco'].forEach(p => {
-    document.getElementById('admpanel-'+p).style.display = p===t ? '' : 'none';
-    const btn = document.getElementById('admtab-'+p);
-    if (btn) { btn.style.borderBottomColor = p===t?'var(--accent)':'transparent'; btn.style.color = p===t?'var(--accent)':'var(--muted)'; }
-  });
-  if (t==='logs') renderLogs();
-  if (t==='banco') renderDbStatus();
-}
-
-function openAdmin() {
-  if (!SESSION||SESSION.role!=='master') return;
-  renderAdminUsers(); renderNewUserTabs(); admTab('usuarios');
-  document.getElementById('admin-modal').classList.add('open');
-}
-function closeAdmin() { document.getElementById('admin-modal').classList.remove('open'); }
-
-function renderAdminUsers() {
-  const users = _USERS_CACHE;
-  const el = document.getElementById('admin-users-list');
-  if (!users.length) { el.innerHTML='<p style="color:var(--muted);font-size:12px">Nenhum usuário.</p>'; return; }
-  el.innerHTML = users.map((u,i) => `
-    <div class="admin-user-row">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-weight:700;color:var(--text)">${u.user}</span>
-          <span style="background:${u.role==='master'?'#00C9A722':'var(--border)33'};color:${u.role==='master'?'var(--accent)':'var(--muted)'};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600">${u.role==='master'?'★ master':'usuário'}</span>
-          <span style="font-size:10px;color:var(--muted)">criado ${u.criado||'—'}</span>
-        </div>
-        ${u.role!=='master'?`<button onclick="adminDel(${i})" style="background:#e74c3c18;color:#e74c3c;border:1px solid #e74c3c33;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 Remover</button>`:''}
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600">Abas liberadas:</div>
-      <div class="tab-check-grid">
-        ${ABAS.map(a=>`<label class="tab-check"><input type="checkbox" ${u.abas.includes(a.id)?'checked':''} ${u.role==='master'?'disabled':''} onchange="adminToggleAba(${i},'${a.id}',this.checked)">${a.label}</label>`).join('')}
-      </div>
-      ${u.role!=='master'?`<div style="margin-top:8px;display:flex;gap:7px;align-items:center">
-        <input id="rp${i}" type="password" placeholder="Nova senha..." style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;width:160px">
-        <button onclick="adminResetPass(${i})" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">🔑 Alterar senha</button>
-        <button onclick="adminEditApiKey(${i})" style="background:var(--panel);color:#4285f4;border:1px solid #4285f444;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">☁ ${u.driveApiKey ? 'Drive ✓' : 'Def. Drive Key'}</button>
-      </div>`:''}
-    </div>`).join('');
-}
-
-function renderNewUserTabs() {
-  document.getElementById('new-u-tabs').innerHTML = ABAS.map(a=>
-    `<label class="tab-check"><input type="checkbox" value="${a.id}" checked>${a.label}</label>`).join('');
-}
-
-function renderLogs() {
-  const el = document.getElementById('admin-logs'); if (!el) return;
-  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-  el.innerHTML = logs.length
-    ? logs.slice(0,20).map(l=>`<div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)22;display:flex;gap:10px"><span style="color:var(--accent);font-family:monospace;white-space:nowrap">${l.ts}</span><span style="color:var(--muted)">${l.msg}</span></div>`).join('')
-    : '<div style="color:var(--muted);font-size:11px;padding:12px 0">Nenhum registro ainda.</div>';
-}
-
-function renderDbStatus() {
-  const users = _USERS_CACHE;
-  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-  const ghInfo = cfg
-    ? '<div style="margin-top:8px;background:var(--accent)11;border:1px solid var(--accent)33;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">☁ GitHub Ativo</div><div style="font-size:11px;color:var(--muted)">Repo: <strong style="color:var(--text)">' + cfg.owner + '/' + cfg.repo + '</strong></div><div style="font-size:11px;color:var(--muted)">Arquivo: <code style="background:var(--card);padding:1px 4px;border-radius:3px">nuvyon_banco.json</code></div></div>'
-    : '<div style="margin-top:8px;background:#f39c1211;border:1px solid #f39c1233;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:#f39c12;margin-bottom:4px">💾 Modo Local</div><div style="font-size:11px;color:var(--muted)">Banco armazenado apenas neste navegador.</div></div>';
-  document.getElementById('db-status').innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
-    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + users.length + '</div><div style="font-size:11px;color:var(--muted)">usuários</div></div>' +
-    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + logs.length + '</div><div style="font-size:11px;color:var(--muted)">eventos</div></div>' +
-    '</div>' + ghInfo;
-}
-
-function adminToggleAba(idx, abaId, checked) {
-  const users = _USERS_CACHE;
-  if (!users[idx]) return;
-  if (checked) { if (!users[idx].abas.includes(abaId)) users[idx].abas.push(abaId); }
-  else users[idx].abas = users[idx].abas.filter(a=>a!==abaId);
-  dbSave(users).then(() => dbLog('Aba "' + abaId + '" ' + (checked?'liberada para':'removida de') + ' ' + users[idx].user));
-}
-
-function adminDel(idx) {
-  const users = _USERS_CACHE;
-  if (!users[idx]||users[idx].role==='master') return;
-  if (!confirm('Remover "' + users[idx].user + '"?')) return;
-  const nome = users[idx].user;
-  users.splice(idx,1);
-  dbSave(users).then(() => { dbLog('Usuário removido: ' + nome); renderAdminUsers(); });
-}
-
-async function adminResetPass(idx) {
-  const users = _USERS_CACHE;
-  const inp = document.getElementById('rp'+idx);
-  if (!inp?.value.trim()) { showAdminMsg('❌ Digite a nova senha'); return; }
-  users[idx].hash = await sha256(inp.value);
-  showAdminMsg('💾 Salvando...');
-  await dbSave(users); inp.value='';
-  dbLog('Senha alterada: ' + users[idx].user);
-  showAdminMsg('✅ Senha alterada e sincronizada!');
-}
-
-async function adminAddUser() {
-  const u = (document.getElementById('new-u-user').value||'').trim().toLowerCase();
-  const p = (document.getElementById('new-u-pass').value||'').trim();
-  if (!u||!p) { showAdminMsg('❌ Preencha usuário e senha'); return; }
-  if (u.length < 3) { showAdminMsg('❌ Usuário muito curto'); return; }
-  if (p.length < 4) { showAdminMsg('❌ Senha muito curta (mín. 4)'); return; }
-  const users = _USERS_CACHE;
-  if (users.find(x=>x.user===u)) { showAdminMsg('❌ Usuário já existe'); return; }
-  const abas   = Array.from(document.querySelectorAll('#new-u-tabs input:checked')).map(el=>el.value);
-  const apiKey = ((document.getElementById('new-u-apikey')||{}).value||'').trim();
-  if (!abas.length) { showAdminMsg('❌ Selecione ao menos uma aba'); return; }
-  users.push({ user:u, hash: await sha256(p), abas, role:'user', driveApiKey: apiKey, criado: new Date().toLocaleString('pt-BR') });
-  showAdminMsg('💾 Salvando no GitHub...');
-  await dbSave(users);
-  dbLog('Criado: ' + u + ' | abas: ' + abas.join(', '));
-  document.getElementById('new-u-user').value='';
-  document.getElementById('new-u-pass').value='';
-  const _ak=document.getElementById('new-u-apikey'); if(_ak)_ak.value='';
-  renderAdminUsers(); renderNewUserTabs();
-  admTab('usuarios');
-  showAdminMsg('✅ Usuário criado e sincronizado!');
-}
-
-function showAdminMsg(msg) {
-  ['admin-msg','admin-msg2'].forEach(id => {
-    const el = document.getElementById(id); if (el) { el.textContent=msg; setTimeout(()=>el.textContent='',3500); }
-  });
-}
-
-/* ── Export / Import banco ── */
-async function dbExport() {
-  const users = _USERS_CACHE.length ? _USERS_CACHE : JSON.parse(localStorage.getItem(DB_KEY)||'[]');
-  const data = { users, logs: JSON.parse(localStorage.getItem('nuvyon_logs')||'[]'), ts: new Date().toLocaleString('pt-BR') };
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-  a.download = 'nuvyon_banco_' + new Date().toISOString().slice(0,10) + '.json';
-  a.click(); dbLog('Banco exportado');
-}
-function dbImport() {
-  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json';
-  inp.onchange = e => {
-    const f = e.target.files[0]; if (!f) return;
-    new FileReader().onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
-        const master = dbLoad().find(u=>u.role==='master');
-        const importados = data.users.filter(u=>u.role!=='master');
-        dbSave(master ? [master,...importados] : importados);
-        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
-        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
-        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
-      } catch { alert('Erro ao ler arquivo.'); }
-    };
-    const reader = new FileReader(); reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
-        const master = dbLoad().find(u=>u.role==='master');
-        const importados = data.users.filter(u=>u.role!=='master');
-        dbSave(master ? [master,...importados] : importados);
-        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
-        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
-        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
-      } catch { alert('Erro ao ler arquivo.'); }
-    };
-    reader.readAsText(f);
-  };
-  inp.click();
-}
-
-/* ── Diagnóstico e reset de banco (Sincronizado com Worker) ── */
-function loginDiag() {
-  const diag = document.getElementById('login-diag');
-  if (!diag) return;
-  diag.style.display = diag.style.display === 'block' ? 'none' : 'block';
-  if (diag.style.display === 'none') return;
-
-  const users = _USERS_CACHE || [];
-  const local = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]');
-  
-  const linhas = [
-    '<strong>Status Nuvem:</strong> ' + (GH_SHA ? '✅ Conectado' : '❌ Offline'),
-    '<strong>Cache Memória:</strong> ' + users.length + ' user(s)',
-    '<strong>Cache Local (Browser):</strong> ' + local.length + ' user(s)',
-    '<br><strong>Usuários no Cache:</strong>',
-    users.length ? users.map(u => `• ${u.user} [${u.role||'user'}]`).join('<br>') : '<span style="color:var(--red)">VAZIO</span>'
-  ];
-  diag.innerHTML = linhas.join('<br>');
-}
-
-// 4. Reset de Senha (Grava no GitHub via Worker)
-
-
- 
-/* ══════════════════════════════════════════════════════════════
-   NUVYON — PERSISTÊNCIA DE RELATÓRIOS NO GITHUB
-   Salva os dados brutos (CSV rows) em nuvyon_relatorios.json
-   no mesmo repositório do banco de usuários.
-   • Todos que acessarem a página carregam automaticamente
-   • Só o usuário com config GitHub pode sobrescrever
-══════════════════════════════════════════════════════════════ */
-// arquivo principal
-
-// Arquivos individuais por slot (nome fixo no repo → sobrescreve ao re-upload)
-
-
-
-
-
-
-
-/* ── Processar STATE após restauração (reprocessa igual ao aplicarDados) ── */
-function _processRestoredState() {
-  if (STATE.rawOS) {
-    const r = processOS(STATE.rawOS);
-    STATE.tecnicos = r.tecnicos; STATE.clientes = r.clientes;
-    STATE.totais.total_os = r.total_os; STATE.totais.reinc_os = r.reinc_os; STATE.totais.incons = r.incons;
-  }
-  if (STATE.rawSAC) {
-    const r = processSAC(STATE.rawSAC);
-    STATE.agentes = r.agentes; STATE.totais.total_sac = r.total_sac; STATE.sacRows = r.rows;
-  }
-  if (STATE.rawAT)  STATE.totais.total_at = STATE.rawAT.length;
-  if (STATE.rawNPS) STATE.npsData = processNPS(STATE.rawNPS);
-  if (STATE.rawProd) STATE.prodData = processProdutividade(STATE.rawProd);
-  if (STATE.rawAgentes) {
-    STATE.agenteMap  = NPSIntelligence.buildAgenteMap(STATE.rawAgentes);
-    STATE.agentesMap = (() => {
-      const m = new Map();
-      STATE.rawAgentes.forEach(r => {
-        const cod  = String(r['Cod.']||r['Cod']||r['cod']||r['COD']||'').trim();
-        const nome = String(r['Agente']||r['agente']||r['AGENTE']||r['Nome']||r['nome']||'').trim();
-        if (!cod && !nome) return;
-        const nomeReal = nome || cod;
-        const nf = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-        const nn = window.normalize ? window.normalize(nomeReal) : nomeReal.toUpperCase().trim();
-        if (cod) { m.set(cod.trim(), nomeReal); m.set(nf(cod), nomeReal); }
-        m.set(nn, nomeReal); m.set(nf(nomeReal), nomeReal);
-        const pri = nn.split(' ')[0];
-        if (pri && pri.length > 2) m.set(nf(pri), nomeReal);
-      });
-      return m;
-    })();
-  }
-  if (STATE.rawSAC || STATE.rawAT) {
-    const cross = cruzarSACAtendimento(STATE.rawSAC, STATE.rawAT, {});
-    STATE.cruzados = cross.jornadas || []; STATE.protocoloLinks = cross.linked || [];
-  }
-  STATE.totais.clientes_risco = (STATE.clientes||[]).filter(c => c.risco !== 'Baixo').length;
-  // NPS ranking consolidado
-  STATE.rankingNPS = (() => {
-    let src;
-    if (STATE.rawNPS && STATE.agenteMap && Object.keys(STATE.agenteMap).length > 0) {
-      src = NPSIntelligence.processWithMap(STATE.rawNPS, STATE.agenteMap);
-      const out = {};
-      for (const [ag, v] of Object.entries(src)) out[ag] = { nps: v.nps, total: v.total, media: v.media };
-      return out;
-    }
-    src = STATE.npsData || {};
-    const out = {};
-    for (const [ag, v] of Object.entries(src)) {
-      const notas = Object.entries(v.dist||{}).flatMap(([n,c])=>Array(c).fill(parseInt(n)));
-      if (!notas.length) continue;
-      const tot = notas.length, pro = notas.filter(n=>n>=4).length, det = notas.filter(n=>n<=2).length;
-      out[ag] = { nps: Math.round((pro-det)/tot*100), total: tot, media: v.media };
-    }
-    return out;
-  })();
-  if (STATE.relatorioAnalitico && STATE.relatorioAnalitico.length > 0) {
-    STATE.sacFCR = SACEngine.fromState();
-  }
-  setTimeout(() => renderAll(), 50);
-}
-
-
-
-/* ── Auto-load na inicialização da página ────────────────────── */
-
-
-/* ═══════════════════════════════════════════════════════════════
-   RBAC v3.7 — Menu dinâmico gerado por JS baseado em SESSION.abas
-═══════════════════════════════════════════════════════════════ */
-const MenuRBAC = {
-  /** Reconstrói o #tabbar inteiro com base nas abas autorizadas */
-  build(abasAutorizadas) {
-    const tabbar = document.getElementById('tabbar');
-    if (!tabbar) return;
-    tabbar.innerHTML = '';
-    ABAS.forEach(aba => {
-      if (!abasAutorizadas.includes(aba.id)) return;
-      const btn = document.createElement('button');
-      btn.className = 'tab-btn';
-      btn.id = 'tab-' + aba.id;
-      btn.textContent = aba.label;
-      btn.onclick = () => window.showTab(aba.id);
-      tabbar.appendChild(btn);
-    });
-    // Botão logoff sempre no fim
-    const lo = document.createElement('button');
-    lo.className = 'tab-btn';
-    lo.id = 'tab-logoff';
-    lo.textContent = '🚪 Sair';
-    lo.title = 'Sair do sistema';
-    lo.style.cssText = 'margin-left:auto;color:#e74c3c;border-bottom-color:transparent';
-    lo.onclick = doLogout;
-    tabbar.appendChild(lo);
-  },
-  /** Ativa visualmente o botão da aba corrente (tabbar + sidebar) */
-  activate(id) {
-    // Tabbar legado
-    document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('tab-' + id);
-    if (btn) btn.classList.add('active');
-    // Sidebar
-    if (typeof sidebarActivate === 'function') sidebarActivate(id);
-  },
-  /** Retorna a primeira aba autorizada */
-  firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
-};
-
-/* ── INIT: após TODO o JavaScript do app carregar ── */
-window.addEventListener('load', async () => {
-  await initDB();
-
-  // Capturar showTab ORIGINAL (definida no segundo <script>)
-  _showTabOrig = window.showTab;
-
-  // Substituir showTab por versão RBAC-aware
-  window.showTab = function(t) {
-    if (t === 'logoff') { doLogout(); return; }
-    if (!SESSION) return;
-    const abasOk = SESSION.role === 'master' ? ABAS.map(a => a.id) : (SESSION.abas || []);
-    if (!abasOk.includes(t)) return;
-    if (_showTabOrig) _showTabOrig(t);
-    MenuRBAC.activate(t);
-  };
-
-  // Ocultar tabbar inteiro até o login — será reconstruído pelo applySession
-  const tabbar = document.getElementById('tabbar');
-  if (tabbar) tabbar.style.display = 'none';
-});
 </script>
 
 <!-- TOP BAR (estreito) -->
