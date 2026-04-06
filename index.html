@@ -420,10 +420,6 @@ let GH_MODE = false; // true = GitHub ativo
 
 
 // 1. Criptografia
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
-}
 
 async function dbLoad() {
   try { return JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]'); }
@@ -448,26 +444,11 @@ async function dbLog(msg) {
 
 let SESSION   = null;
 let _showTabOrig = null;
-let _USERS_CACHE = []; // cache em memória após login
+
 
 /* ── SEGURANÇA E LOGIN ── */
 
-// 2. Inicializar Banco (Puxa do Worker/Nuvem)
-async function initDB() {
-  console.log("🔄 Sincronizando com a nuvem...");
-  try {
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    const data = await r.json();
-    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    _USERS_CACHE = banco.users;
-    GH_SHA = data.sha;
-    localStorage.setItem(DB_KEY, JSON.stringify(_USERS_CACHE));
-    console.log("✅ Usuários prontos.");
-  } catch (e) {
-    console.error("Modo Offline: Usando dados locais.");
-    _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-  }
-}
+
 
 function showLoginStatus(msg, color) {
   const el = document.getElementById('login-status');
@@ -478,30 +459,108 @@ function showLoginStatus(msg, color) {
 
 // 2. Compara a senha digitada com o Hash do banco
 // 3. Login Assertivo
+/* ── MOTOR DE ACESSO NUYVON v5.0 ── */
+
+// 1. Inicializar Banco
+async function initDB() {
+  console.log("🔄 Conectando ao Cofre Cloudflare...");
+  try {
+    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
+    if (!r.ok) throw new Error("Worker offline");
+    const data = await r.json();
+    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    _USERS_CACHE = banco.users; // Gaveta de usuários na memória
+    GH_SHA = data.sha; // Chave de segurança para o Reset
+    console.log("✅ Usuários carregados da nuvem.");
+  } catch (e) {
+    console.warn("⚠️ Usando backup local.");
+    _USERS_CACHE = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]');
+  }
+}
+
+// 2. Função de Login
+/* ── MOTOR DE ACESSO NUYVON v5.0 (CLOUDFLARE) ── */
+
+// 1. Função de Criptografia (Garante que a senha vire o código longo do seu GitHub)
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+// 2. Inicializar Banco (Conecta ao seu Worker e baixa os usuários)
+async function initDB() {
+  console.log("🔄 Conectando ao Worker...");
+  try {
+    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
+    if (!r.ok) throw new Error("Worker não respondeu.");
+    const data = await r.json();
+    
+    // Decodifica o banco que vem do GitHub
+    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    
+    if (banco && banco.users) {
+      _USERS_CACHE = banco.users;
+      GH_SHA = data.sha; // Guarda a chave para o Reset funcionar
+      localStorage.setItem('nuvyon_users_v2', JSON.stringify(_USERS_CACHE));
+      console.log("✅ Usuários sincronizados com sucesso!");
+    }
+  } catch (e) {
+    console.error("⚠️ Falha na nuvem. Usando backup local:", e.message);
+    _USERS_CACHE = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]');
+  }
+}
+
+// 3. Função de Login (Compara o que você digitou com o que está no banco)
 async function doLogin() {
   const u = document.getElementById('login-user').value.trim().toLowerCase();
   const p = document.getElementById('login-pass').value.trim();
   const err = document.getElementById('login-err');
 
-  const h = await sha256(p);
+  if (!u || !p) { alert('Preencha usuário e senha.'); return; }
+
+  const h = await sha256(p); // Transforma sua senha em Hash
   const found = _USERS_CACHE.find(x => x.user.toLowerCase() === u && x.hash === h);
 
   if (found) {
     SESSION = found;
     document.getElementById('login-overlay').style.display = 'none';
-    
-    // LINHA CRÍTICA: Se esta linha não rodar, o botão não aparece
+    // MOSTRAR O BOTÃO DA IA
     const btnIA = document.getElementById('ia-toggle');
-    if (btnIA) {
-        btnIA.style.setProperty('display', 'flex', 'important');
-    }
+    if (btnIA) btnIA.style.display = 'flex';
     
-    applySession();
-    iaMsg('bot', `Olá ${found.user}, já estou ativa! Como posso ajudar?`);
+    applySession(); // Abre o painel
+    iaMsg('bot', `Bem-vindo de volta, ${found.user}! Como posso te ajudar hoje?`);
   } else {
-    err.textContent = '❌ Usuário ou senha incorretos.';
+    if(err) err.textContent = '❌ Usuário ou senha incorretos.';
+    else alert('❌ Usuário ou senha incorretos.');
   }
 }
+
+// 4. Função de Reset (Grava a nova senha na Nuvem/GitHub)
+async function loginReset() {
+  const nova = prompt("RESETAR ACESSO\nNova senha para 'eric':");
+  if (!nova) return;
+  const h = await sha256(nova.trim());
+  const novosDados = { users: [{ user: 'eric', hash: h, role: 'master', abas: ABAS.map(a=>a.id) }] };
+
+  try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
+    const res = await fetch(`${IA_WORKER}?tipo=gh-db`, {
+      method: 'POST',
+      body: JSON.stringify({ content, sha: GH_SHA })
+    });
+    if (res.ok) {
+      alert("✅ Senha gravada na nuvem! O sistema vai reiniciar.");
+      location.reload();
+    } else {
+      alert("❌ Erro ao salvar na nuvem. Verifique o Worker.");
+    }
+  } catch (e) {
+    alert("❌ Falha crítica: " + e.message);
+  }
+}
+
+
 /* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
 function applySession() {
   if (!SESSION) return;
@@ -751,61 +810,9 @@ function loginDiag() {
 }
 
 // 4. Reset de Senha (Grava no GitHub via Worker)
-async function loginReset() {
-  const nova = prompt("Nova senha para 'eric':");
-  if (!nova) return;
-  const hash = await sha256(nova.trim());
-  const novosDados = { users: [{ user: 'eric', hash: hash, role: 'master', abas: ABAS.map(a=>a.id) }] };
 
-  try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      body: JSON.stringify({ content, sha: GH_SHA })
-    });
-    if (r.ok) {
-      alert("✅ Senha redefinida na nuvem com sucesso!");
-      location.reload();
-    } else {
-      alert("❌ Falha ao salvar na nuvem. Verifique o Worker.");
-    }
-  } catch (e) {
-    alert("❌ Erro: " + e.message);
-  }
-}
 
-  try {
-    // 1. Prepara o conteúdo em Base64 para o GitHub
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-
-    // 2. Envia para o Worker (Nuvem)
-    const res = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        content: content, 
-        sha: GH_SHA // Usa o SHA que o initDB pegou
-      })
-    });
-
-    if (res.ok) {
-      // 3. Se deu certo na nuvem, atualiza o local
-      _USERS_CACHE = novosDados.users;
-      localStorage.setItem('nuvyon_users_v2', JSON.stringify(_USERS_CACHE));
-      
-      alert('✅ SUCESSO! Senha alterada no GitHub e no Navegador.\n\nO sistema irá reiniciar.');
-      location.reload();
-    } else {
-      const erro = await res.json();
-      throw new Error(erro.error || 'Erro ao salvar no GitHub');
-    }
-  } catch (e) {
-    console.error(e);
-    alert('❌ FALHA NO RESET: ' + e.message + '\n\nVerifique se o Token no Cloudflare está correto.');
-    showLoginStatus('Erro ao resetar', 'red');
-  }
-}
-
+ 
 /* ══════════════════════════════════════════════════════════════
    NUVYON — PERSISTÊNCIA DE RELATÓRIOS NO GITHUB
    Salva os dados brutos (CSV rows) em nuvyon_relatorios.json
@@ -10213,7 +10220,7 @@ function sidebarActivate(id) {
 }
 if (group) group.classList.remove('collapsed');
   }
-}
+
 
 // ── INICIALIZAÇÃO DO SISTEMA ──
 // Esta parte avisa o navegador para rodar o initDB assim que a página carregar
