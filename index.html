@@ -413,7 +413,37 @@ const GH_CFG_KEY  = 'nuvyon_gh_config';      // config GitHub local
 let GH_MODE = false; // true = GitHub ativo
 // SHA do arquivo atual no GitHub (necessário para update)
 
+/* ── RESTAURAÇÃO DE FUNÇÕES CORE ── */
 
+// 1. Função de Mensagens do Chat (Essencial para o Login não travar)
+function iaMsg(tipo, texto) {
+  const chat = document.getElementById('ia-chat');
+  if (!chat) return { remove: () => {} }; // Evita erro se o chat não existir na tela
+  const div = document.createElement('div');
+  div.style.padding = '8px 12px';
+  div.style.borderRadius = '10px';
+  div.style.marginBottom = '10px';
+  div.style.fontSize = '12px';
+  div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
+  div.style.color = tipo === 'user' ? '#000' : '#fff';
+  div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
+  div.textContent = texto;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+// 2. Função para abrir o painel de Upload
+function openUpload() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.classList.add('open');
+}
+
+// 3. Função para fechar o painel de Upload
+function closeUpload() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
 
 
 
@@ -560,57 +590,162 @@ async function loginReset() {
   }
 }
 
+/* ── PONTE DE DADOS: Organiza os dados na memória RAM ── */
+function ghApplySlot(key, rows) {
+  // Se não houver dados, não faz nada
+  if (!rows || !Array.isArray(rows) || !rows.length) return;
 
-/* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
-function applySession() {
+  // Distribui os dados para as "gavetas" corretas do objeto STATE
+  if (key === 'os') { 
+    STATE.rawOS = rows; 
+    STATE.loaded.os = true; 
+  }
+  else if (key === 'at') { 
+    STATE.rawAT = rows; 
+    STATE.loaded.at = true; 
+  }
+  else if (key === 'sac') { 
+    STATE.rawSAC = rows; 
+    STATE.loaded.sac = true; 
+  }
+  else if (key === 'osab') { 
+    STATE.rawOSAb = rows; 
+    STATE.rawOSAbertas = rows; 
+    STATE.loaded.osab = true; 
+  }
+  else if (key === 'matrix') { 
+    STATE.relatorioAnalitico = rows; 
+    STATE.loaded.matrix = true; 
+  }
+  else if (key === 'crm') { 
+    STATE.rawCRM = rows; 
+    STATE.loaded.crm = true; 
+  }
+  else if (key === 'vendas') { 
+    STATE.rawVendas = rows; 
+    STATE.loaded.vendas = true; 
+  }
+  else if (key === 'nps') { 
+    STATE.rawNPS = rows; 
+    STATE.loaded.nps = true; 
+  }
+  else if (key === 'sinais') { 
+    STATE.rawSinais = rows; 
+    STATE.loaded.sinais = true; 
+  }
+  else if (key === 'agentes') { 
+    STATE.rawAgentes = rows; 
+    STATE.loaded.agentes = true; 
+  }
+
+  console.log(`📥 Dados da gaveta "${key}" carregados na memória.`);
+}
+
+
+
+
+/* ── MOTOR DE SINCRONIZAÇÃO AUTOMÁTICA HUBSOFT ── */
+async function sincronizarTudoHubsoft() {
+  const progresso = document.getElementById('upload-progress');
+  if (progresso) progresso.textContent = '🔄 Conectando ao servidor Hubsoft...';
+
+  // Mapeamento dos relatórios que o sistema vai puxar da API
+  const jobs = [
+    { tipo: 'os', endpoint: '/api/v1/ordem-servico/relatorio' },
+    { tipo: 'at', endpoint: '/api/v1/atendimento/atendimentos' },
+    { tipo: 'sac', endpoint: '/api/v1/atendimento/sac/chat' },
+    { tipo: 'osab', endpoint: '/api/v1/ordem-servico/abertas' }
+  ];
+
+  for (const job of jobs) {
+    try {
+      console.log(`Buscando ${job.tipo}...`);
+      
+      // Faz a chamada para o seu Worker da Cloudflare
+      const response = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${job.endpoint}`);
+      
+      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+      
+      const dados = await response.json();
+      
+      // ghApplySlot é a função que já existe no seu código 
+      // para salvar o arquivo na memória RAM do navegador
+      ghApplySlot(job.tipo, dados);
+      
+      console.log(`✅ ${job.tipo} sincronizado com sucesso.`);
+      
+      // Atualiza o visual dos slots se o modal estiver aberto
+      const slotIcon = document.getElementById(`slot-${job.tipo}-icon`);
+      if (slotIcon) slotIcon.textContent = '✅';
+      
+    } catch (e) {
+      console.error(`Falha ao sincronizar ${job.tipo}:`, e.message);
+      iaMsg('sys', `❌ Erro ao buscar ${job.tipo}.`);
+    }
+  }
+
+  // APÓS BUSCAR TUDO: Roda o motor de renderização que você já tem no código
+  // para desenhar as tabelas e os gráficos na tela.
+  if (typeof _processRestoredState === 'function') {
+    _processRestoredState();
+  }
+
+  iaMsg('bot', '✅ Sincronização Hubsoft completa. Todos os painéis foram atualizados com dados em tempo real!');
+  if (progresso) progresso.textContent = '';
+}
+
+
+
+/* ── Aplicar sessão v4.0 (RBAC + IA + Auto-Sync) ── */
+async function applySession() {
   if (!SESSION) return;
 
-  // 1. Badge de usuário no topbar
+  // 1. Badge de usuário no topbar (Sua lógica original)
   let badge = document.getElementById('user-badge');
   if (!badge) {
     badge = document.createElement('div');
     badge.id = 'user-badge';
     badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap';
-    badge.addEventListener('mouseenter', () => { badge.style.borderColor='var(--accent)'; badge.style.color='var(--accent)'; });
-    badge.addEventListener('mouseleave', () => { badge.style.borderColor='var(--border)'; badge.style.color='var(--muted)'; });
     const btns = document.querySelector('#topbar > div:last-child');
     if (btns) btns.insertBefore(badge, btns.firstChild);
   }
   const isMaster = SESSION.role === 'master';
   badge.innerHTML = '👤 <strong style="color:var(--text)">' + SESSION.user + '</strong>'
     + (isMaster ? ' <span style="background:var(--accent);color:#000;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800">MASTER</span>' : '');
-  badge.title = isMaster ? 'Clique para gerenciar usuários' : SESSION.user;
   badge.onclick = isMaster ? openAdmin : null;
-  badge.style.cursor = isMaster ? 'pointer' : 'default';
 
   // 2. Construir menus com RBAC
   const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
-
-  // Tabbar (oculto — mantido para compat. RBAC)
-  const tabbar = document.getElementById('tabbar');
-  MenuRBAC.build(abasAutorizadas);
-
-  // Sidebar: mostrar e construir grupos
+  if (typeof MenuRBAC !== 'undefined') MenuRBAC.build(abasAutorizadas);
+  
   const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.style.display = '';
-  if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
+  if (sidebar) {
+    sidebar.style.display = 'flex'; // Garante que a sidebar apareça
+    if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
+  }
 
-  // 3. Garantir que painéis de conteúdo não-autorizados ficam ocultos
+  // 3. Cleanup de telas
   document.querySelectorAll('.tab-content').forEach(el => {
     el.classList.remove('active');
-    el.style.display = '';
+    el.style.display = 'none';
   });
 
-  // 4. Navegar para primeira aba autorizada
+  // 4. Navegar para primeira aba e ativar IA
   const first = MenuRBAC.firstAllowed(abasAutorizadas);
-  if (_showTabOrig) {
-    _showTabOrig(first);
-    MenuRBAC.activate(first); // também chama sidebarActivate()
-  }
-  // Construir sidebar agrupada e activar item inicial
-  if (typeof buildGroupedTabbar === 'function') buildGroupedTabbar();
-  if (typeof sidebarActivate === 'function') sidebarActivate(first);
+  showTab(first);
+
+  // --- MELHORIA: Ligar o botão da IA ---
+  const btnIA = document.getElementById('ia-toggle');
+  if (btnIA) btnIA.style.display = 'flex';
+
+  // --- MELHORIA: Sincronização Automática Hubsoft ---
+  iaMsg('bot', `Olá ${SESSION.user}, estou sincronizando os dados do Hubsoft agora...`);
+  await sincronizarTudoHubsoft(); 
 }
+
+
+
+
 
 /* ── Logoff ── */
 function doLogout() {
@@ -2029,27 +2164,18 @@ function toggleIA() {
 
 function iaMsg(tipo, texto) {
   const chat = document.getElementById('ia-chat');
-  if(!chat) return;
+  if (!chat) return { remove: () => {} };
   const div = document.createElement('div');
-  div.style.padding = '10px';
-  div.style.borderRadius = '10px';
-  div.style.marginBottom = '10px';
-  div.style.fontSize = '13px';
-  div.style.maxWidth = '85%';
-  
-  if (tipo === 'user') {
-    div.style.alignSelf = 'flex-end';
-    div.style.background = 'var(--accent)';
-    div.style.color = '#000';
-  } else {
-    div.style.alignSelf = 'flex-start';
-    div.style.background = 'var(--border)';
-    div.style.color = '#fff';
-  }
+  div.className = 'ia-msg ia-' + tipo;
   div.textContent = texto;
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
+}
+
+function openUpload() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.classList.add('open');
 }
 
 async function iaPergunta() {
@@ -10201,7 +10327,7 @@ function buildSidebar(abasAutorizadas) {
     grpDiv.appendChild(header);
     grpDiv.appendChild(subDiv);
     nav.appendChild(grpDiv);
-  });
+  );
 }
 
 function sidebarActivate(id) {
