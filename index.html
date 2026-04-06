@@ -359,71 +359,24 @@ td{padding:9px}
 
 <script>
 /* ── CONFIGURAÇÕES GLOBAIS ── */
-// Este é o endereço do seu "Cofre" na Cloudflare. 
+/* ══════════════════════════════════════════════════════════════
+   NUVYON v5.0 — CONFIGURAÇÕES E MOTORES CORE
+══════════════════════════════════════════════════════════════ */
 const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
-
-// Variáveis de estado (Memória do sistema enquanto a página está aberta)
-let _USERS_CACHE = []; // Onde guardamos os usuários vindos da nuvem
-let GH_SHA = null;     // Código de segurança para salvar no GitHub
-let iaDados = {};      // Onde a IA guarda o que ela leu dos relatórios
+let _USERS_CACHE = [];
+let GH_SHA = null;
 const DB_KEY = 'nuvyon_users_v2';
-/* ══════════════════════════════════════════════════════════════
-   NUVYON AUTH v3 — SHA-256 + localStorage
-   Fix: interceptação de showTab via window.onload (após todo JS)
-══════════════════════════════════════════════════════════════ */
-const ABAS = [
-  // Grupo: Gestão
-  { id:'gestao',        label:'📊 Gestão Geral',       grupo:'gestao' },
-  { id:'clientes',      label:'🩺 Saúde do Cliente',   grupo:'gestao' },
-  { id:'gestor',        label:'⚖️ Gestor Justo',       grupo:'gestao' },
-  { id:'config',        label:'⚙️ Configurações',       grupo:'gestao' },
-  // Grupo: Comercial
-  { id:'visao360',      label:'🔍 Visão 360',           grupo:'comercial' },
-  { id:'cancelamentos', label:'🚫 Cancelamentos',       grupo:'comercial' },
-  // Grupo: SAC
-  { id:'sac',           label:'🎧 Auditoria SAC',       grupo:'sac' },
-  { id:'nps',           label:'⭐ NPS Pesquisa',        grupo:'sac' },
-  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'sac' },
-  // Grupo: Técnica
-  { id:'despacho',      label:'🚚 Logística',           grupo:'tecnica' },
-  { id:'infra',         label:'📡 Análise Infra',       grupo:'tecnica' },
-  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'tecnica' },
-];
 
-// Grupos de abas para o menu lateral/dropdown (Tarefa 4)
-const ABA_GRUPOS = [
-  { id:'gestao',    label:'📊 Gestão',    icon:'📊', abas:['gestao','clientes','gestor','config'] },
-  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360','cancelamentos'] },
-  { id:'sac',       label:'🎧 SAC',       icon:'🎧', abas:['sac','nps','bonificacao'] },
-  { id:'tecnica',   label:'🔧 Técnica',   icon:'🔧', abas:['despacho','infra','campo'] },
-];
-
-/* ══════════════════════════════════════════════════════════════
-   BANCO DE DADOS — GitHub API (repositório privado)
-   Fallback automático para localStorage se offline
-══════════════════════════════════════════════════════════════ */
-const GH_CFG_KEY  = 'nuvyon_gh_config';      // config GitHub local
-// arquivo no repo
-
-
-
-
-
-/* ── Indicador de modo ── */
-let GH_MODE = false; // true = GitHub ativo
-// SHA do arquivo atual no GitHub (necessário para update)
-
-/* ── RESTAURAÇÃO DE FUNÇÕES CORE ── */
-
-// 1. Função de Mensagens do Chat (Essencial para o Login não travar)
+// --- 1. INTERFACE (Mensagens e Telas) ---
 function iaMsg(tipo, texto) {
   const chat = document.getElementById('ia-chat');
-  if (!chat) return { remove: () => {} }; // Evita erro se o chat não existir na tela
+  if (!chat) return { remove: () => {} };
   const div = document.createElement('div');
-  div.style.padding = '8px 12px';
+  div.style.padding = '10px';
   div.style.borderRadius = '10px';
   div.style.marginBottom = '10px';
   div.style.fontSize = '12px';
+  div.style.maxWidth = '85%';
   div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
   div.style.color = tipo === 'user' ? '#000' : '#fff';
   div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
@@ -431,6 +384,107 @@ function iaMsg(tipo, texto) {
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
+}
+
+function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
+function closeUpload() { document.getElementById('upload-overlay').classList.remove('open'); }
+
+// --- 2. PONTE DE DADOS (API + LOCAL) ---
+function ghApplySlot(key, rows) {
+  if (!rows || !Array.isArray(rows) || !rows.length) return;
+  
+  // Organiza nas gavetas do STATE
+  if      (key === 'os')     STATE.rawOS = rows;
+  else if (key === 'at')     STATE.rawAT = rows;
+  else if (key === 'sac')    STATE.rawSAC = rows;
+  else if (key === 'osab')   { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
+  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
+  
+  STATE.loaded[key] = true;
+  
+  // Atualiza o visual do modal se estiver aberto
+  const icon = document.getElementById(`slot-${key}-icon`);
+  if (icon) icon.textContent = '✅';
+  const slot = document.getElementById(`slot-${key}`);
+  if (slot) slot.classList.add('ok');
+}
+
+// --- 3. SINCRONIZADOR API HUBSOFT ---
+async function sincronizarTudoHubsoft() {
+  iaMsg('bot', '🔄 Conectando ao Hubsoft... Aguarde a sincronização.');
+  
+  const jobs = [
+    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
+    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
+    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
+    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
+  ];
+
+  for (const j of jobs) {
+    try {
+      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
+      const dados = await res.json();
+      ghApplySlot(j.k, dados);
+    } catch (e) { console.error("Erro ao puxargaveta: " + j.k); }
+  }
+
+  if (typeof _processRestoredState === 'function') _processRestoredState();
+  iaMsg('bot', '✅ Sincronização Hubsoft completa! Painéis atualizados.');
+  closeUpload();
+}
+
+// --- 4. IA GEMINI (O "Cérebro" Analista) ---
+function toggleIA() {
+  const box = document.getElementById('ia-box');
+  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+}
+
+async function iaPergunta() {
+  const inp = document.getElementById('ia-input');
+  const txt = inp.value.trim();
+  if(!txt) return;
+  
+  inp.value = '';
+  iaMsg('user', txt);
+  const loading = iaMsg('bot', '⏳ Analisando dados técnicos...');
+
+  try {
+    const response = await fetch(`${IA_WORKER}?tipo=gemini`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: `Analise para Artelecom: ${txt}` })
+    });
+    const data = await response.json();
+    loading.remove();
+    iaMsg('bot', data.content[0].text);
+  } catch (e) { loading.textContent = '❌ Erro na comunicação com a IA.'; }
+}
+
+// --- 5. LOGIN E SESSÃO (RBAC + AUTO-SYNC) ---
+async function applySession() {
+  if (!SESSION) return;
+
+  // Badge do Usuário (Sua lógica v3.7)
+  let badge = document.getElementById('user-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'user-badge';
+    badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;';
+    document.querySelector('#topbar > div:last-child').insertBefore(badge, document.querySelector('#topbar > div:last-child').firstChild);
+  }
+  const isMaster = SESSION.role === 'master';
+  badge.innerHTML = `👤 <strong>${SESSION.user}</strong> ${isMaster ? '<span style="background:var(--accent);color:#000;padding:1px 4px;border-radius:4px;font-size:9px">MASTER</span>' : ''}`;
+
+  // Ativa Interface
+  const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
+  if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('ia-toggle').style.display = 'flex'; // LIGA O BOTÃO DA IA
+  
+  showTab('gestao');
+  
+  // Sincronização Automática ao entrar
+  sincronizarTudoHubsoft(); 
 }
 
 // 2. Função para abrir o painel de Upload
@@ -696,7 +750,7 @@ async function sincronizarTudoHubsoft() {
 
 
 
-/* ── Aplicar sessão v4.0 (RBAC + IA + Auto-Sync) ── */
+/* ── Aplicar sessão v4.0 (RBAC + IA + Auto-Sync) 
 async function applySession() {
   if (!SESSION) return;
 
@@ -741,7 +795,7 @@ async function applySession() {
   // --- MELHORIA: Sincronização Automática Hubsoft ---
   iaMsg('bot', `Olá ${SESSION.user}, estou sincronizando os dados do Hubsoft agora...`);
   await sincronizarTudoHubsoft(); 
-}
+}── */
 
 
 
@@ -2153,56 +2207,13 @@ function readFileAsRows(file, opts={}) {
 
 /* ── MOTOR DE IA GEMINI ── */
 
-function toggleIA() {
-  const box = document.getElementById('ia-box');
-  if(!box) return;
-  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
-  if(box.style.display === 'flex' && document.getElementById('ia-chat').innerHTML === "") {
-     iaMsg('bot', 'Olá! Sou o Analista Nuvyon. Como posso ajudar com os KPIs da Artelecom?');
-  }
-}
-
-function iaMsg(tipo, texto) {
-  const chat = document.getElementById('ia-chat');
-  if (!chat) return { remove: () => {} };
-  const div = document.createElement('div');
-  div.className = 'ia-msg ia-' + tipo;
-  div.textContent = texto;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
 
 function openUpload() {
   const overlay = document.getElementById('upload-overlay');
   if (overlay) overlay.classList.add('open');
 }
 
-async function iaPergunta() {
-  const inp = document.getElementById('ia-input');
-  const txt = inp.value.trim();
-  if(!txt) return;
-  
-  inp.value = '';
-  iaMsg('user', txt);
-  const loading = iaMsg('bot', '⏳ Analisando dados...');
 
-  try {
-    // Engenharia de Prompt: enviamos um resumo dos KPIs atuais para a IA
-    const contexto = `KPIs Atuais: OS=${STATE.totais.total_os}, SAC=${STATE.totais.total_sac}, Risco=${STATE.totais.clientes_risco}.`;
-    
-    const res = await fetch(`${IA_WORKER}?tipo=gemini`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: `${contexto} Pergunta do usuário: ${txt}` })
-    });
-    const data = await res.json();
-    loading.remove();
-    iaMsg('bot', data.content[0].text);
-  } catch (e) {
-    loading.textContent = '❌ Erro ao processar resposta.';
-  }
-}
 
 /* ════════════════════════════════════════════════════════════════
    PARTE 2 — MOTOR DE PROCESSAMENTO OS
@@ -10061,221 +10072,82 @@ function sinalClass(s) {
 }
 
 
-/* ════════════════════════════════════════════════
-   DRIVE UPLOAD v1.2 — pasta pública Google Drive
-════════════════════════════════════════════════ */
-var DRIVE_FOLDER_ID = '1SGlZZyPglW181NBEHzxnUpOfXChUX6qR';
-var DRIVE_MAP = [
-  {r:/relatorio-de-ordens-de-servico(?!.*abertas)/i, tipo:'os',           icon:'🔧', label:'OS Técnicas'},
-  {r:/relatorio-de-atendimentos/i,                   tipo:'at',           icon:'📋', label:'Atendimentos HubSoft'},
-  {r:/relatorio_atendimento_analitico|matrix/i,      tipo:'matrix',       icon:'🏅', label:'Matrix Analítico'},
-  {r:/relatorio-de-ordens.*abertas/i,                tipo:'osab',         icon:'🚫', label:'OS Abertas'},
-  {r:/relatorio_de_produtividade/i,                  tipo:'prod',         icon:'📊', label:'Produtividade'},
-  {r:/detalhamento_de_pesquisa(?!.*fone)/i,          tipo:'nps',          icon:'⭐', label:'NPS Chat'},
-  {r:/detalhamento.*fone|fone.*pesquisa/i,           tipo:'npsTelefonia', icon:'📞', label:'NPS Telefonia'},
-  {r:/sinais|RelatórioSinais/i,                      tipo:'sinais',       icon:'📡', label:'Sinais ONU'},
-  {r:/8agente|agente.*csv/i,                         tipo:'agentes',      icon:'👥', label:'Agentes SAC'},
-  {r:/clientes.*\.kml|\.kml$/i,                      tipo:'kml',          icon:'🗺',  label:'Clientes KML'},
-];
-var _driveFiles = [], _driveMatched = {};
+/
+/* ── MOTOR DE INTERFACE E DADOS v5.0 (CONSOLIDADO) ── */
 
-function uploadSetTab(tab) {
-  var pM = document.getElementById('upload-pane-manual');
-  var pD = document.getElementById('upload-pane-drive');
-  var bM = document.getElementById('upload-tab-manual');
-  var bD = document.getElementById('upload-tab-drive');
-  var bA = document.getElementById('btn-drive-import-all');
-  var bP = document.getElementById('btn-aplicar');
-  var ON  = {background:'var(--card)',  borderColor:'var(--border)', color:'var(--text)',  fontWeight:'700'};
-  var OFF = {background:'transparent',  borderColor:'transparent',   color:'var(--muted)', fontWeight:'600'};
-  if (tab === 'drive') {
-    if(pM) pM.style.display='none'; if(pD) pD.style.display='flex';
-    if(bM) Object.assign(bM.style, OFF); if(bD) Object.assign(bD.style, ON);
-    if(bA) bA.style.display='flex'; if(bP) bP.style.display='none';
-    if (_driveFiles.length === 0) driveScan();
-  } else {
-    if(pM) pM.style.display='block'; if(pD) pD.style.display='none';
-    if(bM) Object.assign(bM.style, ON); if(bD) Object.assign(bD.style, OFF);
-    if(bA) bA.style.display='none'; if(bP) bP.style.display='flex';
-  }
+// 1. Faz o chat da IA funcionar e evita erro 'iaMsg is not defined'
+function iaMsg(tipo, texto) {
+  const chat = document.getElementById('ia-chat');
+  if (!chat) return { remove: () => {} };
+  const div = document.createElement('div');
+  div.style.padding = '10px';
+  div.style.borderRadius = '10px';
+  div.style.marginBottom = '10px';
+  div.style.fontSize = '12px';
+  div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
+  div.style.color = tipo === 'user' ? '#000' : '#fff';
+  div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
+  div.textContent = texto;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
 }
 
-
-
-function driveScan() {
-  var sEl = document.getElementById('drive-status-msg');
-  var lEl = document.getElementById('drive-file-list');
-  var btn = document.getElementById('drive-btn-scan');
-  var key = (document.getElementById('drive-api-key')||{}).value||'';
-  key = key.trim();
-  if(sEl) sEl.textContent = '🔄 Buscando arquivos na pasta…';
-  if(lEl) lEl.innerHTML = '';
-  if(btn) { btn.disabled=true; btn.textContent='⏳'; }
-
-  var q   = "'" + DRIVE_FOLDER_ID + "' in parents and trashed=false";
-  var fld = 'files(id,name,size,modifiedTime)';
-  var url = 'https://www.googleapis.com/drive/v3/files'
-          + '?q=' + encodeURIComponent(q)
-          + '&fields=' + encodeURIComponent(fld)
-          + '&pageSize=50'
-          + (key ? '&key=' + encodeURIComponent(key) : '');
-
-  fetch(url)
-    .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('Drive '+r.status+': '+t.slice(0,100));}); return r.json(); })
-    .then(function(d){
-      _driveFiles = d.files||[]; _driveMatched = {};
-      _driveFiles.forEach(function(f){
-        for(var i=0;i<DRIVE_MAP.length;i++){
-          if(DRIVE_MAP[i].r.test(f.name)){
-            var t=DRIVE_MAP[i].tipo;
-            if(!_driveMatched[t]||f.modifiedTime>_driveMatched[t].modifiedTime)
-              _driveMatched[t]=Object.assign({},f,{_m:DRIVE_MAP[i]});
-            break;
-          }
-        }
-      });
-      var n=Object.keys(_driveMatched).length;
-      if(sEl) sEl.innerHTML='<span style="color:var(--green)">✅ '+_driveFiles.length+' arquivos · '+n+' identificados</span>';
-      driveRenderList(key);
-    })
-    .catch(function(e){
-      console.error(e);
-      if(sEl) sEl.innerHTML='<span style="color:var(--red)">❌ '+e.message+'</span>'
-        +'<br><span style="font-size:10px;color:var(--muted)">Sem API Key a listagem exige que a pasta permita acesso via API. Tente adicionar uma Google API Key.</span>';
-    })
-    .finally(function(){ if(btn){btn.disabled=false;btn.textContent='🔍 Escanear';} });
+// 2. Faz o botão "Carregar Dados" abrir o painel
+function openUpload() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.classList.add('open');
 }
 
-function driveRenderList(key) {
-  var lEl = document.getElementById('drive-file-list');
-  if(!lEl) return;
-  key = key||'';
-  var rows = DRIVE_MAP.filter(function(m){return _driveMatched[m.tipo];});
-  var unmap = _driveFiles.filter(function(f){return !DRIVE_MAP.some(function(m){return m.r.test(f.name);});});
-  var div, wrap = document.createDocumentFragment();
+function closeUpload() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
 
-  rows.forEach(function(m){
-    var f = _driveMatched[m.tipo];
-    var sNm = document.getElementById('slot-'+m.tipo+'-name');
-    var loaded = sNm && sNm.textContent && sNm.textContent!=='Nenhum arquivo';
+// 3. Ponte de Dados: Salva o que vem da API na memória RAM (STATE)
+function ghApplySlot(key, rows) {
+  if (!rows || !Array.isArray(rows)) return;
+  
+  if (key === 'os') STATE.rawOS = rows;
+  else if (key === 'at') STATE.rawAT = rows;
+  else if (key === 'sac') STATE.rawSAC = rows;
+  else if (key === 'osab') { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
+  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
+  
+  STATE.loaded[key] = true;
+  console.log(`📥 Gaveta "${key}" preenchida.`);
+}
 
-    div = document.createElement('div');
-    div.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px';
-    div.innerHTML =
-      '<span style="font-size:18px">'+m.icon+'</span>'
-      +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+f.name.replace(/"/g,'&quot;')+'">'+f.name+'</div>'
-        +'<div style="font-size:10px;color:var(--muted)">'+m.label+(f.size?' · '+_driveFmt(f.size):'')+'</div>'
-        +'<div id="ds-'+m.tipo+'" style="font-size:10px;margin-top:2px;color:'+(loaded?'var(--green)':'var(--muted)');'">'+(loaded?'✅ Já carregado':'○ Não carregado')+'</div>'
-      +'</div>'
-      +'<button id="dib-'+m.tipo+'" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">⬇ Importar</button>';
-    // Attach click handler without inline string interpolation
-    (function(fileId, fname, tipo, apiKey){
-      div.querySelector('button').addEventListener('click', function(){
-        driveImport(fileId, fname, tipo, apiKey);
-      });
-    })(f.id, f.name, m.tipo, key);
-    wrap.appendChild(div);
-  });
+// 4. Sincronizador Automático Hubsoft (Busca direto no Worker)
+async function sincronizarTudoHubsoft() {
+  const loading = iaMsg('bot', '🔄 Sincronizando dados com o Hubsoft via Cloudflare...');
+  
+  const jobs = [
+    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
+    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
+    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
+    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
+  ];
 
-  if(unmap.length){
-    var det = document.createElement('details');
-    det.style.marginTop='6px';
-    det.innerHTML='<summary style="font-size:10px;color:var(--muted);cursor:pointer">Não identificados ('+unmap.length+')</summary>';
-    unmap.forEach(function(f){
-      var d2=document.createElement('div');
-      d2.style.cssText='font-size:10px;color:var(--muted);padding:4px 8px;margin-top:4px;background:var(--panel);border-radius:5px';
-      d2.textContent='📄 '+f.name;
-      det.appendChild(d2);
-    });
-    wrap.appendChild(det);
+  for (const j of jobs) {
+    try {
+      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
+      const dados = await res.json();
+      ghApplySlot(j.k, dados);
+      
+      // Atualiza visual do check verde
+      const slot = document.getElementById(`slot-${j.k}`);
+      if(slot) slot.classList.add('ok');
+    } catch (e) { console.error("Falha ao puxar " + j.k); }
   }
 
-  if(!rows.length){
-    var empty=document.createElement('div');
-    empty.style.cssText='color:var(--muted);text-align:center;padding:24px;font-size:12px';
-    empty.innerHTML='Nenhum arquivo identificado.<br><span style="font-size:10px">Verifique a pasta e tente novamente.</span>';
-    wrap.appendChild(empty);
-  }
-
-  lEl.innerHTML=''; lEl.appendChild(wrap);
+  // Desenha os gráficos na tela
+  if (typeof _processRestoredState === 'function') _processRestoredState();
+  
+  loading.remove();
+  iaMsg('bot', '✅ Dashboard atualizado com dados em tempo real do Hubsoft!');
+  closeUpload();
 }
-
-function driveImport(fileId, filename, tipo, apiKey) {
-  var btnEl = document.getElementById('dib-'+tipo);
-  var stEl  = document.getElementById('ds-' +tipo);
-  if(btnEl){btnEl.disabled=true;btnEl.textContent='⏳';}
-  if(stEl) stEl.innerHTML='<span style="color:var(--yellow)">⏳ Baixando…</span>';
-
-  var ext = filename.split('.').pop().toLowerCase();
-  var mimes = {
-    xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    xls:'application/vnd.ms-excel', csv:'text/csv',
-    kml:'application/vnd.google-earth.kml+xml'
-  };
-  var url = apiKey
-    ? 'https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&key='+encodeURIComponent(apiKey)
-    : 'https://drive.google.com/uc?export=download&id='+fileId+'&confirm=1';
-
-  fetch(url)
-    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
-    .then(function(blob){
-      var mime=mimes[ext]||blob.type||'application/octet-stream';
-      return handleFile(tipo,{files:[new File([blob],filename,{type:mime})]});
-    })
-    .then(function(){
-      if(stEl)stEl.innerHTML='<span style="color:var(--green)">✅ Importado!</span>';
-      if(btnEl){btnEl.disabled=false;btnEl.textContent='✅';btnEl.style.background='var(--green)';}
-    })
-    .catch(function(e){
-      console.error('driveImport',tipo,e);
-      if(stEl)stEl.innerHTML='<span style="color:var(--red)">❌ '+e.message.slice(0,60)+'</span>';
-      if(btnEl){btnEl.disabled=false;btnEl.textContent='↺';}
-    });
-}
-
-function driveImportAll() {
-  var key = (document.getElementById('drive-api-key')||{}).value||'';
-  var tipos = Object.keys(_driveMatched);
-  if(!tipos.length){driveScan();return;}
-  var btn = document.getElementById('btn-drive-import-all');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Importando…';}
-  var i=0;
-  function next(){
-    if(i>=tipos.length){
-      if(btn){btn.disabled=false;btn.textContent='☁ Importar Todos';btn.style.background='#4285f4';}
-      setTimeout(function(){closeUpload();if(typeof aplicarDados==='function')aplicarDados();},800);
-      return;
-    }
-    var t=tipos[i++], f=_driveMatched[t];
-    driveImport(f.id,f.name,t,key);
-    setTimeout(next,400);
-  }
-  next();
-}
-
-
-
-/* ── Editar API Key Drive de um usuário (admin) ── */
-async function adminEditApiKey(idx) {
-  var users = _USERS_CACHE;
-  if (!users || !users[idx]) return;
-  var current = users[idx].driveApiKey || '';
-  var nova = window.prompt(
-    'Google API Key para "' + users[idx].user + '":\n'
-    + 'Esta chave será usada para carregar relatórios automaticamente no login.\n'
-    + '(deixe vazio para remover)',
-    current
-  );
-  if (nova === null) return;
-  users[idx].driveApiKey = nova.trim();
-  await dbSave(users);
-  renderAdminUsers();
-  var acao = nova.trim() ? 'configurada' : 'removida';
-  dbLog('Drive API Key ' + acao + ' para: ' + users[idx].user);
-  showAdminMsg('✅ Drive API Key ' + acao + ' para ' + users[idx].user);
-}
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BI COMERCIAL — Motor Inline (Nuvyon v5)
