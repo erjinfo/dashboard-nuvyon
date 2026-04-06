@@ -359,179 +359,548 @@ td{padding:9px}
 
 <script>
 /* ══════════════════════════════════════════════════════════════
-   NUVYON CORE ENGINE v5.5 — ORGANIZAÇÃO POR CAMADAS
-   1. Configurações | 2. Segurança | 3. Interface | 4. Dados
+   NUVYON AUTH v3 — SHA-256 + localStorage
+   Fix: interceptação de showTab via window.onload (após todo JS)
 ══════════════════════════════════════════════════════════════ */
-
-// ── CAMADA 1: CONFIGURAÇÕES GLOBAIS ──
-const IA_WORKER = 'https://wandering-sunset-e554.erj-informatica.workers.dev';
-const DB_KEY = 'nuvyon_users_v2';
-let _USERS_CACHE = []; // Gaveta ÚNICA para usuários
-let GH_SHA = null;
-let SESSION = null;
-let iaDados = {};
-const pendingFiles = { os: null, at: null, sac: null, osab: null, matrix: null };
-
 const ABAS = [
-  { id:'gestao', label:'📊 Gestão Geral' },
-  { id:'clientes', label:'🩺 Saúde do Cliente' },
-  { id:'gestor', label:'⚖️ Gestor Justo' },
-  { id:'visao360', label:'🔍 Visão 360' },
-  { id:'sac', label:'🎧 Auditoria SAC' },
-  { id:'bonificacao', label:'🏅 Bonificação' },
-  { id:'despacho', label:'🚚 Logística' },
-  { id:'infra', label:'📡 Análise Infra' },
-  { id:'campo', label:'🔧 Qualidade Técnica' },
-  { id:'config', label:'⚙️ Configurações' }
+  // Grupo: Gestão
+  { id:'gestao',        label:'📊 Gestão Geral',       grupo:'gestao' },
+  { id:'clientes',      label:'🩺 Saúde do Cliente',   grupo:'gestao' },
+  { id:'gestor',        label:'⚖️ Gestor Justo',       grupo:'gestao' },
+  { id:'config',        label:'⚙️ Configurações',       grupo:'gestao' },
+  // Grupo: Comercial
+  { id:'visao360',      label:'🔍 Visão 360',           grupo:'comercial' },
+  { id:'cancelamentos', label:'🚫 Cancelamentos',       grupo:'comercial' },
+  // Grupo: SAC
+  { id:'sac',           label:'🎧 Auditoria SAC',       grupo:'sac' },
+  { id:'nps',           label:'⭐ NPS Pesquisa',        grupo:'sac' },
+  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'sac' },
+  // Grupo: Técnica
+  { id:'despacho',      label:'🚚 Logística',           grupo:'tecnica' },
+  { id:'infra',         label:'📡 Análise Infra',       grupo:'tecnica' },
+  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'tecnica' },
 ];
 
+// Grupos de abas para o menu lateral/dropdown (Tarefa 4)
 const ABA_GRUPOS = [
-  { id:'gestao', label:'📊 Gestão', icon:'📊', abas:['gestao','clientes','gestor','config'] },
-  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360'] },
-  { id:'sac', label:'🎧 SAC', icon:'🎧', abas:['sac','bonificacao'] },
-  { id:'tecnica', label:'🔧 Técnica', icon:'🔧', abas:['despacho','infra','campo'] }
+  { id:'gestao',    label:'📊 Gestão',    icon:'📊', abas:['gestao','clientes','gestor','config'] },
+  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360','cancelamentos'] },
+  { id:'sac',       label:'🎧 SAC',       icon:'🎧', abas:['sac','nps','bonificacao'] },
+  { id:'tecnica',   label:'🔧 Técnica',   icon:'🔧', abas:['despacho','infra','campo'] },
 ];
 
-// ── CAMADA 2: SEGURANÇA (HASH E LOGIN) ──
+/* ══════════════════════════════════════════════════════════════
+   BANCO DE DADOS — GitHub API (repositório privado)
+   Fallback automático para localStorage se offline
+══════════════════════════════════════════════════════════════ */
+const GH_CFG_KEY  = 'nuvyon_gh_config';      // config GitHub local
+// arquivo no repo
+
+
+
+
+
+/* ── Indicador de modo ── */
+let GH_MODE = false; // true = GitHub ativo
+// SHA do arquivo atual no GitHub (necessário para update)
+
+
+
+
+
+
+
+/* ── dbLoad / dbSave com GitHub + fallback ── */
 async function sha256(s) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-async function initDB() {
-  console.log("🔄 Conectando ao Cofre Cloudflare...");
-  try {
-    const r = await fetch(`${IA_WORKER}?tipo=gh-db`);
-    if (!r.ok) throw new Error("Worker offline");
-    const data = await r.json();
-    const banco = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    _USERS_CACHE = banco.users;
-    GH_SHA = data.sha;
-    console.log("✅ Usuários sincronizados da nuvem.");
-  } catch (e) {
-    console.warn("⚠️ Usando backup local.");
-    _USERS_CACHE = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-  }
+async function dbLoad() {
+  try { return JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]'); }
+  catch(_) { return []; }
 }
 
-async function doLogin() {
-  const uInp = document.getElementById('login-user');
-  const pInp = document.getElementById('login-pass');
-  const err  = document.getElementById('login-err');
-  
-  if (!uInp || !pInp) return;
-  const u = uInp.value.trim().toLowerCase();
-  const p = pInp.value.trim();
+async function dbSave(users) {
+  localStorage.setItem('nuvyon_users_v2', JSON.stringify(users));
+}
 
-  const h = await sha256(p);
-  const found = _USERS_CACHE.find(x => x.user.toLowerCase() === u && x.hash === h);
+function dbLogLocal(msg) {
+  try {
+    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+    logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
+    localStorage.setItem('nuvyon_logs', JSON.stringify(logs.slice(0,100)));
+  } catch {}
+}
+async function dbLog(msg) {
+  dbLogLocal(msg);
+  // Sincronizar logs no GitHub junto com próximo dbSave (não bloqueia)
+}
 
-  if (found) {
-    SESSION = found;
-    document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('sidebar').style.display = 'flex';
-    if(document.getElementById('ia-toggle')) document.getElementById('ia-toggle').style.display = 'flex';
-    applySession();
-    iaMsg('bot', `Bem-vindo, ${found.user}! Sincronizando Hubsoft...`);
-    sincronizarTudoHubsoft();
-  } else {
-    if(err) err.textContent = '❌ Usuário ou senha incorretos.';
+let SESSION   = null;
+let _showTabOrig = null;
+let _USERS_CACHE = []; // cache em memória após login
+
+/* ── Inicializar banco ── */
+async function initDB() {
+  showLoginStatus('Carregando...', 'muted');
+  let loaded = [];
+  try { loaded = JSON.parse(localStorage.getItem('nuvyon_users_v2') || '[]'); }
+  catch(_) { loaded = []; }
+  if (!loaded.length) {
+    const hash = await sha256('eric2024');
+    loaded = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
+    localStorage.setItem('nuvyon_users_v2', JSON.stringify(loaded));
   }
+  _USERS_CACHE = loaded;
+  showLoginStatus('', '');
+}
+
+function showLoginStatus(msg, color) {
+  const el = document.getElementById('login-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color === 'muted' ? 'var(--muted)' : color === 'ok' ? 'var(--accent)' : '#e74c3c';
+}
+
+/* ── Login ── */
+async function doLogin() {
+  const u   = (document.getElementById('login-user').value||'').trim().toLowerCase();
+  const p   = document.getElementById('login-pass').value||'';
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!u||!p) { err.textContent = 'Preencha usuário e senha.'; return; }
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Verificando...'; btn.disabled = true;
+  try {
+    const h = await sha256(p);
+    let cache = _USERS_CACHE;
+    if (!cache || !cache.length) {
+      try { cache = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch { cache = []; }
+      if (cache.length) _USERS_CACHE = cache;
+    }
+    const found = cache.find(x => x.user.toLowerCase() === u && x.hash === h);
+    if (!found) {
+      err.textContent = cache.length === 0
+        ? '❌ Banco vazio. Clique em ⚠ Resetar.'
+        : '❌ Usuário ou senha inválidos.';
+      return;
+    }
+    SESSION = found;
+    dbLog('Login: ' + SESSION.user);
+    document.getElementById('login-overlay').style.display = 'none';
+    applySession();
+  } finally {
+    btn.textContent = 'Entrar'; btn.disabled = false;
+    showLoginStatus('', '');
+  }
+}
+/* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
+function applySession() {
+  if (!SESSION) return;
+
+  // 1. Badge de usuário no topbar
+  let badge = document.getElementById('user-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'user-badge';
+    badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap';
+    badge.addEventListener('mouseenter', () => { badge.style.borderColor='var(--accent)'; badge.style.color='var(--accent)'; });
+    badge.addEventListener('mouseleave', () => { badge.style.borderColor='var(--border)'; badge.style.color='var(--muted)'; });
+    const btns = document.querySelector('#topbar > div:last-child');
+    if (btns) btns.insertBefore(badge, btns.firstChild);
+  }
+  const isMaster = SESSION.role === 'master';
+  badge.innerHTML = '👤 <strong style="color:var(--text)">' + SESSION.user + '</strong>'
+    + (isMaster ? ' <span style="background:var(--accent);color:#000;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800">MASTER</span>' : '');
+  badge.title = isMaster ? 'Clique para gerenciar usuários' : SESSION.user;
+  badge.onclick = isMaster ? openAdmin : null;
+  badge.style.cursor = isMaster ? 'pointer' : 'default';
+
+  // 2. Construir menus com RBAC
+  const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
+
+  // Tabbar (oculto — mantido para compat. RBAC)
+  const tabbar = document.getElementById('tabbar');
+  MenuRBAC.build(abasAutorizadas);
+
+  // Sidebar: mostrar e construir grupos
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.style.display = '';
+  if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
+
+  // 3. Garantir que painéis de conteúdo não-autorizados ficam ocultos
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.remove('active');
+    el.style.display = '';
+  });
+
+  // 4. Navegar para primeira aba autorizada
+  const first = MenuRBAC.firstAllowed(abasAutorizadas);
+  if (_showTabOrig) {
+    _showTabOrig(first);
+    MenuRBAC.activate(first); // também chama sidebarActivate()
+  }
+  // Construir sidebar agrupada e activar item inicial
+  if (typeof buildGroupedTabbar === 'function') buildGroupedTabbar();
+  if (typeof sidebarActivate === 'function') sidebarActivate(first);
+}
+
+/* ── Logoff ── */
+function doLogout() {
+  if (!confirm('Deseja sair?')) return;
+  dbLog(`Logout: ${SESSION?.user}`);
+  SESSION = null;
+  location.reload();
+}
+
+/* ── Admin sub-tabs ── */
+function admTab(t) {
+  ['usuarios','novo','logs','banco'].forEach(p => {
+    document.getElementById('admpanel-'+p).style.display = p===t ? '' : 'none';
+    const btn = document.getElementById('admtab-'+p);
+    if (btn) { btn.style.borderBottomColor = p===t?'var(--accent)':'transparent'; btn.style.color = p===t?'var(--accent)':'var(--muted)'; }
+  });
+  if (t==='logs') renderLogs();
+  if (t==='banco') renderDbStatus();
+}
+
+function openAdmin() {
+  if (!SESSION||SESSION.role!=='master') return;
+  renderAdminUsers(); renderNewUserTabs(); admTab('usuarios');
+  document.getElementById('admin-modal').classList.add('open');
+}
+function closeAdmin() { document.getElementById('admin-modal').classList.remove('open'); }
+
+function renderAdminUsers() {
+  const users = _USERS_CACHE;
+  const el = document.getElementById('admin-users-list');
+  if (!users.length) { el.innerHTML='<p style="color:var(--muted);font-size:12px">Nenhum usuário.</p>'; return; }
+  el.innerHTML = users.map((u,i) => `
+    <div class="admin-user-row">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;color:var(--text)">${u.user}</span>
+          <span style="background:${u.role==='master'?'#00C9A722':'var(--border)33'};color:${u.role==='master'?'var(--accent)':'var(--muted)'};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600">${u.role==='master'?'★ master':'usuário'}</span>
+          <span style="font-size:10px;color:var(--muted)">criado ${u.criado||'—'}</span>
+        </div>
+        ${u.role!=='master'?`<button onclick="adminDel(${i})" style="background:#e74c3c18;color:#e74c3c;border:1px solid #e74c3c33;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 Remover</button>`:''}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600">Abas liberadas:</div>
+      <div class="tab-check-grid">
+        ${ABAS.map(a=>`<label class="tab-check"><input type="checkbox" ${u.abas.includes(a.id)?'checked':''} ${u.role==='master'?'disabled':''} onchange="adminToggleAba(${i},'${a.id}',this.checked)">${a.label}</label>`).join('')}
+      </div>
+      ${u.role!=='master'?`<div style="margin-top:8px;display:flex;gap:7px;align-items:center">
+        <input id="rp${i}" type="password" placeholder="Nova senha..." style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;width:160px">
+        <button onclick="adminResetPass(${i})" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">🔑 Alterar senha</button>
+        <button onclick="adminEditApiKey(${i})" style="background:var(--panel);color:#4285f4;border:1px solid #4285f444;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">☁ ${u.driveApiKey ? 'Drive ✓' : 'Def. Drive Key'}</button>
+      </div>`:''}
+    </div>`).join('');
+}
+
+function renderNewUserTabs() {
+  document.getElementById('new-u-tabs').innerHTML = ABAS.map(a=>
+    `<label class="tab-check"><input type="checkbox" value="${a.id}" checked>${a.label}</label>`).join('');
+}
+
+function renderLogs() {
+  const el = document.getElementById('admin-logs'); if (!el) return;
+  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+  el.innerHTML = logs.length
+    ? logs.slice(0,20).map(l=>`<div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)22;display:flex;gap:10px"><span style="color:var(--accent);font-family:monospace;white-space:nowrap">${l.ts}</span><span style="color:var(--muted)">${l.msg}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:11px;padding:12px 0">Nenhum registro ainda.</div>';
+}
+
+function renderDbStatus() {
+  const users = _USERS_CACHE;
+  const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
+  const ghInfo = cfg
+    ? '<div style="margin-top:8px;background:var(--accent)11;border:1px solid var(--accent)33;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">☁ GitHub Ativo</div><div style="font-size:11px;color:var(--muted)">Repo: <strong style="color:var(--text)">' + cfg.owner + '/' + cfg.repo + '</strong></div><div style="font-size:11px;color:var(--muted)">Arquivo: <code style="background:var(--card);padding:1px 4px;border-radius:3px">nuvyon_banco.json</code></div></div>'
+    : '<div style="margin-top:8px;background:#f39c1211;border:1px solid #f39c1233;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:#f39c12;margin-bottom:4px">💾 Modo Local</div><div style="font-size:11px;color:var(--muted)">Banco armazenado apenas neste navegador.</div></div>';
+  document.getElementById('db-status').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + users.length + '</div><div style="font-size:11px;color:var(--muted)">usuários</div></div>' +
+    '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + logs.length + '</div><div style="font-size:11px;color:var(--muted)">eventos</div></div>' +
+    '</div>' + ghInfo;
+}
+
+function adminToggleAba(idx, abaId, checked) {
+  const users = _USERS_CACHE;
+  if (!users[idx]) return;
+  if (checked) { if (!users[idx].abas.includes(abaId)) users[idx].abas.push(abaId); }
+  else users[idx].abas = users[idx].abas.filter(a=>a!==abaId);
+  dbSave(users).then(() => dbLog('Aba "' + abaId + '" ' + (checked?'liberada para':'removida de') + ' ' + users[idx].user));
+}
+
+function adminDel(idx) {
+  const users = _USERS_CACHE;
+  if (!users[idx]||users[idx].role==='master') return;
+  if (!confirm('Remover "' + users[idx].user + '"?')) return;
+  const nome = users[idx].user;
+  users.splice(idx,1);
+  dbSave(users).then(() => { dbLog('Usuário removido: ' + nome); renderAdminUsers(); });
+}
+
+async function adminResetPass(idx) {
+  const users = _USERS_CACHE;
+  const inp = document.getElementById('rp'+idx);
+  if (!inp?.value.trim()) { showAdminMsg('❌ Digite a nova senha'); return; }
+  users[idx].hash = await sha256(inp.value);
+  showAdminMsg('💾 Salvando...');
+  await dbSave(users); inp.value='';
+  dbLog('Senha alterada: ' + users[idx].user);
+  showAdminMsg('✅ Senha alterada e sincronizada!');
+}
+
+async function adminAddUser() {
+  const u = (document.getElementById('new-u-user').value||'').trim().toLowerCase();
+  const p = (document.getElementById('new-u-pass').value||'').trim();
+  if (!u||!p) { showAdminMsg('❌ Preencha usuário e senha'); return; }
+  if (u.length < 3) { showAdminMsg('❌ Usuário muito curto'); return; }
+  if (p.length < 4) { showAdminMsg('❌ Senha muito curta (mín. 4)'); return; }
+  const users = _USERS_CACHE;
+  if (users.find(x=>x.user===u)) { showAdminMsg('❌ Usuário já existe'); return; }
+  const abas   = Array.from(document.querySelectorAll('#new-u-tabs input:checked')).map(el=>el.value);
+  const apiKey = ((document.getElementById('new-u-apikey')||{}).value||'').trim();
+  if (!abas.length) { showAdminMsg('❌ Selecione ao menos uma aba'); return; }
+  users.push({ user:u, hash: await sha256(p), abas, role:'user', driveApiKey: apiKey, criado: new Date().toLocaleString('pt-BR') });
+  showAdminMsg('💾 Salvando no GitHub...');
+  await dbSave(users);
+  dbLog('Criado: ' + u + ' | abas: ' + abas.join(', '));
+  document.getElementById('new-u-user').value='';
+  document.getElementById('new-u-pass').value='';
+  const _ak=document.getElementById('new-u-apikey'); if(_ak)_ak.value='';
+  renderAdminUsers(); renderNewUserTabs();
+  admTab('usuarios');
+  showAdminMsg('✅ Usuário criado e sincronizado!');
+}
+
+function showAdminMsg(msg) {
+  ['admin-msg','admin-msg2'].forEach(id => {
+    const el = document.getElementById(id); if (el) { el.textContent=msg; setTimeout(()=>el.textContent='',3500); }
+  });
+}
+
+/* ── Export / Import banco ── */
+async function dbExport() {
+  const users = _USERS_CACHE.length ? _USERS_CACHE : JSON.parse(localStorage.getItem(DB_KEY)||'[]');
+  const data = { users, logs: JSON.parse(localStorage.getItem('nuvyon_logs')||'[]'), ts: new Date().toLocaleString('pt-BR') };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download = 'nuvyon_banco_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); dbLog('Banco exportado');
+}
+function dbImport() {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    new FileReader().onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
+        const master = dbLoad().find(u=>u.role==='master');
+        const importados = data.users.filter(u=>u.role!=='master');
+        dbSave(master ? [master,...importados] : importados);
+        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
+        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
+        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
+      } catch { alert('Erro ao ler arquivo.'); }
+    };
+    const reader = new FileReader(); reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.users)) { alert('Arquivo inválido.'); return; }
+        const master = dbLoad().find(u=>u.role==='master');
+        const importados = data.users.filter(u=>u.role!=='master');
+        dbSave(master ? [master,...importados] : importados);
+        if (data.logs) localStorage.setItem('nuvyon_logs', JSON.stringify(data.logs));
+        dbLog('Banco importado'); renderAdminUsers(); renderDbStatus();
+        showAdminMsg(`✅ ${importados.length} usuário(s) importado(s)!`);
+      } catch { alert('Erro ao ler arquivo.'); }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+
+/* ── Diagnóstico e reset de banco (visível na tela de login) ── */
+function loginDiag() {
+  var diag = document.getElementById('login-diag');
+  if (!diag) return;
+  diag.style.display = diag.style.display === 'block' ? 'none' : 'block';
+  if (diag.style.display === 'none') return;
+  var users = _USERS_CACHE;
+  var local = [];
+  try { local = JSON.parse(localStorage.getItem('nuvyon_users_v2')||'[]'); } catch(e) {}
+  var linhas = [
+    '<strong>Cache (' + users.length + ' usuário(s)):</strong>',
+    users.length ? users.map(function(u){ return '&nbsp;• ' + u.user + ' [' + (u.role||'user') + ']'; }).join('<br>') : '<span style="color:var(--red)">VAZIO — clique ⚠ Resetar</span>',
+    '<br><strong>localStorage:</strong> ' + local.length + ' usuário(s)',
+    '<br><em style="color:var(--muted)">Senha não funciona? Clique ⚠ Resetar.</em>',
+  ];
+  diag.innerHTML = linhas.join('<br>');
 }
 
 async function loginReset() {
-  const nova = prompt("RESETAR ACESSO\nNova senha para 'eric':");
-  if (!nova) return;
-  const h = await sha256(nova.trim());
-  const novosDados = { users: [{ user: 'eric', hash: h, role: 'master', abas: ABAS.map(a=>a.id) }] };
-  try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(novosDados))));
-    const res = await fetch(`${IA_WORKER}?tipo=gh-db`, {
-      method: 'POST',
-      body: JSON.stringify({ content, sha: GH_SHA })
-    });
-    if (res.ok) { alert("✅ Senha gravada na nuvem!"); location.reload(); }
-  } catch (e) { alert("❌ Erro: " + e.message); }
+  const novaSenha = prompt('RESETAR ACESSO\n\nNova senha para "eric":');
+  if (!novaSenha || !novaSenha.trim()) return;
+  const hash = await sha256(novaSenha.trim());
+  const newUsers = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
+  _USERS_CACHE = newUsers;
+  localStorage.setItem('nuvyon_users_v2', JSON.stringify(newUsers));
+  const errEl = document.getElementById('login-err');
+  if (errEl) { errEl.style.color = 'var(--accent)'; errEl.textContent = '✅ Redefinida! eric / ' + novaSenha.trim(); }
+  const userEl = document.getElementById('login-user');
+  if (userEl) userEl.value = 'eric';
 }
 
-// ── CAMADA 3: INTERFACE E IA ──
-function iaMsg(tipo, texto) {
-  const chat = document.getElementById('ia-chat');
-  if (!chat) return;
-  const div = document.createElement('div');
-  div.style.padding = '10px'; div.style.borderRadius = '10px'; div.style.marginBottom = '10px';
-  div.style.fontSize = '12px'; div.style.maxWidth = '85%';
-  div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
-  div.style.color = tipo === 'user' ? '#000' : '#fff';
-  div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
-  div.textContent = texto;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
+/* ══════════════════════════════════════════════════════════════
+   NUVYON — PERSISTÊNCIA DE RELATÓRIOS NO GITHUB
+   Salva os dados brutos (CSV rows) em nuvyon_relatorios.json
+   no mesmo repositório do banco de usuários.
+   • Todos que acessarem a página carregam automaticamente
+   • Só o usuário com config GitHub pode sobrescrever
+══════════════════════════════════════════════════════════════ */
+// arquivo principal
 
-function toggleIA() {
-  const box = document.getElementById('ia-box');
-  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
-}
+// Arquivos individuais por slot (nome fixo no repo → sobrescreve ao re-upload)
 
-async function iaPergunta() {
-  const inp = document.getElementById('ia-input');
-  const txt = inp.value.trim();
-  if(!txt) return;
-  inp.value = ''; iaMsg('user', txt);
-  const loading = iaMsg('bot', '⏳ Analisando...');
-  try {
-    const res = await fetch(`${IA_WORKER}?tipo=gemini`, {
-      method: 'POST',
-      body: JSON.stringify({ prompt: txt })
-    });
-    const data = await res.json();
-    loading.remove();
-    iaMsg('bot', data.content[0].text);
-  } catch (e) { loading.textContent = '❌ Erro na IA.'; }
-}
 
-// ── CAMADA 4: SINCRONIA DE DADOS HUBSOFT ──
-function ghApplySlot(key, rows) {
-  if (!rows || !Array.isArray(rows)) return;
-  if      (key === 'os')     STATE.rawOS = rows;
-  else if (key === 'at')     STATE.rawAT = rows;
-  else if (key === 'sac')    STATE.rawSAC = rows;
-  else if (key === 'osab')   { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
-  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
-  STATE.loaded[key] = true;
-  const slot = document.getElementById(`slot-${key}`);
-  if(slot) slot.classList.add('ok');
-}
 
-async function sincronizarTudoHubsoft() {
-  const jobs = [
-    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
-    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
-    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
-    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
-  ];
-  for (const j of jobs) {
-    try {
-      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
-      const dados = await res.json();
-      ghApplySlot(j.k, dados);
-    } catch (e) { console.error("Erro no job " + j.k); }
+
+
+
+
+/* ── Processar STATE após restauração (reprocessa igual ao aplicarDados) ── */
+function _processRestoredState() {
+  if (STATE.rawOS) {
+    const r = processOS(STATE.rawOS);
+    STATE.tecnicos = r.tecnicos; STATE.clientes = r.clientes;
+    STATE.totais.total_os = r.total_os; STATE.totais.reinc_os = r.reinc_os; STATE.totais.incons = r.incons;
   }
-  if (typeof _processRestoredState === 'function') _processRestoredState();
+  if (STATE.rawSAC) {
+    const r = processSAC(STATE.rawSAC);
+    STATE.agentes = r.agentes; STATE.totais.total_sac = r.total_sac; STATE.sacRows = r.rows;
+  }
+  if (STATE.rawAT)  STATE.totais.total_at = STATE.rawAT.length;
+  if (STATE.rawNPS) STATE.npsData = processNPS(STATE.rawNPS);
+  if (STATE.rawProd) STATE.prodData = processProdutividade(STATE.rawProd);
+  if (STATE.rawAgentes) {
+    STATE.agenteMap  = NPSIntelligence.buildAgenteMap(STATE.rawAgentes);
+    STATE.agentesMap = (() => {
+      const m = new Map();
+      STATE.rawAgentes.forEach(r => {
+        const cod  = String(r['Cod.']||r['Cod']||r['cod']||r['COD']||'').trim();
+        const nome = String(r['Agente']||r['agente']||r['AGENTE']||r['Nome']||r['nome']||'').trim();
+        if (!cod && !nome) return;
+        const nomeReal = nome || cod;
+        const nf = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+        const nn = window.normalize ? window.normalize(nomeReal) : nomeReal.toUpperCase().trim();
+        if (cod) { m.set(cod.trim(), nomeReal); m.set(nf(cod), nomeReal); }
+        m.set(nn, nomeReal); m.set(nf(nomeReal), nomeReal);
+        const pri = nn.split(' ')[0];
+        if (pri && pri.length > 2) m.set(nf(pri), nomeReal);
+      });
+      return m;
+    })();
+  }
+  if (STATE.rawSAC || STATE.rawAT) {
+    const cross = cruzarSACAtendimento(STATE.rawSAC, STATE.rawAT, {});
+    STATE.cruzados = cross.jornadas || []; STATE.protocoloLinks = cross.linked || [];
+  }
+  STATE.totais.clientes_risco = (STATE.clientes||[]).filter(c => c.risco !== 'Baixo').length;
+  // NPS ranking consolidado
+  STATE.rankingNPS = (() => {
+    let src;
+    if (STATE.rawNPS && STATE.agenteMap && Object.keys(STATE.agenteMap).length > 0) {
+      src = NPSIntelligence.processWithMap(STATE.rawNPS, STATE.agenteMap);
+      const out = {};
+      for (const [ag, v] of Object.entries(src)) out[ag] = { nps: v.nps, total: v.total, media: v.media };
+      return out;
+    }
+    src = STATE.npsData || {};
+    const out = {};
+    for (const [ag, v] of Object.entries(src)) {
+      const notas = Object.entries(v.dist||{}).flatMap(([n,c])=>Array(c).fill(parseInt(n)));
+      if (!notas.length) continue;
+      const tot = notas.length, pro = notas.filter(n=>n>=4).length, det = notas.filter(n=>n<=2).length;
+      out[ag] = { nps: Math.round((pro-det)/tot*100), total: tot, media: v.media };
+    }
+    return out;
+  })();
+  if (STATE.relatorioAnalitico && STATE.relatorioAnalitico.length > 0) {
+    STATE.sacFCR = SACEngine.fromState();
+  }
+  setTimeout(() => renderAll(), 50);
 }
 
-function openUpload() { document.getElementById('upload-overlay').classList.add('open'); }
-function closeUpload() { document.getElementById('upload-overlay').classList.remove('open'); }
-
-// INICIALIZAÇÃO
-window.addEventListener('load', () => { initDB(); });
 
 
+/* ── Auto-load na inicialização da página ────────────────────── */
 
 
+/* ═══════════════════════════════════════════════════════════════
+   RBAC v3.7 — Menu dinâmico gerado por JS baseado em SESSION.abas
+═══════════════════════════════════════════════════════════════ */
+const MenuRBAC = {
+  /** Reconstrói o #tabbar inteiro com base nas abas autorizadas */
+  build(abasAutorizadas) {
+    const tabbar = document.getElementById('tabbar');
+    if (!tabbar) return;
+    tabbar.innerHTML = '';
+    ABAS.forEach(aba => {
+      if (!abasAutorizadas.includes(aba.id)) return;
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.id = 'tab-' + aba.id;
+      btn.textContent = aba.label;
+      btn.onclick = () => window.showTab(aba.id);
+      tabbar.appendChild(btn);
+    });
+    // Botão logoff sempre no fim
+    const lo = document.createElement('button');
+    lo.className = 'tab-btn';
+    lo.id = 'tab-logoff';
+    lo.textContent = '🚪 Sair';
+    lo.title = 'Sair do sistema';
+    lo.style.cssText = 'margin-left:auto;color:#e74c3c;border-bottom-color:transparent';
+    lo.onclick = doLogout;
+    tabbar.appendChild(lo);
+  },
+  /** Ativa visualmente o botão da aba corrente (tabbar + sidebar) */
+  activate(id) {
+    // Tabbar legado
+    document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tab-' + id);
+    if (btn) btn.classList.add('active');
+    // Sidebar
+    if (typeof sidebarActivate === 'function') sidebarActivate(id);
+  },
+  /** Retorna a primeira aba autorizada */
+  firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
+};
 
+/* ── INIT: após TODO o JavaScript do app carregar ── */
+window.addEventListener('load', async () => {
+  await initDB();
+
+  // Capturar showTab ORIGINAL (definida no segundo <script>)
+  _showTabOrig = window.showTab;
+
+  // Substituir showTab por versão RBAC-aware
+  window.showTab = function(t) {
+    if (t === 'logoff') { doLogout(); return; }
+    if (!SESSION) return;
+    const abasOk = SESSION.role === 'master' ? ABAS.map(a => a.id) : (SESSION.abas || []);
+    if (!abasOk.includes(t)) return;
+    if (_showTabOrig) _showTabOrig(t);
+    MenuRBAC.activate(t);
+  };
+
+  // Ocultar tabbar inteiro até o login — será reconstruído pelo applySession
+  const tabbar = document.getElementById('tabbar');
+  if (tabbar) tabbar.style.display = 'none';
+});
 </script>
 
 <!-- TOP BAR (estreito) -->
@@ -572,28 +941,6 @@ window.addEventListener('load', () => { initDB(); });
 
 <!-- MAIN CONTENT -->
 <div id="main">
-/* ── FUNDAÇÃO DO SISTEMA ── */
-const ABAS = [
-  { id:'gestao',        label:'📊 Gestão Geral',       grupo:'gestao' },
-  { id:'clientes',      label:'🩺 Saúde do Cliente',   grupo:'gestao' },
-  { id:'gestor',        label:'⚖️ Gestor Justo',       grupo:'gestao' },
-  { id:'visao360',      label:'🔍 Visão 360',           grupo:'comercial' },
-  { id:'sac',           label:'🎧 Auditoria SAC',       grupo:'sac' },
-  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'sac' },
-  { id:'despacho',      label:'🚚 Logística',           grupo:'tecnica' },
-  { id:'infra',         label:'📡 Análise Infra',       grupo:'tecnica' },
-  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'tecnica' },
-  { id:'config',        label:'⚙️ Configurações',       grupo:'gestao' }
-];
-
-const ABA_GRUPOS = [
-  { id:'gestao',    label:'📊 Gestão',    icon:'📊', abas:['gestao','clientes','gestor','config'] },
-  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360'] },
-  { id:'sac',       label:'🎧 SAC',       icon:'🎧', abas:['sac','bonificacao'] },
-  { id:'tecnica',   label:'🔧 Técnica',   icon:'🔧', abas:['despacho','infra','campo'] }
-];
-
-
 
   <!-- ══════════ ABA GESTÃO ══════════ -->
   <div class="tab-content active" id="tab-content-gestao">
@@ -624,8 +971,6 @@ const ABA_GRUPOS = [
   </div>
   
   <!-- ══════════ ABA BI COMERCIAL ══════════ -->
-  
-  
   <!-- ══════════ ABA VISÃO 360 ══════════ -->
   <div class="tab-content" id="tab-content-visao360">
     <!-- UPLOAD -->
@@ -1028,6 +1373,11 @@ const ABA_GRUPOS = [
         </div>
         <div class="upload-slot-status" id="slot-npsTelefonia-icon">○</div>
       </div>
+      <!-- BI Comercial: CRM + Vendas Hubsoft -->
+<div class="upload-slot-status" id="slot-crm-icon">○</div>
+      </div>
+<div class="upload-slot-status" id="slot-vendas-icon">○</div>
+      </div>
       <div class="upload-slot" id="slot-kml" style="border-color:var(--accent)44;background:var(--accent)05">
         <input type="file" accept=".kml" onchange="handleFile('kml',this)">
         <div class="upload-slot-icon">🗺️</div>
@@ -1039,7 +1389,29 @@ const ABA_GRUPOS = [
         <div class="upload-slot-status" id="slot-kml-icon">○</div>
       </div>
     </div>
-    
+    </div></div><!-- /pane-manual -->
+    <div id="upload-pane-drive" style="display:none;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div id="drive-status-msg" style="font-size:11px;color:var(--muted);text-align:center;min-height:18px"></div>
+      <div id="drive-file-list"></div>
+      <div style="display:flex;gap:8px">
+        <input id="drive-api-key" type="password" placeholder="Google API Key (opcional — para listar pasta)" style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:monospace;outline:none">
+        <button onclick="driveScan()" id="drive-btn-scan" style="background:#4285f4;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">🔍 Escanear</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.5;padding:8px 10px;background:var(--panel);border-radius:6px;border-left:3px solid #4285f444">
+        Pasta: <strong>AR Telecom — Relatórios</strong> &nbsp;·&nbsp;
+        <a href="https://drive.google.com/drive/folders/1SGlZZyPglW181NBEHzxnUpOfXChUX6qR" target="_blank" style="color:#4285f4">Abrir no Drive ↗</a><br>
+        Sem API Key: os arquivos públicos são baixados diretamente. Com API Key: lista e importa tudo automaticamente.
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent);margin-left:4px">Obter chave →</a>
+      </div>
+    </div><!-- /pane-drive -->
+    <div id="upload-progress" style="color:var(--muted);font-size:12px;margin-bottom:10px;text-align:center"></div>
+    <div style="display:flex;gap:10px">
+      <button id="btn-drive-import-all" onclick="driveImportAll()" style="display:none;flex:1;background:#4285f4;color:#fff;border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px;cursor:pointer">☁ Importar Todos</button>
+      <button id="btn-aplicar" onclick="aplicarDados()" disabled style="flex:1;background:var(--border);color:var(--muted);border:none;border-radius:10px;padding:12px 0;font-weight:800;font-size:14px">Carregue ao menos 1 arquivo</button>
+      <button onclick="closeUpload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px 18px;font-weight:600;font-size:13px">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════ MODAL BOLETIM ══════ -->
 <div id="modal-overlay" onclick="closeModal(event)">
@@ -1609,16 +1981,6 @@ function readFileAsRows(file, opts={}) {
     }
   });
 }
-
-/* ── MOTOR DE IA GEMINI ── */
-
-
-function openUpload() {
-  const overlay = document.getElementById('upload-overlay');
-  if (overlay) overlay.classList.add('open');
-}
-
-
 
 /* ════════════════════════════════════════════════════════════════
    PARTE 2 — MOTOR DE PROCESSAMENTO OS
@@ -2252,55 +2614,14 @@ async function handleFile(tipo, input) {
     document.getElementById('upload-progress').textContent = `❌ Falha ao ler ${file.name}`;
   }
 
-   const anyLoaded = Object.values(pendingFiles).some(v => v !== null);
+  const anyLoaded = Object.values(pendingFiles).some(v => v !== null);
   const btn = document.getElementById('btn-aplicar');
-  
-  if (btn) {
-    btn.disabled = !anyLoaded;
-    if (anyLoaded) {
-      btn.style.background = 'var(--green)';
-      btn.style.color = '#fff';
-      const total = Object.values(pendingFiles).filter(v => v !== null).length;
-      btn.textContent = `✅ Aplicar ${total} arquivo(s) locais`;
-    } else {
-      btn.style.background = 'var(--border)';
-      btn.textContent = 'Carregue ao menos 1 arquivo';
-    }
-  }
+  btn.disabled = !anyLoaded;
+  btn.style.background = anyLoaded ? 'var(--accent)' : 'var(--border)';
+  btn.style.color = anyLoaded ? '#000' : 'var(--muted)';
+  const count = Object.values(pendingFiles).filter(v => v !== null).length;
+  btn.textContent = anyLoaded ? `✅ Aplicar ${count} arquivo${count>1?'s':''}` : 'Carregue ao menos 1 arquivo';
 }
-
-/* ── NOVA FUNÇÃO: BUSCA DIRETA NO HUBSOFT ── */
-async function sincronizarAPI(tipo, endpoint) {
-  const statusEl = document.getElementById(`slot-${tipo}-name`);
-  if(statusEl) statusEl.textContent = '🔄 Conectando API...';
-
-  try {
-    const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${endpoint}`);
-    const dados = await res.json();
-    
-    // Alimenta a memória RAM (O seu STATE)
-    ghApplySlot(tipo, dados);
-    
-    if(statusEl) {
-      statusEl.style.color = 'var(--green)';
-      statusEl.textContent = `✅ Sincronizado (${dados.length} linhas)`;
-      document.getElementById(`slot-${tipo}-icon`).textContent = '✅';
-    }
-    atualizarBotaoAplicarAposAPI(); // Avisa que já tem dados
-  } catch (e) {
-    if(statusEl) statusEl.textContent = '❌ Falha na API';
-  }
-}
-
-function atualizarBotaoAplicarAposAPI() {
-    const btn = document.getElementById('btn-aplicar');
-    if(btn) {
-        btn.disabled = false;
-        btn.style.background = 'var(--accent)';
-        btn.textContent = '✅ Dados prontos! Clique para Aplicar';
-    }
-}
-
 
 function aplicarDados() {
   document.getElementById('upload-progress').textContent = '⚙ Processando dados...';
@@ -9477,82 +9798,221 @@ function sinalClass(s) {
 }
 
 
+/* ════════════════════════════════════════════════
+   DRIVE UPLOAD v1.2 — pasta pública Google Drive
+════════════════════════════════════════════════ */
+var DRIVE_FOLDER_ID = '1SGlZZyPglW181NBEHzxnUpOfXChUX6qR';
+var DRIVE_MAP = [
+  {r:/relatorio-de-ordens-de-servico(?!.*abertas)/i, tipo:'os',           icon:'🔧', label:'OS Técnicas'},
+  {r:/relatorio-de-atendimentos/i,                   tipo:'at',           icon:'📋', label:'Atendimentos HubSoft'},
+  {r:/relatorio_atendimento_analitico|matrix/i,      tipo:'matrix',       icon:'🏅', label:'Matrix Analítico'},
+  {r:/relatorio-de-ordens.*abertas/i,                tipo:'osab',         icon:'🚫', label:'OS Abertas'},
+  {r:/relatorio_de_produtividade/i,                  tipo:'prod',         icon:'📊', label:'Produtividade'},
+  {r:/detalhamento_de_pesquisa(?!.*fone)/i,          tipo:'nps',          icon:'⭐', label:'NPS Chat'},
+  {r:/detalhamento.*fone|fone.*pesquisa/i,           tipo:'npsTelefonia', icon:'📞', label:'NPS Telefonia'},
+  {r:/sinais|RelatórioSinais/i,                      tipo:'sinais',       icon:'📡', label:'Sinais ONU'},
+  {r:/8agente|agente.*csv/i,                         tipo:'agentes',      icon:'👥', label:'Agentes SAC'},
+  {r:/clientes.*\.kml|\.kml$/i,                      tipo:'kml',          icon:'🗺',  label:'Clientes KML'},
+];
+var _driveFiles = [], _driveMatched = {};
 
-/* ── MOTOR DE INTERFACE E DADOS v5.0 (CONSOLIDADO) ── */
-
-// 1. Faz o chat da IA funcionar e evita erro 'iaMsg is not defined'
-function iaMsg(tipo, texto) {
-  const chat = document.getElementById('ia-chat');
-  if (!chat) return { remove: () => {} };
-  const div = document.createElement('div');
-  div.style.padding = '10px';
-  div.style.borderRadius = '10px';
-  div.style.marginBottom = '10px';
-  div.style.fontSize = '12px';
-  div.style.background = tipo === 'user' ? 'var(--accent)' : 'var(--border)';
-  div.style.color = tipo === 'user' ? '#000' : '#fff';
-  div.style.alignSelf = tipo === 'user' ? 'flex-end' : 'flex-start';
-  div.textContent = texto;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
+function uploadSetTab(tab) {
+  var pM = document.getElementById('upload-pane-manual');
+  var pD = document.getElementById('upload-pane-drive');
+  var bM = document.getElementById('upload-tab-manual');
+  var bD = document.getElementById('upload-tab-drive');
+  var bA = document.getElementById('btn-drive-import-all');
+  var bP = document.getElementById('btn-aplicar');
+  var ON  = {background:'var(--card)',  borderColor:'var(--border)', color:'var(--text)',  fontWeight:'700'};
+  var OFF = {background:'transparent',  borderColor:'transparent',   color:'var(--muted)', fontWeight:'600'};
+  if (tab === 'drive') {
+    if(pM) pM.style.display='none'; if(pD) pD.style.display='flex';
+    if(bM) Object.assign(bM.style, OFF); if(bD) Object.assign(bD.style, ON);
+    if(bA) bA.style.display='flex'; if(bP) bP.style.display='none';
+    if (_driveFiles.length === 0) driveScan();
+  } else {
+    if(pM) pM.style.display='block'; if(pD) pD.style.display='none';
+    if(bM) Object.assign(bM.style, ON); if(bD) Object.assign(bD.style, OFF);
+    if(bA) bA.style.display='none'; if(bP) bP.style.display='flex';
+  }
 }
 
-// 2. Faz o botão "Carregar Dados" abrir o painel
-function openUpload() {
-  const overlay = document.getElementById('upload-overlay');
-  if (overlay) overlay.classList.add('open');
+
+
+function driveScan() {
+  var sEl = document.getElementById('drive-status-msg');
+  var lEl = document.getElementById('drive-file-list');
+  var btn = document.getElementById('drive-btn-scan');
+  var key = (document.getElementById('drive-api-key')||{}).value||'';
+  key = key.trim();
+  if(sEl) sEl.textContent = '🔄 Buscando arquivos na pasta…';
+  if(lEl) lEl.innerHTML = '';
+  if(btn) { btn.disabled=true; btn.textContent='⏳'; }
+
+  var q   = "'" + DRIVE_FOLDER_ID + "' in parents and trashed=false";
+  var fld = 'files(id,name,size,modifiedTime)';
+  var url = 'https://www.googleapis.com/drive/v3/files'
+          + '?q=' + encodeURIComponent(q)
+          + '&fields=' + encodeURIComponent(fld)
+          + '&pageSize=50'
+          + (key ? '&key=' + encodeURIComponent(key) : '');
+
+  fetch(url)
+    .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('Drive '+r.status+': '+t.slice(0,100));}); return r.json(); })
+    .then(function(d){
+      _driveFiles = d.files||[]; _driveMatched = {};
+      _driveFiles.forEach(function(f){
+        for(var i=0;i<DRIVE_MAP.length;i++){
+          if(DRIVE_MAP[i].r.test(f.name)){
+            var t=DRIVE_MAP[i].tipo;
+            if(!_driveMatched[t]||f.modifiedTime>_driveMatched[t].modifiedTime)
+              _driveMatched[t]=Object.assign({},f,{_m:DRIVE_MAP[i]});
+            break;
+          }
+        }
+      });
+      var n=Object.keys(_driveMatched).length;
+      if(sEl) sEl.innerHTML='<span style="color:var(--green)">✅ '+_driveFiles.length+' arquivos · '+n+' identificados</span>';
+      driveRenderList(key);
+    })
+    .catch(function(e){
+      console.error(e);
+      if(sEl) sEl.innerHTML='<span style="color:var(--red)">❌ '+e.message+'</span>'
+        +'<br><span style="font-size:10px;color:var(--muted)">Sem API Key a listagem exige que a pasta permita acesso via API. Tente adicionar uma Google API Key.</span>';
+    })
+    .finally(function(){ if(btn){btn.disabled=false;btn.textContent='🔍 Escanear';} });
 }
 
-function closeUpload() {
-  const overlay = document.getElementById('upload-overlay');
-  if (overlay) overlay.classList.remove('open');
-}
+function driveRenderList(key) {
+  var lEl = document.getElementById('drive-file-list');
+  if(!lEl) return;
+  key = key||'';
+  var rows = DRIVE_MAP.filter(function(m){return _driveMatched[m.tipo];});
+  var unmap = _driveFiles.filter(function(f){return !DRIVE_MAP.some(function(m){return m.r.test(f.name);});});
+  var div, wrap = document.createDocumentFragment();
 
-// 3. Ponte de Dados: Salva o que vem da API na memória RAM (STATE)
-function ghApplySlot(key, rows) {
-  if (!rows || !Array.isArray(rows)) return;
-  
-  if (key === 'os') STATE.rawOS = rows;
-  else if (key === 'at') STATE.rawAT = rows;
-  else if (key === 'sac') STATE.rawSAC = rows;
-  else if (key === 'osab') { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; }
-  else if (key === 'matrix') STATE.relatorioAnalitico = rows;
-  
-  STATE.loaded[key] = true;
-  console.log(`📥 Gaveta "${key}" preenchida.`);
-}
+  rows.forEach(function(m){
+    var f = _driveMatched[m.tipo];
+    var sNm = document.getElementById('slot-'+m.tipo+'-name');
+    var loaded = sNm && sNm.textContent && sNm.textContent!=='Nenhum arquivo';
 
-// 4. Sincronizador Automático Hubsoft (Busca direto no Worker)
-async function sincronizarTudoHubsoft() {
-  const loading = iaMsg('bot', '🔄 Sincronizando dados com o Hubsoft via Cloudflare...');
-  
-  const jobs = [
-    { k: 'os', ep: '/api/v1/ordem-servico/relatorio' },
-    { k: 'at', ep: '/api/v1/atendimento/atendimentos' },
-    { k: 'sac', ep: '/api/v1/atendimento/sac/chat' },
-    { k: 'osab', ep: '/api/v1/ordem-servico/abertas' }
-  ];
+    div = document.createElement('div');
+    div.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px';
+    div.innerHTML =
+      '<span style="font-size:18px">'+m.icon+'</span>'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+f.name.replace(/"/g,'&quot;')+'">'+f.name+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">'+m.label+(f.size?' · '+_driveFmt(f.size):'')+'</div>'
+        +'<div id="ds-'+m.tipo+'" style="font-size:10px;margin-top:2px;color:'+(loaded?'var(--green)':'var(--muted)');'">'+(loaded?'✅ Já carregado':'○ Não carregado')+'</div>'
+      +'</div>'
+      +'<button id="dib-'+m.tipo+'" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">⬇ Importar</button>';
+    // Attach click handler without inline string interpolation
+    (function(fileId, fname, tipo, apiKey){
+      div.querySelector('button').addEventListener('click', function(){
+        driveImport(fileId, fname, tipo, apiKey);
+      });
+    })(f.id, f.name, m.tipo, key);
+    wrap.appendChild(div);
+  });
 
-  for (const j of jobs) {
-    try {
-      const res = await fetch(`${IA_WORKER}?tipo=hubsoft&endpoint=${j.ep}`);
-      const dados = await res.json();
-      ghApplySlot(j.k, dados);
-      
-      // Atualiza visual do check verde
-      const slot = document.getElementById(`slot-${j.k}`);
-      if(slot) slot.classList.add('ok');
-    } catch (e) { console.error("Falha ao puxar " + j.k); }
+  if(unmap.length){
+    var det = document.createElement('details');
+    det.style.marginTop='6px';
+    det.innerHTML='<summary style="font-size:10px;color:var(--muted);cursor:pointer">Não identificados ('+unmap.length+')</summary>';
+    unmap.forEach(function(f){
+      var d2=document.createElement('div');
+      d2.style.cssText='font-size:10px;color:var(--muted);padding:4px 8px;margin-top:4px;background:var(--panel);border-radius:5px';
+      d2.textContent='📄 '+f.name;
+      det.appendChild(d2);
+    });
+    wrap.appendChild(det);
   }
 
-  // Desenha os gráficos na tela
-  if (typeof _processRestoredState === 'function') _processRestoredState();
-  
-  loading.remove();
-  iaMsg('bot', '✅ Dashboard atualizado com dados em tempo real do Hubsoft!');
-  closeUpload();
+  if(!rows.length){
+    var empty=document.createElement('div');
+    empty.style.cssText='color:var(--muted);text-align:center;padding:24px;font-size:12px';
+    empty.innerHTML='Nenhum arquivo identificado.<br><span style="font-size:10px">Verifique a pasta e tente novamente.</span>';
+    wrap.appendChild(empty);
+  }
+
+  lEl.innerHTML=''; lEl.appendChild(wrap);
 }
+
+function driveImport(fileId, filename, tipo, apiKey) {
+  var btnEl = document.getElementById('dib-'+tipo);
+  var stEl  = document.getElementById('ds-' +tipo);
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='⏳';}
+  if(stEl) stEl.innerHTML='<span style="color:var(--yellow)">⏳ Baixando…</span>';
+
+  var ext = filename.split('.').pop().toLowerCase();
+  var mimes = {
+    xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls:'application/vnd.ms-excel', csv:'text/csv',
+    kml:'application/vnd.google-earth.kml+xml'
+  };
+  var url = apiKey
+    ? 'https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&key='+encodeURIComponent(apiKey)
+    : 'https://drive.google.com/uc?export=download&id='+fileId+'&confirm=1';
+
+  fetch(url)
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+    .then(function(blob){
+      var mime=mimes[ext]||blob.type||'application/octet-stream';
+      return handleFile(tipo,{files:[new File([blob],filename,{type:mime})]});
+    })
+    .then(function(){
+      if(stEl)stEl.innerHTML='<span style="color:var(--green)">✅ Importado!</span>';
+      if(btnEl){btnEl.disabled=false;btnEl.textContent='✅';btnEl.style.background='var(--green)';}
+    })
+    .catch(function(e){
+      console.error('driveImport',tipo,e);
+      if(stEl)stEl.innerHTML='<span style="color:var(--red)">❌ '+e.message.slice(0,60)+'</span>';
+      if(btnEl){btnEl.disabled=false;btnEl.textContent='↺';}
+    });
+}
+
+function driveImportAll() {
+  var key = (document.getElementById('drive-api-key')||{}).value||'';
+  var tipos = Object.keys(_driveMatched);
+  if(!tipos.length){driveScan();return;}
+  var btn = document.getElementById('btn-drive-import-all');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Importando…';}
+  var i=0;
+  function next(){
+    if(i>=tipos.length){
+      if(btn){btn.disabled=false;btn.textContent='☁ Importar Todos';btn.style.background='#4285f4';}
+      setTimeout(function(){closeUpload();if(typeof aplicarDados==='function')aplicarDados();},800);
+      return;
+    }
+    var t=tipos[i++], f=_driveMatched[t];
+    driveImport(f.id,f.name,t,key);
+    setTimeout(next,400);
+  }
+  next();
+}
+
+
+
+/* ── Editar API Key Drive de um usuário (admin) ── */
+async function adminEditApiKey(idx) {
+  var users = _USERS_CACHE;
+  if (!users || !users[idx]) return;
+  var current = users[idx].driveApiKey || '';
+  var nova = window.prompt(
+    'Google API Key para "' + users[idx].user + '":\n'
+    + 'Esta chave será usada para carregar relatórios automaticamente no login.\n'
+    + '(deixe vazio para remover)',
+    current
+  );
+  if (nova === null) return;
+  users[idx].driveApiKey = nova.trim();
+  await dbSave(users);
+  renderAdminUsers();
+  var acao = nova.trim() ? 'configurada' : 'removida';
+  dbLog('Drive API Key ' + acao + ' para: ' + users[idx].user);
+  showAdminMsg('✅ Drive API Key ' + acao + ' para ' + users[idx].user);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BI COMERCIAL — Motor Inline (Nuvyon v5)
@@ -9606,6 +10066,7 @@ function buildSidebar(abasAutorizadas) {
     nav.appendChild(grpDiv);
   });
 }
+
 function sidebarActivate(id) {
   // Remover active de todos os sub-itens
   document.querySelectorAll('.sidebar-sub-item').forEach(function(el) {
@@ -9619,20 +10080,13 @@ function sidebarActivate(id) {
     var group = item.closest('.sidebar-group');
     if (group) group.classList.remove('collapsed');
   }
-} 
-
-
-// ── INICIALIZAÇÃO DO SISTEMA ──
-// Esta parte avisa o navegador para rodar o initDB assim que a página carregar
-window.addEventListener('load', () => {
-  initDB(); // Abre a conexão com o Worker/Nuvem
-});
-
+}
 </script>
 
 <!-- ═══════════════ MODAL CLIENTE ═══════════════ -->
 <div id="cli-modal-overlay" onclick="closeClienteModal(event)" style="display:none;position:fixed;inset:0;background:#000a;z-index:3000;overflow-y:auto;padding:24px 16px">
   <div id="cli-modal-box" style="background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:760px;margin:0 auto;padding:0;overflow:hidden">
+    <!-- Header -->
     <div id="cli-modal-header" style="background:var(--card);padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Ficha do Cliente</div>
@@ -9644,32 +10098,21 @@ window.addEventListener('load', () => {
         <button onclick="document.getElementById('cli-modal-overlay').style.display='none'" style="background:var(--border);border:none;color:var(--muted);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px">✕</button>
       </div>
     </div>
+    <!-- KPIs -->
     <div id="cli-modal-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)"></div>
+    <!-- Tabs -->
     <div style="display:flex;gap:0;background:var(--card);border-bottom:1px solid var(--border)">
-      <button id="ctab-hist" onclick="showCliTab('hist')" class="modal-tab active" style="flex:1;padding:11px;font-size:12px;font-weight:700">📋 Atendimentos</button>
-      <button id="ctab-analise" onclick="showCliTab('analise')" class="modal-tab" style="flex:1;padding:11px;font-size:12px;font-weight:700">🧠 Análise</button>
+      <button id="ctab-hist" onclick="showCliTab('hist')" class="modal-tab active" style="flex:1;padding:11px;font-size:12px;font-weight:700">📋 Últimos Atendimentos</button>
+      <button id="ctab-analise" onclick="showCliTab('analise')" class="modal-tab" style="flex:1;padding:11px;font-size:12px;font-weight:700">🧠 Análise e Ação</button>
     </div>
-    <div id="cpane-hist" style="padding:18px;display:block"><div id="cli-hist-content"></div></div>
-    <div id="cpane-analise" style="padding:18px;display:none"><div id="cli-analise-content"></div></div>
-  </div>
-</div>
-
-<!-- ═══════════════ IA NUVYON (Versão Única) ═══════════════ -->
-<button id="ia-toggle" onclick="toggleIA()" style="display:none; position:fixed; bottom:20px; right:20px; z-index:9999; background:var(--accent); color:#000; border:none; padding:12px 22px; border-radius:50px; font-weight:800; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.4); display:flex; align-items:center; gap:8px;">
-  🤖 IA NUVYON
-</button>
-
-<div id="ia-box" style="display:none; position:fixed; bottom:80px; right:20px; width:360px; height:500px; background:var(--panel); border:1px solid var(--border); border-radius:16px; flex-direction:column; z-index:9998; box-shadow:0 10px 40px rgba(0,0,0,0.6); overflow:hidden;">
-  <div style="background:var(--card); padding:15px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-    <div style="font-weight:800; color:var(--accent); font-size:14px;">🧠 Analista Nuvyon v5.0</div>
-    <button onclick="toggleIA()" style="background:transparent; border:none; color:var(--muted); cursor:pointer;">✕</button>
-  </div>
-  <div id="ia-chat" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:10px; font-size:13px;">
-    <!-- Mensagens do chat aqui -->
-  </div>
-  <div style="padding:15px; border-top:1px solid var(--border); background:var(--card); display:flex; gap:8px;">
-    <input id="ia-input" type="text" placeholder="Pergunte sobre os KPIs..." style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; color:var(--text); outline:none;">
-    <button onclick="iaPergunta()" style="background:var(--accent); border:none; border-radius:8px; padding:10px 15px; font-weight:800;">➤</button>
+    <!-- Pane: Histórico -->
+    <div id="cpane-hist" style="padding:18px;display:block">
+      <div id="cli-hist-content"></div>
+    </div>
+    <!-- Pane: Análise -->
+    <div id="cpane-analise" style="padding:18px;display:none">
+      <div id="cli-analise-content"></div>
+    </div>
   </div>
 </div>
 
