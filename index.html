@@ -10201,7 +10201,6 @@ function buildSidebar(abasAutorizadas) {
     nav.appendChild(grpDiv);
   });
 }
-
 function sidebarActivate(id) {
   // Remover active de todos os sub-itens
   document.querySelectorAll('.sidebar-sub-item').forEach(function(el) {
@@ -10215,9 +10214,7 @@ function sidebarActivate(id) {
     var group = item.closest('.sidebar-group');
     if (group) group.classList.remove('collapsed');
   }
-}
-if (group) group.classList.remove('collapsed');
-  }
+} 
 
 
 // ── INICIALIZAÇÃO DO SISTEMA ──
