@@ -463,28 +463,36 @@ async function iaPergunta() {
 // --- 5. LOGIN E SESSÃO (RBAC + AUTO-SYNC) ---
 async function applySession() {
   if (!SESSION) return;
+  console.log("🚀 Iniciando interface para:", SESSION.user);
 
-  // Badge do Usuário (Sua lógica v3.7)
-  let badge = document.getElementById('user-badge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'user-badge';
-    badge.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;';
-    document.querySelector('#topbar > div:last-child').insertBefore(badge, document.querySelector('#topbar > div:last-child').firstChild);
+  try {
+    // 1. Mostra o botão da IA IMEDIATAMENTE (antes de qualquer outro erro)
+    const btnIA = document.getElementById('ia-toggle');
+    if (btnIA) btnIA.style.display = 'flex';
+
+    // 2. Define o que o usuário pode ver
+    // Se for master vê tudo, se não, vê só o que está no banco
+    const idsAutorizados = SESSION.role === 'master' 
+      ? ABAS.map(a => a.id) 
+      : (SESSION.abas || []);
+
+    // 3. Constrói a Sidebar (Onde estavam dando os erros)
+    if (typeof buildSidebar === 'function') {
+      buildSidebar(idsAutorizados);
+    }
+    
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.style.display = 'flex';
+
+    // 4. Vai para a aba inicial
+    showTab('gestao');
+
+    // 5. Avisa a IA para começar a trabalhar
+    iaMsg('bot', `Olá ${SESSION.user}, estou pronta! Os dados demo já estão na tela, clique em Sincronizar para buscar dados reais.`);
+
+  } catch (e) {
+    console.error("❌ Erro ao montar interface:", e.message);
   }
-  const isMaster = SESSION.role === 'master';
-  badge.innerHTML = `👤 <strong>${SESSION.user}</strong> ${isMaster ? '<span style="background:var(--accent);color:#000;padding:1px 4px;border-radius:4px;font-size:9px">MASTER</span>' : ''}`;
-
-  // Ativa Interface
-  const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
-  if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
-  document.getElementById('sidebar').style.display = 'flex';
-  document.getElementById('ia-toggle').style.display = 'flex'; // LIGA O BOTÃO DA IA
-  
-  showTab('gestao');
-  
-  // Sincronização Automática ao entrar
-  sincronizarTudoHubsoft(); 
 }
 
 // 2. Função para abrir o painel de Upload
@@ -1189,6 +1197,28 @@ window.addEventListener('load', async () => {
 
 <!-- MAIN CONTENT -->
 <div id="main">
+/* ── FUNDAÇÃO DO SISTEMA ── */
+const ABAS = [
+  { id:'gestao',        label:'📊 Gestão Geral',       grupo:'gestao' },
+  { id:'clientes',      label:'🩺 Saúde do Cliente',   grupo:'gestao' },
+  { id:'gestor',        label:'⚖️ Gestor Justo',       grupo:'gestao' },
+  { id:'visao360',      label:'🔍 Visão 360',           grupo:'comercial' },
+  { id:'sac',           label:'🎧 Auditoria SAC',       grupo:'sac' },
+  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'sac' },
+  { id:'despacho',      label:'🚚 Logística',           grupo:'tecnica' },
+  { id:'infra',         label:'📡 Análise Infra',       grupo:'tecnica' },
+  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'tecnica' },
+  { id:'config',        label:'⚙️ Configurações',       grupo:'gestao' }
+];
+
+const ABA_GRUPOS = [
+  { id:'gestao',    label:'📊 Gestão',    icon:'📊', abas:['gestao','clientes','gestor','config'] },
+  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360'] },
+  { id:'sac',       label:'🎧 SAC',       icon:'🎧', abas:['sac','bonificacao'] },
+  { id:'tecnica',   label:'🔧 Técnica',   icon:'🔧', abas:['despacho','infra','campo'] }
+];
+
+
 
   <!-- ══════════ ABA GESTÃO ══════════ -->
   <div class="tab-content active" id="tab-content-gestao">
