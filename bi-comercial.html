@@ -1,0 +1,3362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard BI Comercial — Nuvyon</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #06090F;
+  --panel:    #0D1117;
+  --card:     #111827;
+  --border:   #1F2937;
+  --border2:  #374151;
+  --text:     #F1F5F9;
+  --muted:    #6B7280;
+  --muted2:   #9CA3AF;
+  --accent:   #00E5C3;
+  --accent2:  #00B89A;
+  --blue:     #3B82F6;
+  --purple:   #8B5CF6;
+  --green:    #10B981;
+  --yellow:   #F59E0B;
+  --red:      #EF4444;
+  --orange:   #F97316;
+  --grad1: linear-gradient(135deg,#00E5C3 0%,#3B82F6 100%);
+  --grad2: linear-gradient(135deg,#8B5CF6 0%,#3B82F6 100%);
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0,0,0,.45);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.6);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+input,select,textarea{font-family:var(--font-body)}
+
+/* ─── TOPBAR ─── */
+#topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-dot{width:28px;height:28px;background:var(--grad1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.brand-name{font-family:var(--font-head);font-weight:800;font-size:16px;letter-spacing:-.01em}
+.brand-name span{color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.period-bar{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px}
+.period-bar label{color:var(--muted2);font-size:12px}
+.period-bar input[type=date]{background:transparent;border:none;color:var(--text);font-size:12px;outline:none;cursor:pointer;font-family:var(--font-body)}
+.period-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer}
+.period-sep{color:var(--muted);font-size:11px}
+.btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-size:12px;font-weight:600;transition:all .18s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px)}
+.btn-secondary{background:var(--card);color:var(--muted2);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--border2);color:var(--text)}
+.btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--accent);border-color:var(--accent)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+
+/* ─── LAYOUT ─── */
+#app{max-width:1480px;margin:0 auto;padding:24px 28px}
+
+/* ─── UPLOAD SCREEN ─── */
+#upload-screen{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.upload-hero{text-align:center;max-width:820px;margin:0 auto}
+.upload-hero-title{font-family:var(--font-head);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.1;margin-bottom:12px;background:var(--grad1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.upload-hero-sub{color:var(--muted2);font-size:15px;margin-bottom:40px;line-height:1.6}
+.upload-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:28px}
+.drop-zone{position:relative;background:var(--card);border:2px dashed var(--border);border-radius:var(--radius);padding:24px 20px;cursor:pointer;transition:all .2s;text-align:left}
+.drop-zone:hover{border-color:var(--accent);background:rgba(0,229,195,.04)}
+.drop-zone.active{border-color:var(--accent);background:rgba(0,229,195,.06)}
+.drop-zone.loaded{border-color:var(--green);border-style:solid;background:rgba(16,185,129,.06)}
+.dz-icon{font-size:22px;margin-bottom:8px}
+.dz-label{font-weight:600;font-size:13px;margin-bottom:3px}
+.dz-hint{color:var(--muted);font-size:11px}
+.dz-file{color:var(--accent);font-size:11px;margin-top:6px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dz-badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(16,185,129,.2);color:var(--green)}
+.upload-actions{display:flex;justify-content:center;gap:12px}
+.btn-analyze{padding:13px 36px;font-size:15px;font-weight:700;border-radius:var(--radius);background:var(--grad1);border:none;color:#000;cursor:pointer;transition:all .2s;font-family:var(--font-head)}
+.btn-analyze:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,229,195,.3)}
+.btn-analyze:disabled{opacity:.4;cursor:default;transform:none}
+.upload-note{margin-top:16px;color:var(--muted);font-size:11px;text-align:center}
+
+/* ─── DASHBOARD ─── */
+#dashboard-screen{display:none;animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ─── KPI CARDS ─── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.kpi-card:hover{transform:translateY(-2px);border-color:var(--border2)}
+.kpi-card::before{content:'';position:absolute;inset:0;opacity:.04;background:var(--kpi-color,var(--accent))}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-color,var(--accent))}
+.kpi-label{color:var(--muted2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.kpi-value{font-family:var(--font-head);font-size:32px;font-weight:800;line-height:1;color:var(--kpi-color,var(--accent));margin-bottom:4px}
+.kpi-sub{color:var(--muted);font-size:11px}
+.kpi-icon{position:absolute;top:16px;right:16px;font-size:20px;opacity:.35}
+
+/* ─── INSIGHTS BAR ─── */
+.insights-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.insight-item{display:flex;align-items:flex-start;gap:10px}
+.ins-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.ins-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.ins-value{font-size:13px;font-weight:600;color:var(--text)}
+.ins-detail{font-size:11px;color:var(--muted2);margin-top:1px}
+
+/* ─── SECTION ─── */
+.section-title{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.section-title h2{font-family:var(--font-head);font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.section-dot{width:4px;height:16px;border-radius:2px;background:var(--accent)}
+.section-sub{color:var(--muted);font-size:11px;margin-left:auto}
+
+/* ─── GRID ─── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:24px}
+.grid-12{display:grid;grid-template-columns:1fr 2fr;gap:18px;margin-bottom:24px}
+.grid-21{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
+.span-2{grid-column:span 2}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative}
+.chart-wrap{position:relative}
+
+/* ─── FUNIL ─── */
+.funnel-wrap{display:flex;flex-direction:column;align-items:center;gap:0;padding:10px 0}
+.funnel-step{display:flex;align-items:center;width:100%;justify-content:center;position:relative}
+.funnel-bar{border-radius:6px;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;transition:width .6s cubic-bezier(.34,1.56,.64,1);cursor:default;position:relative}
+.funnel-bar:hover{filter:brightness(1.12)}
+.funnel-name{font-size:12px;font-weight:600;color:#fff}
+.funnel-val{font-family:var(--font-head);font-size:16px;font-weight:800;color:#fff}
+.funnel-arrow{display:flex;flex-direction:column;align-items:center;margin:2px 0;width:100%;max-width:360px}
+.funnel-pct{font-size:10px;color:var(--muted2);background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin:3px 0}
+.funnel-line{width:1px;height:6px;background:var(--border2)}
+
+/* ─── TABLE ─── */
+.table-wrap{overflow:auto;max-height:400px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{position:sticky;top:0;z-index:2}
+th{background:var(--panel);padding:10px 12px;text-align:left;font-weight:600;color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
+th:hover{color:var(--accent)}
+th.sort-asc::after{content:' ▲'}
+th.sort-desc::after{content:' ▼'}
+td{padding:9px 12px;border-bottom:1px solid rgba(31,41,55,.6);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
+.badge-green{background:rgba(16,185,129,.15);color:#10B981}
+.badge-yellow{background:rgba(245,158,11,.15);color:#F59E0B}
+.badge-red{background:rgba(239,68,68,.15);color:#EF4444}
+.badge-blue{background:rgba(59,130,246,.15);color:#3B82F6}
+.badge-gray{background:rgba(107,114,128,.15);color:#9CA3AF}
+.badge-orange{background:rgba(249,115,22,.15);color:#F97316}
+
+/* ─── SEARCH BAR ─── */
+.table-toolbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.search-input{flex:1;min-width:160px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;color:var(--text);font-size:12px;outline:none;font-family:var(--font-body)}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted)}
+.filter-select{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer;font-family:var(--font-body)}
+.filter-select:focus{border-color:var(--accent)}
+
+/* ─── HEATMAP ─── */
+.heatmap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:4px 0}
+.hm-cell{border-radius:var(--radius-sm);padding:10px 12px;transition:transform .15s}
+.hm-cell:hover{transform:translateY(-2px)}
+.hm-city{font-size:11px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-leads{font-size:10px;opacity:.7;margin-bottom:2px}
+.hm-rate{font-family:var(--font-head);font-size:20px;font-weight:800}
+
+/* ─── MINI PROGRESS ─── */
+.prog-bar{background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-top:4px}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
+/* ─── TOAST ─── */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 18px;font-size:13px;color:var(--text);transform:translateY(80px);opacity:0;transition:all .3s;z-index:9999;max-width:300px}
+#toast.show{transform:none;opacity:1}
+
+/* ─── LOADING ─── */
+#loading{display:none;position:fixed;inset:0;background:rgba(6,9,15,.85);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loader{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#load-msg{color:var(--muted2);font-size:13px}
+
+/* ─── PERIOD BADGE ─── */
+.period-badge{background:rgba(0,229,195,.1);color:var(--accent);border:1px solid rgba(0,229,195,.25);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;margin-left:8px}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr)}.grid-2,.grid-12,.grid-21{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.kpi-row{grid-template-columns:1fr 1fr}.upload-grid{grid-template-columns:1fr}.topbar-right .period-bar{display:none}}
+
+/* ─── SECTION HEADERS (novas seções) ─── */
+.section-header{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.section-tag{background:rgba(0,229,195,.12);color:var(--accent);border:1px solid rgba(0,229,195,.25);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.section-h2{font-family:var(--font-head);font-size:17px;font-weight:800;color:var(--text);letter-spacing:-.01em}
+
+/* ─── INSIGHTS GRID (6 colunas) ─── */
+.insights-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:900px){.insights-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.insights-grid{grid-template-columns:1fr}}
+.insight-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;display:flex;align-items:flex-start;gap:10px;transition:border-color .2s}
+.insight-card:hover{border-color:var(--border2)}
+.ins-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.ins-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.ins-value{font-family:var(--font-head);font-size:14px;font-weight:800;color:var(--text);line-height:1.2}
+.ins-detail{font-size:11px;color:var(--muted2);margin-top:2px;line-height:1.4}
+
+/* ─── RANK TABLE (consultoras) ─── */
+.rank-pos{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.rank-1{background:rgba(245,158,11,.2);color:#F59E0B}
+.rank-2{background:rgba(156,163,175,.15);color:#9CA3AF}
+.rank-3{background:rgba(249,115,22,.15);color:#F97316}
+.rank-n{background:rgba(31,41,55,.6);color:#6B7280}
+
+/* ─── CADASTRO KPIS ─── */
+.cad-kpi{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border-radius:var(--radius-sm);padding:9px 12px}
+.cad-kpi-label{font-size:11px;color:var(--muted2)}
+.cad-kpi-val{font-family:var(--font-head);font-size:16px;font-weight:800}
+
+/* ─── GRID 3 ─── */
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:24px}
+@media(max-width:1100px){.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.grid-3{grid-template-columns:1fr}}
+position:fixed;bottom:24px;left:24px;width:36px;height:36px;background:var(--card);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s;font-size:14px;color:var(--muted2);z-index:50}
+#scrolltop.show{opacity:1}
+#scrolltop:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ─── AUDITORIA — SEÇÕES PREMIUM ─── */
+.audit-section{margin-bottom:36px}
+.audit-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.audit-tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:5px;border:1px solid}
+.audit-tag-red{background:rgba(239,68,68,.1);color:#EF4444;border-color:rgba(239,68,68,.3)}
+.audit-tag-amber{background:rgba(245,158,11,.1);color:#F59E0B;border-color:rgba(245,158,11,.3)}
+.audit-tag-blue{background:rgba(59,130,246,.1);color:#3B82F6;border-color:rgba(59,130,246,.3)}
+.audit-h2{font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text);letter-spacing:-.02em}
+.audit-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;position:relative;overflow:hidden}
+.audit-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--neon-line,var(--accent))}
+.neon-red{--neon-line:#EF4444}.neon-amber{--neon-line:#F59E0B}.neon-blue{--neon-line:#3B82F6}
+.badge-inconsist{background:rgba(239,68,68,.18);color:#F87171;border:1px solid rgba(239,68,68,.4);animation:pulse-border 2s infinite}
+@keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 4px rgba(239,68,68,0)}}
+.audit-table-wrap{overflow:auto;max-height:440px;border-radius:8px;border:1px solid var(--border)}
+.audit-table{width:100%;border-collapse:collapse;font-size:12px}
+.audit-table th{background:#0A0E18;padding:10px 14px;text-align:left;font-weight:700;color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:1}
+.audit-table td{padding:10px 14px;border-bottom:1px solid rgba(31,41,55,.5);vertical-align:middle}
+.audit-table tr:hover td{background:rgba(255,255,255,.025)}
+.audit-table tr.row-alert td{background:rgba(239,68,68,.05)}
+.gargalo-stage{display:flex;align-items:center;gap:0;margin-bottom:7px}
+.gargalo-label{min-width:185px;font-size:12px;color:var(--muted2);padding:6px 14px 6px 0;display:flex;align-items:center;justify-content:flex-end;font-weight:500}
+.gargalo-bar-wrap{flex:1;display:flex;align-items:center;gap:8px}
+.gargalo-bar{height:26px;border-radius:4px;transition:width .6s ease;min-width:4px;display:flex;align-items:center;padding:0 8px}
+.gargalo-bar-txt{font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+.gargalo-pct{font-size:11px;color:var(--muted);min-width:36px}
+.geo-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(31,41,55,.4)}
+.geo-row:last-child{border:none}
+.geo-rank{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.geo-info{flex:1;min-width:0}
+.geo-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.geo-sub{font-size:11px;color:var(--muted2);margin-top:1px}
+.geo-bar-wrap{width:110px;flex-shrink:0}
+.geo-val{font-family:var(--font-head);font-size:17px;font-weight:800;min-width:32px;text-align:right}
+.btn-pdf{display:flex;align-items:center;gap:8px;padding:10px 22px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-head);font-size:13px;font-weight:800;background:linear-gradient(135deg,#EF4444,#F97316);color:#fff;transition:all .2s;white-space:nowrap}
+.btn-pdf:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(239,68,68,.35)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav id="topbar">
+  <div class="brand">
+    <div class="brand-dot">📡</div>
+    <div class="brand-name"><span>BI</span> Comercial</div>
+    <span id="period-badge" class="period-badge" style="display:none"></span>
+  </div>
+  <div class="topbar-right" id="topbar-controls" style="display:none">
+    <div class="period-bar">
+      <label>De</label>
+      <input type="date" id="dt-start" onchange="applyFilter()">
+      <span class="period-sep">→</span>
+      <label>Até</label>
+      <input type="date" id="dt-end" onchange="applyFilter()">
+    </div>
+    <button class="btn btn-secondary" onclick="exportExcel()">⬇ Exportar</button>
+    <button class="btn btn-danger" onclick="resetDashboard()">↺ Resetar</button>
+  </div>
+  <div id="topbar-upload-btn" style="display:none">
+    <button class="btn btn-ghost" onclick="showUpload()">📂 Trocar arquivos</button>
+  </div>
+</nav>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="loader"></div>
+  <div id="load-msg">Processando dados...</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- SCROLL TOP -->
+<div id="scrolltop" onclick="window.scrollTo({top:0,behavior:'smooth'})">▲</div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-hero">
+    <div class="upload-hero-title">Dashboard BI Comercial</div>
+    <div class="upload-hero-sub">Importe os relatórios do Matrix Chat e Hubsoft para gerar análises<br>completas de conversão de leads. Tudo processado no seu navegador.</div>
+
+    <div class="upload-grid">
+      <div class="drop-zone" id="dz-matrix" onclick="triggerFile('f-matrix')" ondragover="dzDragOver(event,'dz-matrix')" ondragleave="dzDragLeave('dz-matrix')" ondrop="dzDrop(event,'dz-matrix','matrix')">
+        <input type="file" id="f-matrix" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this,'matrix')">
+        <div class="dz-icon">💬</div>
+        <div class="dz-label">1. Matrix Chat</div>
+        <div class="dz-hint">relatorio_atendimento_analitico · CSV ou XLSX</div>
+        <div class="dz-file" id="fn-matrix">Clique ou arraste o arquivo aqui</div>
+      </div>
+
+      <div class="drop-zone" id="dz-crm" onclick="triggerFile('f-crm')" ondragover="dzDragOver(event,'dz-crm')" ondragleave="dzDragLeave('dz-crm')" ondrop="dzDrop(event,'dz-crm','crm')">
+        <input type="file" id="f-crm" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this,'crm')">
+        <div class="dz-icon">📋</div>
+        <div class="dz-label">2. CRM Hubsoft</div>
+        <div class="dz-hint">relatorio_de_crm · XLSX</div>
+        <div class="dz-file" id="fn-crm">Clique ou arraste o arquivo aqui</div>
+      </div>
+
+      <div class="drop-zone" id="dz-vendas" onclick="triggerFile('f-vendas')" ondragover="dzDragOver(event,'dz-vendas')" ondragleave="dzDragLeave('dz-vendas')" ondrop="dzDrop(event,'dz-vendas','vendas')">
+        <input type="file" id="f-vendas" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this,'vendas')">
+        <div class="dz-icon">✅</div>
+        <div class="dz-label">3. Serviços / OS Vendas</div>
+        <div class="dz-hint">relatorio_de_servicos_do_cliente · XLSX</div>
+        <div class="dz-file" id="fn-vendas">Clique ou arraste o arquivo aqui</div>
+      </div>
+
+      <div class="drop-zone" id="dz-osab" onclick="triggerFile('f-osab')" ondragover="dzDragOver(event,'dz-osab')" ondragleave="dzDragLeave('dz-osab')" ondrop="dzDrop(event,'dz-osab','osab')">
+        <input type="file" id="f-osab" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this,'osab')">
+        <div class="dz-icon">🔧</div>
+        <div class="dz-label">4. OS Abertas (opcional)</div>
+        <div class="dz-hint">relatorio-de-ordens-de-servico-abertas · XLSX</div>
+        <div class="dz-file" id="fn-osab">Clique ou arraste o arquivo aqui</div>
+      </div>
+    </div>
+
+    <div class="upload-actions">
+      <button class="btn-analyze" id="btn-analyze" onclick="runAnalysis()" disabled>
+        ⚡ Analisar Dados
+      </button>
+    </div>
+    <div class="upload-note">Apenas o arquivo 1 é obrigatório. Os demais enriquecem o cruzamento.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dashboard-screen">
+<div id="app">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- MATCH QUALITY -->
+  <div class="chart-card" id="match-quality-bar" style="margin-bottom:24px;padding:14px 20px"></div>
+
+  <!-- SECAO 1: INSIGHTS -->
+  <div class="section-header">
+    <div class="section-tag">Inteligência</div>
+    <h2 class="section-h2">💡 Insights Automáticos</h2>
+  </div>
+  <div class="chart-card" style="margin-bottom:28px">
+    <div class="insights-grid" id="insights-bar"></div>
+  </div>
+
+  <!-- SECAO 2: FUNIL COMPLETO + ORIGEM -->
+  <div class="section-header">
+    <div class="section-tag">Funil</div>
+    <h2 class="section-h2">🔽 Funil de Vendas Completo</h2>
+  </div>
+  <div class="grid-12" style="margin-bottom:28px">
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot"></div><h2>Etapas do Funil</h2></div>
+      <div class="funnel-wrap" id="funnel-wrap"></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot"></div><h2>Conversão por Origem (Tag)</h2><span class="section-sub" id="sub-tag"></span></div>
+      <div class="chart-wrap"><canvas id="chart-tag" height="260"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SECAO 3: TOP CONSULTORAS -->
+  <div class="section-header">
+    <div class="section-tag">Equipe</div>
+    <h2 class="section-h2">🏆 Top Consultoras</h2>
+  </div>
+  <div class="grid-21" style="margin-bottom:28px">
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--purple)"></div><h2>Ranking por Vendas</h2><span class="section-sub" id="sub-vend"></span></div>
+      <div class="chart-wrap"><canvas id="chart-vend" height="260"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--purple)"></div><h2>Tabela de Performance</h2></div>
+      <div class="table-wrap" style="max-height:310px">
+        <table><thead id="vend-thead"></thead><tbody id="vend-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECAO 4: LEADS POR CIDADE -->
+  <div class="section-header">
+    <div class="section-tag">Território</div>
+    <h2 class="section-h2">🌆 Leads &amp; Conversão por Cidade</h2>
+  </div>
+  <div class="grid-2" style="margin-bottom:28px">
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--orange)"></div><h2>Ranking de Cidades</h2></div>
+      <div class="chart-wrap"><canvas id="chart-cidade" height="280"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--orange)"></div><h2>Mapa de Calor</h2><span class="section-sub">verde ≥60% · amarelo ≥30% · vermelho &lt;30%</span></div>
+      <div class="heatmap-grid" id="heatmap-grid"></div>
+    </div>
+  </div>
+
+  <!-- SECAO 5: FUNIL POR CIDADE -->
+  <div class="section-header">
+    <div class="section-tag">Território</div>
+    <h2 class="section-h2">🗺️ Funil de Vendas por Cidade</h2>
+  </div>
+  <div class="chart-card" style="margin-bottom:28px">
+    <div class="section-title"><div class="section-dot" style="background:var(--orange)"></div><h2>Leads → CRM → Vendas por Cidade</h2><span class="section-sub" id="sub-funil-cidade"></span></div>
+    <div class="chart-wrap"><canvas id="chart-funil-cidade" height="260"></canvas></div>
+  </div>
+
+  <!-- SECAO 6: CADASTRO PREVIO -->
+  <div class="section-header">
+    <div class="section-tag">Perfil</div>
+    <h2 class="section-h2">🔍 Leads com Cadastro Prévio</h2>
+  </div>
+  <div class="grid-3" style="margin-bottom:28px">
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--blue)"></div><h2>Tipo de Cliente</h2></div>
+      <div class="chart-wrap" style="position:relative;height:220px"><canvas id="chart-cadastro"></canvas></div>
+      <div id="cadastro-kpis" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="chart-card" style="grid-column:span 2">
+      <div class="section-title"><div class="section-dot" style="background:var(--blue)"></div><h2>Conversão: Novos vs Cadastrados</h2></div>
+      <div class="table-wrap" style="max-height:200px">
+        <table><thead id="cadastro-thead"></thead><tbody id="cadastro-tbody"></tbody></table>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-title"><div class="section-dot" style="background:var(--blue)"></div><h2>Novos Clientes por Cidade</h2></div>
+        <div class="chart-wrap"><canvas id="chart-novos-cidade" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECAO 7: PERDA + TIMELINE -->
+  <div class="section-header">
+    <div class="section-tag">Performance</div>
+    <h2 class="section-h2">📊 Performance Temporal</h2>
+  </div>
+  <div class="grid-2" style="margin-bottom:28px">
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--red)"></div><h2>Taxa de Perda por Origem</h2></div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chart-perda"></canvas></div>
+      <div id="perda-table"></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title"><div class="section-dot" style="background:var(--blue)"></div><h2>Leads por Dia</h2></div>
+      <div class="chart-wrap"><canvas id="chart-timeline" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SECAO 8: TABELA -->
+  <div class="section-header">
+    <div class="section-tag">Dados</div>
+    <h2 class="section-h2">📋 Tabela Consolidada de Leads</h2>
+  </div>
+  <div class="chart-card" style="margin-bottom:28px">
+    <div class="table-toolbar">
+      <input class="search-input" id="tbl-search" placeholder="🔍 Buscar por nome, telefone, CPF..." oninput="filterTable()">
+      <select class="filter-select" id="flt-status" onchange="filterTable()"><option value="">Todos os status</option></select>
+      <select class="filter-select" id="flt-cidade" onchange="filterTable()"><option value="">Todas as cidades</option></select>
+      <select class="filter-select" id="flt-vend" onchange="filterTable()"><option value="">Todas as consultoras</option></select>
+      <select class="filter-select" id="flt-tag" onchange="filterTable()"><option value="">Todas as origens</option></select>
+      <span class="section-sub" id="tbl-count" style="margin-left:auto;white-space:nowrap"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ SEÇÃO AUDITORIA 1: RANKING DA VERDADE ══ -->
+  <div class="audit-section" id="sec-ranking-verdade">
+    <div class="audit-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="audit-tag audit-tag-red">Auditoria</span>
+        <h2 class="audit-h2">🔎 O Ranking da Verdade</h2>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="ranking-verdade-stats" style="font-size:11px;color:var(--muted2)"></div>
+        <button class="btn-pdf" onclick="exportarAuditoriaPDF()">📄 Exportar para Diretoria</button>
+      </div>
+    </div>
+    <div class="audit-card neon-red">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px" id="audit-kpis-ranking">
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div><div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div><div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div><div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div><div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div><div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px"><div class="av-lbl" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:5px"></div><div class="av-val" style="font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1"></div><div class="av-sub" style="font-size:10px;color:var(--muted);margin-top:2px"></div></div>
+      </div>
+      <div class="audit-table-wrap">
+        <table class="audit-table">
+          <thead><tr id="ranking-verdade-thead"></tr></thead>
+          <tbody id="ranking-verdade-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SEÇÃO AUDITORIA 2: FUNIL DE GARGALO ══ -->
+  <div class="audit-section" id="sec-funil-gargalo">
+    <div class="audit-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="audit-tag audit-tag-amber">Diagnóstico</span>
+        <h2 class="audit-h2">🚧 Funil de Gargalo — WhatsApp Empresa</h2>
+      </div>
+      <div id="gargalo-total" style="font-size:11px;color:var(--muted2)"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div class="audit-card neon-amber">
+        <div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px">Onde os leads morrem</div>
+        <div id="gargalo-funil"></div>
+      </div>
+      <div class="audit-card neon-amber">
+        <div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px">Pendência por vendedora (tempo sem resposta)</div>
+        <div id="gargalo-pendencia"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SEÇÃO AUDITORIA 3: INTELIGÊNCIA GEOGRÁFICA ══ -->
+  <div class="audit-section" id="sec-geo">
+    <div class="audit-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="audit-tag audit-tag-blue">Expansão</span>
+        <h2 class="audit-h2">🗺️ Inteligência Geográfica — Onde Investir?</h2>
+      </div>
+      <div id="geo-total" style="font-size:11px;color:var(--muted2)"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div class="audit-card neon-blue">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">🚫 Bairros com mais leads SEM VIABILIDADE</div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:14px">Onde estamos perdendo investimento em tráfego sem ter rede</div>
+        <div id="geo-sem-viab"></div>
+      </div>
+      <div class="audit-card neon-blue">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">✅ Bairros com maior conversão (onde expandir)</div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:14px">Alta demanda + boa conversão = prioridade de expansão de rede</div>
+        <div id="geo-top-conv"></div>
+      </div>
+    </div>
+    <div class="audit-card neon-blue" style="margin-top:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">📊 Ranking completo por cidade — Leads sem viabilidade vs. convertidos</div>
+      <div class="chart-wrap"><canvas id="chart-geo-cidade" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ SEÇÃO AUDITORIA 4: TAGS DE ORIGEM × VENDEDORAS ══ -->
+  <div class="audit-section" id="sec-tags-vendedoras">
+    <div class="audit-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="audit-tag audit-tag-blue">Origem</span>
+        <h2 class="audit-h2">🏷️ Tags de Entrada × Vendedoras — Quem converte cada canal?</h2>
+      </div>
+      <div id="tags-vend-total" style="font-size:11px;color:var(--muted2)"></div>
+    </div>
+    <div class="audit-card neon-blue" style="overflow-x:auto">
+      <div id="tags-vend-table"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->\
+
+  <div style="text-align:center;padding:20px 0 10px;color:var(--muted);font-size:11px;border-top:1px solid var(--border)">
+    Dashboard BI Comercial · Desenvolvido por <strong style="color:var(--accent)">Eng. Eric Jonas</strong> · <a href="mailto:erj.informatica@gmail.com" style="color:var(--accent)">erj.informatica@gmail.com</a>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── HANDLERS DE UPLOAD (definidos antes do resto para onclick inline) ───────
+function triggerFile(id) { document.getElementById(id)?.click(); }
+function dzDragOver(e, id) { e.preventDefault(); document.getElementById(id)?.classList.add('active'); }
+function dzDragLeave(id) { document.getElementById(id)?.classList.remove('active'); }
+function dzDrop(e, id, key) {
+  e.preventDefault(); dzDragLeave(id);
+  const f = e.dataTransfer?.files[0]; if (f) processUpload(f, key);
+}
+function handleFile(input, key) { if (input.files[0]) processUpload(input.files[0], key); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA ENGINE  — v3: CRM como base · CPF → TEL → NOME
+// ═══════════════════════════════════════════════════════════════════════════
+const RAW = { matrix:null, crm:null, vendas:null, osab:null };
+let PROCESSED    = [];
+let FILTERED     = [];
+let CHARTS       = {};
+let SORT_COL     = -1, SORT_DIR = 1;
+let MATCH_STATS  = { cpf:0, tel:0, nome:0, none:0, total:0 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DICIONÁRIO DE FILIAIS — Matrix "Agente" → Nome real da vendedora
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// MOTOR DE IDENTIDADE DE VENDEDORAS — superClean + FILIAL_MAP robusto
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * superClean(name): normalização máxima para comparação de nomes de vendedoras.
+ * Remove acentos → remove números e especiais → remove espaços → MAIÚSCULAS.
+ * Exemplo: "9.0 Evellyn Café " → "EVELLYNCAFE"
+ *          "8Leticia Carvalho" → "LETICIACARVALHO"
+ *          "1 - Ana Paula"     → "ANAPAULA"
+ */
+function superClean(name) {
+  if (!name) return '';
+  return String(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    .replace(/[^a-zA-Z]/g, '')           // remove números, pontos, espaços, especiais
+    .toUpperCase();                       // MAIÚSCULAS
+}
+
+/**
+ * FILIAL_MAP: chave = padrão de busca (superClean aplicado na comparação)
+ * valor = nome canônico/real exibido no dashboard
+ *
+ * Cada entrada tem múltiplos aliases para máxima cobertura:
+ * Ex: "FILIAL MOGI" e "EVELLYN" ambos resolvem para "9.0Evellyn Cafe"
+ */
+const FILIAL_MAP = {
+  // Filial Passos / Tania
+  'FILIALPASSOS' : 'Tania',
+  'TANIA'        : 'Tania',
+  // Filial CB / Victoria
+  'FILIALCB'     : 'Victoria Schiavelli',
+  'VICTORIA'     : 'Victoria Schiavelli',
+  // Filial Rio Pardo / Lavinia
+  'FILIALRIOPARDO' : 'Lavinia Martins',
+  'LAVINIA'        : 'Lavinia Martins',
+  // Filial Monte Santo / Thais
+  'FILIALMONTESANTO' : 'Thais Moreira',
+  'THAIS'            : 'Thais Moreira',
+  // Filial Mogi / Evellyn
+  'FILIALMOGI'   : '9.0Evellyn Cafe',
+  'EVELLYN'      : '9.0Evellyn Cafe',
+  // Filial Caconde / Leticia
+  'FILIALCACONDE' : '8Leticia Carvalho',
+  'LETICIA'       : '8Leticia Carvalho',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RANKING CONSOLIDADO — dados calculados com Python sobre os 3 arquivos reais
+// CRM (1.451 leads) + Hubsoft (464 serviços) + Lista Manual (21 vendedoras)
+// Atualizado em: 16/03/2026
+// ═══════════════════════════════════════════════════════════════════════════
+const RANKING_CONSOLIDADO = [{"sc": "VILHENAMAGALHAES", "display": "Vilhena Magalhaes", "leads": 91, "conv": 52, "inst": 68, "gap": 0, "taxa": 74.7}, {"sc": "FLAVIAALMEIDA", "display": "Flavia Almeida", "leads": 162, "conv": 18, "inst": 48, "gap": 0, "taxa": 29.6}, {"sc": "JOYCESOARES", "display": "Joyce Soares", "leads": 83, "conv": 12, "inst": 47, "gap": 0, "taxa": 56.6}, {"sc": "ANAPAULAMORAES", "display": "Ana Paula Moraes", "leads": 398, "conv": 15, "inst": 38, "gap": 0, "taxa": 9.5}, {"sc": "THAISMOREIRA", "display": "Thais Moreira", "leads": 53, "conv": 17, "inst": 38, "gap": 0, "taxa": 71.7}, {"sc": "MARIAEDUARDAFURTUNATO", "display": "Maria Eduarda Furtunato", "leads": 101, "conv": 6, "inst": 28, "gap": 0, "taxa": 27.7}, {"sc": "NICOLESOUZA", "display": "Nicole Souza", "leads": 60, "conv": 21, "inst": 28, "gap": 0, "taxa": 46.7}, {"sc": "NICOLYARAUJO", "display": "Nicoly Araujo", "leads": 23, "conv": 19, "inst": 27, "gap": 0, "taxa": 117.4}, {"sc": "VICTORIASCHIAVELLI", "display": "Victoria Schiavelli", "leads": 187, "conv": 13, "inst": 23, "gap": 0, "taxa": 12.3}, {"sc": "DAMARISSILVA", "display": "Damaris Silva", "leads": 9, "conv": 9, "inst": 19, "gap": 0, "taxa": 211.1}, {"sc": "BIANCARIBEIRO", "display": "Bianca Ribeiro", "leads": 23, "conv": 15, "inst": 13, "gap": 2, "taxa": 56.5}, {"sc": "CAROLINEBORGO", "display": "Caroline Borgo", "leads": 5, "conv": 0, "inst": 12, "gap": 0, "taxa": 240.0}, {"sc": "LAVINIAMARTINS", "display": "Lavinia Martins", "leads": 209, "conv": 5, "inst": 11, "gap": 0, "taxa": 5.3}, {"sc": "MARISTELACAMPAGNOLI", "display": "Maristela Campagnoli", "leads": 0, "conv": 0, "inst": 10, "gap": 0, "taxa": 0.0}, {"sc": "EVELLYNCAFE", "display": "9.0Evellyn Cafe", "leads": 2, "conv": 1, "inst": 8, "gap": 0, "taxa": 400.0}, {"sc": "LETICIACARVALHO", "display": "8Leticia Carvalho", "leads": 4, "conv": 2, "inst": 7, "gap": 0, "taxa": 175.0}, {"sc": "TRAINEECONNECTIONS", "display": "Trainee Connections 2", "leads": 3, "conv": 2, "inst": 7, "gap": 0, "taxa": 233.3}, {"sc": "GEOVANASANTOS", "display": "Geovana Santos", "leads": 1, "conv": 1, "inst": 5, "gap": 0, "taxa": 500.0}, {"sc": "DANIELLEFERRARI", "display": "Danielle Ferrari", "leads": 0, "conv": 0, "inst": 5, "gap": 0, "taxa": 0.0}, {"sc": "DANIELLELIMA", "display": "Danielle Lima", "leads": 0, "conv": 0, "inst": 5, "gap": 0, "taxa": 0.0}, {"sc": "TANIALEMOS", "display": "Tania Lemos", "leads": 5, "conv": 3, "inst": 4, "gap": 0, "taxa": 80.0}, {"sc": "HUBSOFTSISTEMA", "display": "HubSoft (Sistema)", "leads": 0, "conv": 0, "inst": 4, "gap": 0, "taxa": 0.0}, {"sc": "GUSTAVOBERALDO", "display": "6Gustavo Beraldo", "leads": 0, "conv": 0, "inst": 3, "gap": 0, "taxa": 0.0}, {"sc": "GABRIELAFERREIRA", "display": "Gabriela Ferreira", "leads": 0, "conv": 0, "inst": 2, "gap": 0, "taxa": 0.0}, {"sc": "CAIOSAVIORESENDE", "display": "Caio S\u00e1vio Resende", "leads": 11, "conv": 0, "inst": 1, "gap": 0, "taxa": 9.1}, {"sc": "ALOYSIOROSSETI", "display": "Aloysio Rosseti", "leads": 0, "conv": 0, "inst": 1, "gap": 0, "taxa": 0.0}, {"sc": "GIANEMORAES", "display": "Giane Moraes", "leads": 0, "conv": 0, "inst": 1, "gap": 0, "taxa": 0.0}, {"sc": "DANIELLEAKEMY", "display": "Danielle Akemy", "leads": 15, "conv": 0, "inst": 0, "gap": 0, "taxa": 0.0}, {"sc": "SUPORTEHUBSOFTLUIZFILLIPE", "display": "(Suporte Hubsoft) Luiz Fillipe", "leads": 5, "conv": 0, "inst": 0, "gap": 0, "taxa": 0.0}];
+
+// Cache: superClean(valor) → valor (para match reverso rápido)
+const _FILIAL_CLEAN_VALS = new Map(
+  Object.values(FILIAL_MAP).map(v => [superClean(v), v])
+);
+
+/**
+ * resolveVendedora(raw): resolve qualquer string de nome para o nome canônico.
+ *
+ * Ordem de tentativas:
+ * 1. superClean(raw) === superClean(chave do FILIAL_MAP)  → nome canônico
+ * 2. superClean(raw) contém superClean(chave)             → nome canônico
+ * 3. superClean(chave) contém superClean(raw)             → nome canônico
+ * 4. superClean(raw) === superClean(valor do FILIAL_MAP)  → nome canônico (match direto)
+ * 5. Remove prefixos numéricos/separadores e retorna limpo
+ */
+function resolveVendedora(raw) {
+  if (!raw || String(raw).trim() === '') return '';
+  const s  = String(raw).trim();
+  const sc = superClean(s);
+  if (!sc) return s;
+
+  // ── Passagem 1: match EXATO na chave do FILIAL_MAP ─────────────────
+  for (const [k, v] of Object.entries(FILIAL_MAP)) {
+    if (sc === superClean(k)) return v;
+  }
+
+  // ── Passagem 2: sc COMEÇA COM a chave (ex: "EVELLYNCAFE" começa com "EVELLYN")
+  for (const [k, v] of Object.entries(FILIAL_MAP)) {
+    const kc = superClean(k);
+    if (sc.startsWith(kc)) return v;
+  }
+
+  // ── Passagem 3: chave COMEÇA COM sc (ex: "LAVINIA" está em "LAVINIAMARTINS")
+  // Mínimo 5 chars para evitar falsos positivos
+  for (const [k, v] of Object.entries(FILIAL_MAP)) {
+    const kc = superClean(k);
+    if (kc.startsWith(sc) && sc.length >= 5) return v;
+  }
+
+  // ── Passagem 4: match no VALOR canônico (ex: raw já é "Lavinia Martins")
+  if (_FILIAL_CLEAN_VALS.has(sc)) return _FILIAL_CLEAN_VALS.get(sc);
+  for (const [vc, v] of _FILIAL_CLEAN_VALS) {
+    if (sc.startsWith(vc) && vc.length >= 5) return v;
+    if (vc.startsWith(sc) && sc.length >= 5) return v;
+  }
+
+  // ── Fallback: remove prefixo numérico/separador (ex: "1 - Flavia" → "Flavia")
+  return s.replace(/^[\d\s.\-]+/, '').trim() || s;
+}
+
+// ── NORMALIZAÇÃO GLOBAL DE VENDEDORAS ────────────────────────────────────
+
+// normVend: remove acentos + espaços + parênteses → MAIÚSCULAS (chave de agrupamento)
+// Mantém números para preservar "9.0Evellyn" → "90EVELLYN" (distinto de outros)
+function normVend(v) {
+  return String(v||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\(.*?\)/g,'')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+// superClean-based key para agrupamento sem ambiguidade de números/especiais
+function normVendSC(v) { return superClean(resolveVendedora(v)); }
+
+// normVendKey: primeiros 2 tokens do nome normalizado (matching flexível)
+function normVendKey(v) { return normVend(v).split(' ').slice(0,2).join(' '); }
+
+// ── NORMALIZAÇÃO ──────────────────────────────────────────────────────────
+
+// CPF/CNPJ: remove pontos, traços, barras → só dígitos, 11 ou 14 chars, ou null
+// Regra 3: limpeza idêntica nos dois lados do match (CRM ↔ Hubsoft ↔ Matrix)
+function normCpf(c) {
+  if (!c || String(c).trim() === '' || String(c) === 'nan' || String(c) === '-') return null;
+  const s = String(c).replace(/[.\/\-\s]/g,'').replace(/\D/g, '');
+  return (s.length === 11 || s.length === 14) ? s : null;
+}
+
+// Telefone: remove +55/DDI, normaliza para 10-11 dígitos
+function normTel(t) {
+  if (!t || t === '-' || t === 'nan' || String(t).trim() === '') return null;
+  const s = String(t).replace(/[\s\(\)\-\+\.]/g, '').replace(/\D/g, '');
+  let n = s.startsWith('55') && s.length >= 12 ? s.slice(2) : s;
+  // remove zero extra no início do DDD quando há 12 dígitos
+  if (n.length === 12 && n.startsWith('0')) n = n.slice(1);
+  return n.length >= 10 ? n.slice(-11) : (n.length >= 8 ? n : null);
+}
+
+// Nome: uppercase, sem acentos, sem caracteres especiais
+function normName(n) {
+  if (!n || String(n).trim() === '' || n === 'nan') return '';
+  return String(n).toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// Chave parcial: primeiros 2 tokens do nome (fallback mais permissivo)
+function nameKey(n) {
+  const p = (n || '').trim().split(' ').filter(Boolean);
+  return p.slice(0, 2).join(' ');
+}
+
+// cleanTagMatrix: normaliza as tags de atendimento do Matrix Chat (texto livre)
+// Usado APENAS para classificar o status/resultado do atendimento
+function cleanTagMatrix(t) {
+  if (!t || t === 'nan') return 'Sem Tag';
+  let s = String(t).replace(/^"|"$/g, '').trim().toUpperCase();
+  const MAP = {
+    'FEITO A VENDA':'Venda Confirmada','ASSINATURA':'Venda Confirmada',
+    'ATENDIMENTO EXECUTADO COM SUCESSO':'Atendido',
+    'CONTATO PELO WHATSAPP':'Atendido','JA RESOLVIDO':'Atendido',
+    'ENCERRADO PELO SISTEMA':'Sistema','FINALIZADO':'Finalizado',
+    'FINALIZAMOS':'Finalizado','FINALIZA':'Finalizado',
+    'SEM INTERAÇÃO':'Sem Interação','FALTA DE INTERAÇÃO':'Sem Interação',
+    'SEM VIABILIDADE':'Sem Viabilidade','AGUARDANDO DADOS':'Aguardando',
+    'DESISTENCIA':'Desistência','CREDITO NEGADO':'Crédito Negado',
+    'BOLETO':'Financeiro','DEBITO':'Financeiro','DÉBITO':'Financeiro',
+    'CHAMEI NO ATIVO':'Ativo Saída','POR WHATSAPP':'Atendido',
+    'ENCERRAMENTO DE ATENDIMENTO':'Sistema',
+  };
+  for (const [k,v] of Object.entries(MAP)) if (s.includes(k)) return v;
+  s = s.replace(/^"/, '').replace(/"$/, '').trim();
+  return s.length > 0 ? s.slice(0,28).replace(/^\w/, c=>c.toUpperCase()) : 'Sem Tag';
+}
+
+// normalizeOrigem: normaliza a tag de ORIGEM do CRM (canal de captação real)
+// Mantém o valor original padronizado — HOT SPOT, WHATSAPP EMPRESA, CRM REATIVAÇÃO, etc.
+function normalizeOrigem(crmTag) {
+  if (!crmTag || String(crmTag).trim() === '' || crmTag === 'nan') return null;
+  // Limpar espaços extras e padronizar maiúsculas
+  const s = String(crmTag).trim().toUpperCase().replace(/\s+/g, ' ');
+  if (!s || s === '-') return null;
+  // Mapeamento canônico para garantir consistência
+  const MAP = {
+    'CRM REATIVAÇÃO'       : 'CRM Reativação',
+    'CRM REATIVACAO'       : 'CRM Reativação',
+    'REATIVAL'             : 'CRM Reativação',
+    'HOT SPOT'             : 'Hot Spot',
+    'WHATSAPP EMPRESA'     : 'WhatsApp Empresa',
+    'WHATSAPP ATIVO'       : 'WhatsApp Ativo',
+    'AGENCIA AR'           : 'Agência AR',
+    'LIGOU NA EMPRESA'     : 'Ligou na Empresa',
+    'PRESENCIAL LOJA'      : 'Presencial Loja',
+    'PRESENCIAL TÉCNICO'   : 'Presencial Técnico',
+    'PRESENCIAL TECNICO'   : 'Presencial Técnico',
+    'JA POSSUI OUTRO PONTO': '2º Ponto',
+    'JÁ POSSUI OUTRO PONTO': '2º Ponto',
+    'JA E CLIENTE'         : 'Já é Cliente',
+    'JÁ É CLIENTE'         : 'Já é Cliente',
+    'INDICAÇÃO'            : 'Indicação',
+    'INDICACAO'            : 'Indicação',
+    'PROSPECT ATIVO'       : 'Prospect Ativo',
+    'SITE'                 : 'Site',
+  };
+  for (const [k,v] of Object.entries(MAP)) if (s.includes(k)) return v;
+  // Para qualquer outra tag CRM, retorna title-case limpa
+  return s.slice(0,35).replace(/\b\w/g, c=>c.toUpperCase());
+}
+
+function parseDate(d) {
+  if (!d) return null;
+  const s = String(d).trim();
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}`);
+  const iso = new Date(s);
+  return isNaN(iso) ? null : iso;
+}
+
+// ── PARSER XLSX NATIVO — sem bibliotecas externas ────────────────────────
+// .xlsx é um arquivo ZIP contendo XMLs. Usamos DecompressionStream (nativo
+// em Chrome 80+, Firefox 113+, Safari 16.4+) para descompactar.
+
+async function parseXLSX(buffer) {
+  const bytes   = new Uint8Array(buffer);
+  const entries = await unzipEntries(bytes);
+
+  // Descobrir nomes das abas
+  const wbXml     = entries['xl/workbook.xml'] || '';
+  const sheetNames= getSheetNames(wbXml);
+  let idx = 0;
+  const pref = sheetNames.findIndex(n =>
+    /resultado|consulta/i.test(n));
+  if (pref >= 0) idx = pref;
+
+  const sheetXml = entries[`xl/worksheets/sheet${idx+1}.xml`] || '';
+  const ssXml    = entries['xl/sharedStrings.xml'] || '';
+  const shared   = parseSharedStrings(ssXml);
+  return parseSheetXml(sheetXml, shared);
+}
+
+function getSheetNames(xml) {
+  if (!xml) return ['Sheet1'];
+  return [...xml.matchAll(/name="([^"]+)"/g)].map(m => m[1]);
+}
+
+function parseSharedStrings(xml) {
+  if (!xml) return [];
+  const arr = [];
+  // match <si>...</si> blocks
+  for (const m of xml.matchAll(/<si>([\s\S]*?)<\/si>/g)) {
+    const texts = [...m[1].matchAll(/<t[^>]*>([^<]*)<\/t>/g)].map(t => t[1]);
+    arr.push(texts.join('').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"));
+  }
+  return arr;
+}
+
+function colLetterToIdx(col) {
+  let n = 0;
+  for (const ch of col.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+function parseSheetXml(xml, shared) {
+  if (!xml) return [];
+  // Extrair todas as linhas
+  const rowMatches = [...xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)];
+  if (!rowMatches.length) return [];
+
+  const parseRow = rowXml => {
+    const cells = [...rowXml.matchAll(/<c\s([^>]*)>([\s\S]*?)<\/c>/g)];
+    if (!cells.length) return [];
+    const maxCol = Math.max(...cells.map(c => {
+      const r = (c[1].match(/r="([A-Z]+)\d+"/)||[])[1] || 'A';
+      return colLetterToIdx(r);
+    }));
+    const arr = new Array(maxCol + 1).fill('');
+    cells.forEach(c => {
+      const attrs  = c[1];
+      const inner  = c[2];
+      const rMatch = attrs.match(/r="([A-Z]+)\d+"/);
+      if (!rMatch) return;
+      const colIdx = colLetterToIdx(rMatch[1]);
+      const t      = (attrs.match(/t="([^"]+)"/) || [])[1] || '';
+      const vMatch = inner.match(/<v>([^<]*)<\/v>/);
+      // Fix: aceita <t xml:space="preserve"> e outras variantes de atributos
+      const isMatch= inner.match(/<is>(?:<[^>]+>)*<t[^>]*>([^<]*)<\/t>/);
+      let val = '';
+      if (isMatch)      val = isMatch[1];
+      else if (!vMatch) val = '';
+      else if (t==='s') val = shared[parseInt(vMatch[1])] ?? '';
+      else if (t==='b') val = vMatch[1]==='1' ? 'TRUE' : 'FALSE';
+      else              val = vMatch[1];
+      arr[colIdx] = val.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
+    });
+    return arr;
+  };
+
+  const header = parseRow(rowMatches[0][1]);
+  const result = [];
+  for (let i = 1; i < rowMatches.length; i++) {
+    const vals = parseRow(rowMatches[i][1]);
+    if (vals.every(v => !v)) continue;
+    const obj = {};
+    header.forEach((h, j) => { if (h) obj[h] = vals[j] ?? ''; });
+    result.push(obj);
+  }
+  return result;
+}
+
+// ZIP parser mínimo usando DecompressionStream (nativo no browser)
+async function unzipEntries(bytes) {
+  const view    = new DataView(bytes.buffer, bytes.byteOffset);
+  const result  = {};
+
+  // Localizar End of Central Directory
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65558); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Arquivo XLSX inválido (não é ZIP)');
+
+  const cdOffset = view.getUint32(eocd + 16, true);
+  const cdCount  = view.getUint16(eocd + 10, true);
+  let   pos      = cdOffset;
+
+  for (let e = 0; e < cdCount; e++) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break;
+    const method     = view.getUint16(pos + 10, true);
+    const compSize   = view.getUint32(pos + 20, true);
+    const nameLen    = view.getUint16(pos + 28, true);
+    const extraLen   = view.getUint16(pos + 30, true);
+    const commentLen = view.getUint16(pos + 32, true);
+    const localOff   = view.getUint32(pos + 42, true);
+    const name       = new TextDecoder().decode(bytes.slice(pos + 46, pos + 46 + nameLen));
+    pos += 46 + nameLen + extraLen + commentLen;
+
+    // Apenas XMLs relevantes
+    if (!name.endsWith('.xml') && !name.endsWith('.rels')) continue;
+
+    // Ler Local File Header
+    const lfnLen  = view.getUint16(localOff + 26, true);
+    const lfexLen = view.getUint16(localOff + 28, true);
+    const dataOff = localOff + 30 + lfnLen + lfexLen;
+    const chunk   = bytes.slice(dataOff, dataOff + compSize);
+
+    if (method === 0) {
+      result[name] = new TextDecoder('utf-8').decode(chunk);
+    } else if (method === 8) {
+      try {
+        const ds     = new DecompressionStream('deflate-raw');
+        const writer = ds.writable.getWriter();
+        const reader = ds.readable.getReader();
+        writer.write(chunk);
+        writer.close();
+        const parts = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+        const total  = parts.reduce((s, p) => s + p.length, 0);
+        const merged = new Uint8Array(total);
+        let   off    = 0;
+        for (const p of parts) { merged.set(p, off); off += p.length; }
+        result[name] = new TextDecoder('utf-8').decode(merged);
+      } catch (_) { result[name] = ''; }
+    }
+  }
+  return result;
+}
+
+// ── LEITURA CSV / XLSX ────────────────────────────────────────────────────
+function readFileData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      reader.onload = e => {
+        const raw = e.target.result;
+        let txt;
+        try {
+          txt = new TextDecoder('utf-8', { fatal: true }).decode(raw);
+        } catch(_) {
+          txt = new TextDecoder('iso-8859-1').decode(raw);
+        }
+        const lines = txt.split(/\r?\n/).filter(l => l.trim());
+        if (!lines.length) { resolve([]); return; }
+        const sep = (lines[0].match(/;/g)||[]).length >= (lines[0].match(/,/g)||[]).length ? ';' : ',';
+        const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g,'').trim());
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line.trim()) continue;
+          const vals = [];
+          let cur = '', inQ = false;
+          for (let ci = 0; ci < line.length; ci++) {
+            const ch = line[ci];
+            if (ch === '"') { inQ = !inQ; continue; }
+            if (ch === sep && !inQ) { vals.push(cur.trim()); cur = ''; continue; }
+            cur += ch;
+          }
+          vals.push(cur.trim());
+          if (vals.every(v => !v)) continue;
+          rows.push(Object.fromEntries(headers.map((h, j) => [h, vals[j] ?? ''])));
+        }
+        resolve(rows);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // XLSX — parser nativo sem dependências
+      reader.onload = async e => {
+        try {
+          const rows = await parseXLSX(e.target.result);
+          resolve(rows);
+        } catch(err) {
+          reject(new Error('Erro ao ler XLSX: ' + err.message));
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  });
+}
+
+// ── FILE UPLOAD HANDLERS ──────────────────────────────────────────────────
+function triggerFile(id) { document.getElementById(id).click(); }
+window.triggerFile = triggerFile;
+
+function dzDragOver(e, id) {
+  e.preventDefault();
+  document.getElementById(id).classList.add('active');
+}
+function dzDragLeave(id) {
+  document.getElementById(id).classList.remove('active');
+}
+function dzDrop(e, id, key) {
+  e.preventDefault();
+  dzDragLeave(id);
+  const f = e.dataTransfer.files[0];
+  if (f) processUpload(f, key);
+}
+function handleFile(input, key) {
+  if (input.files[0]) processUpload(input.files[0], key);
+}
+// Expõe todas ao window para garantir acesso de atributos onclick inline
+window.dzDragOver = dzDragOver;
+window.dzDragLeave = dzDragLeave;
+window.dzDrop = dzDrop;
+window.handleFile = handleFile;
+
+async function processUpload(file, key) {
+  setLoad(true, `Lendo ${file.name}...`);
+  try {
+    const rows = await readFileData(file);
+    RAW[key] = rows;
+    const dz  = document.getElementById(`dz-${key}`);
+    const fn  = document.getElementById(`fn-${key}`);
+    dz.classList.add('loaded');
+    fn.textContent = `✓ ${file.name} (${rows.length} linhas)`;
+    if (!dz.querySelector('.dz-badge')) {
+      const b = document.createElement('div');
+      b.className = 'dz-badge'; b.textContent = 'OK';
+      dz.appendChild(b);
+    }
+    checkReady();
+    toast(`${file.name} carregado — ${rows.length} registros`);
+  } catch(err) {
+    toast(`Erro ao ler ${file.name}: ${err.message}`, true);
+  }
+  setLoad(false);
+}
+
+function checkReady() {
+  // O CRM é a base obrigatória; Matrix, Hubsoft e OS são opcionais
+  document.getElementById('btn-analyze').disabled = !RAW.crm;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// PROCESSAMENTO PRINCIPAL — analyzeData v5
+// Garante que TODAS as vendedoras do CRM apareçam no ranking.
+// Normalização MAIÚSCULAS para usuario (CRM) / Agente (Matrix) / vendedor (Hubsoft)
+// ═══════════════════════════════════════════════════════════════════════════
+async function runAnalysis() {
+  if (!RAW.crm) {
+    toast('Importe ao menos o relatório CRM para analisar', true); return;
+  }
+  setLoad(true, 'Normalizando dados...');
+  await new Promise(r => setTimeout(r, 80));
+
+  try {
+
+    // limpaCPF: apenas dígitos
+    // Regra 3: remove pontos, traços e barras ANTES de extrair dígitos
+  const limpaCPF = v => String(v||'').replace(/[.\-\/\s]/g,'').replace(/\D/g,'');
+    const normCPF  = v => { const d = limpaCPF(v); return (d.length===11||d.length===14) ? d : (d.length>11?d.slice(-11):d||null); };
+
+    // ── MATRIX CHAT ──────────────────────────────────────────────────────────
+    const mxRaw = RAW.matrix || [];
+    const mx = mxRaw
+      .filter(r => { const s = String(r['Serviço']||r['Servico']||r['servico']||'').toUpperCase(); return s.includes('NOVO CLIENTE') || s === ''; })
+      .map(r => {
+        const cpfRaw    = normCPF(r['CPF/CNPJ informado']||r['cpf_cnpj_informado']||r['CPF/CNPJ']||r['cpf_cnpj']||r['CPF']||'');
+        const nomeBruto = String(r['Contato']||r['contato']||r['Nome']||'').trim();
+        const telBruto  = String(r['Telefone']||r['telefone']||'');
+        const agenteBruto= String(r['Agente']||r['agente']||'');
+        // Tempo de espera (seção B — WhatsApp Empresa)
+        const tempoFilaStr = String(r['Tempo em Fila']||r['tempo_fila']||'');
+        const dataFila     = parseDate(r['Data de fila']||r['data_fila']||'');
+        const dataAtend    = parseDate(r['Data de Atendimento']||r['data_atendimento']||'');
+        let espera_min = null;
+        if (tempoFilaStr && /\d/.test(tempoFilaStr)) {
+          const p = tempoFilaStr.trim().split(':').map(Number);
+          if (p.length===3) espera_min = p[0]*60+p[1]+p[2]/60;
+          else if (p.length===2) espera_min = p[0]*60+p[1];
+        } else if (dataFila && dataAtend) {
+          espera_min = (dataAtend-dataFila)/60000;
+        }
+        // Resolver nome real da vendedora via dicionário de filiais
+        const agenteResolvido = resolveVendedora(agenteBruto);
+        return {
+          nome      : nomeBruto,
+          nome_norm : normName(nomeBruto),
+          telefone  : telBruto,
+          tel_norm  : normTel(telBruto),
+          cpf_norm  : cpfRaw,
+          tag       : r['Tag']||r['tag']||'',
+          tag_clean : cleanTagMatrix(r['Tag']||r['tag']||''),
+          data      : parseDate(r['Data de Entrada']||r['data_entrada']||r['Data']||''),
+          protocolo : String(r['Protocolo']||''),
+          agente        : agenteResolvido,            // Nome real (filial resolvida)
+          agente_bruto  : agenteBruto,                // Preserva original para debug
+          agente_norm   : normVend(agenteResolvido),  // MAIÚSCULAS para cruzar com usuario CRM
+          agente_key    : normVendKey(agenteResolvido),
+          espera_min,
+        };
+      });
+
+    const mxByCpf = new Map(mx.filter(r=>r.cpf_norm).map(r=>[r.cpf_norm,r]));
+    const mxByTel = new Map(mx.filter(r=>r.tel_norm).map(r=>[r.tel_norm,r]));
+
+    setLoad(true, 'Construindo índices CRM...');
+    await new Promise(r => setTimeout(r, 40));
+
+    // ── CRM HUBSOFT ───────────────────────────────────────────────────────────
+    // REGRA: percorre TODOS os registros do CRM, sem filtrar por vendedora.
+    // Todos os usuários distintos devem aparecer no ranking, mesmo com 0 vendas.
+    const crmList = (RAW.crm||[]).map(r => {
+      const cpfN    = normCPF(r['prospecto_cpf_cnpj']||r['cpf_cnpj']||r['CPF']||'');
+      const tel     = normTel(String(r['prospecto_telefone']||r['telefone']||''));
+      // Regra 1 — Nome em cascata: nome_prospecto → nome_cartao → "Cliente sem Nome"
+      const _isVazio = v => !v || String(v).trim()==='' || String(v)==='Não Possui prospecto' || String(v)==='nan' || String(v)==='-';
+      const nomeProspecto = String(r['nome_prospecto']||'').trim();
+      const nomeCartao    = String(r['nome_cartao']   ||'').trim();
+      const nomeGenerico  = String(r['Nome']          ||'').trim();
+      const nome = !_isVazio(nomeProspecto) ? nomeProspecto
+                 : !_isVazio(nomeCartao)    ? nomeCartao
+                 : !_isVazio(nomeGenerico)  ? nomeGenerico
+                 : 'Cliente sem Nome';
+      const usuBruto= String(r['usuario']||r['vendedora']||'');
+      const usuResolvido = resolveVendedora(usuBruto);
+      return {
+        nome,
+        nome_cartao   : nomeCartao,
+        nome_prospecto: nomeProspecto,
+        nome_norm    : normName(nome),
+        tel_norm     : tel,
+        cpf_norm     : cpfN,
+        usuario      : usuResolvido,               // nome real (filial resolvida)
+        usuario_bruto: usuBruto,                   // original preservado
+        vend_norm    : superClean(usuResolvido),    // chave unificada = superClean
+        vend_key     : normVendKey(usuResolvido),   // 2 primeiros tokens
+        status       : String(r['status_prospecto']||r['status']||'').trim(),
+        etapa        : String(r['crm_etapa']||r['etapa']||''),
+        crm          : String(r['crm']||''),
+        tag          : String(r['tag']||''),
+        plano        : String(r['plano_prospecto']||''),
+        valor        : String(r['valor_prospecto']||''),
+        data_cadastro: parseDate(r['data_cadastro_cartao']||r['data_cadastro']||r['data_cadastro_prospecto']||''),
+      };
+    }).map(r => ({
+      ...r,
+      cidade    : extractCidade(r.crm),
+      convertido: r.status === 'Convertido',
+    }));
+
+    // Índices CRM por CPF/TEL/NOME — Convertido sempre sobrescreve Pré-Cadastro
+    const crmByCpf  = new Map();
+    const crmByTel  = new Map();
+    const crmByNome = new Map();
+    const crmByKey  = new Map();
+    [...crmList].reverse().forEach(r => {
+      if (r.cpf_norm)  crmByCpf.set(r.cpf_norm,  r);
+      if (r.tel_norm)  crmByTel.set(r.tel_norm,   r);
+      if (r.nome_norm) crmByNome.set(r.nome_norm, r);
+      if (r.nome_norm) crmByKey.set(nameKey(r.nome_norm), r);
+    });
+    crmList.filter(r=>r.convertido).forEach(r => {
+      if (r.cpf_norm)  crmByCpf.set(r.cpf_norm,  r);
+      if (r.tel_norm)  crmByTel.set(r.tel_norm,   r);
+      if (r.nome_norm) crmByNome.set(r.nome_norm, r);
+      if (r.nome_norm) crmByKey.set(nameKey(r.nome_norm), r);
+    });
+
+    // ── HUBSOFT OS VENDAS — VendasAuditadas ───────────────────────────────────
+    // Venda REAL = CPF no Hubsoft COM status "Serviço Habilitado" OU "Aguardando Instalação"
+    const VendasAuditadas  = new Map(); // cpf → row Hubsoft
+    const vendByNome       = new Map();
+    const vendByKey        = new Map();
+    // vendedorMap: vend_norm (MAIÚSCULAS) → lista de OS ativas
+    const vendedorMap      = new Map();
+
+    if (RAW.vendas) {
+      RAW.vendas.forEach(r => {
+        const cpfN   = normCPF(r['cpf_cnpj']||r['CPF']||r['cpf']||'');
+        const st     = String(r['servico_status']||r['status']||'').toLowerCase();
+        const isAtivo= st.includes('habilitado') || st.includes('aguardando instala');
+        const nome   = normName(String(r['nome_razaosocial']||r['nome']||''));
+        const vendBruto= String(r['vendedor']||r['vendedora']||'');
+        const vendResolvido = resolveVendedora(vendBruto);
+        const vNorm  = normVend(vendResolvido);      // MAIÚSCULAS
+        const vKey   = normVendKey(vendResolvido);
+        const row    = { ...r, cpf_norm:cpfN, nome_norm:nome, vend_norm:vNorm, vend_key:vKey, is_ativo:isAtivo,
+                         vendedor_real:vendResolvido,
+                         cidade_hs:normName(String(r['cidade']||'')), bairro_hs:normName(String(r['bairro']||r['bairro_instalacao']||'')) };
+        if (cpfN && isAtivo) VendasAuditadas.set(cpfN, row);
+        if (nome) { vendByNome.set(nome, row); vendByKey.set(nameKey(nome), row); }
+        // Indexar por superClean para match robusto com nomes do CRM
+        const vSC = superClean(vendResolvido);
+        if (vSC) {
+          if (!vendedorMap.has(vSC)) vendedorMap.set(vSC, []);
+          vendedorMap.get(vSC).push(row);
+        }
+        if (vNorm) {
+          if (!vendedorMap.has(vNorm)) vendedorMap.set(vNorm, []);
+          vendedorMap.get(vNorm).push(row);
+        }
+      });
+    }
+    window._VendasAuditadas  = VendasAuditadas;
+    window._vendedorMap      = vendedorMap;
+    window._vendVendedorMap  = vendedorMap;  // alias para renderTopConsultoras
+
+    // ── OS ABERTAS ────────────────────────────────────────────────────────────
+    const osAbByCpf  = new Map();
+    const osAbByNome = new Map();
+    const osAbByKey  = new Map();
+    if (RAW.osab) {
+      RAW.osab.forEach(r => {
+        const n   = normName(String(r['nome_razaosocial']||r['nome']||''));
+        const tp  = String(r['tipo_ordem_servico']||r['tipo']||'').toUpperCase();
+        const cpfN= normCPF(r['cpf_cnpj']||r['CPF']||r['cpf']||'');
+        if (!n||!/ATIVAC|MIGRA|REATIVA|REVERS|INSTALA/.test(tp)||/LOGISTIC/.test(tp)) return;
+        const row = { ...r, nome_norm:n, cpf_norm:cpfN };
+        if (cpfN) osAbByCpf.set(cpfN, row);
+        osAbByNome.set(n, row);
+        osAbByKey.set(nameKey(n), row);
+      });
+    }
+
+    setLoad(true, 'Auditando leads...');
+    await new Promise(r => setTimeout(r, 40));
+
+    // ════════════════════════════════════════════════════════════════════════
+    // CRUZAMENTO — BASE PRINCIPAL = CRM (1 linha por lead do CRM)
+    // O Matrix é consultado para enriquecer / auditar cada lead do CRM.
+    // Isso garante que o 100% do funil seja o total de linhas do CRM.
+    // ════════════════════════════════════════════════════════════════════════
+    MATCH_STATS = { cpf:0, tel:0, nome:0, none:0, total:0 };
+
+    // Mapa de vendedoras — chave = superClean(nome canônico) para agrupamento robusto
+    // Isso garante que "9.0Evellyn Cafe", "Evellyn" e "Filial Mogi"
+    // todos caiam na mesma entrada "EVELLYNCAFE"
+    const allVendedoras = new Map();
+    crmList.forEach(r => {
+      // Filtrar entradas sem usuário real (nan, vazio, undefined)
+      if (!r.usuario) return;
+      const sc = superClean(r.usuario);
+      if (!sc || sc === 'NAN' || sc === 'UNDEFINED' || sc.length < 2) return;
+      if (!allVendedoras.has(sc))
+        allVendedoras.set(sc, { usuario: r.usuario, leads_crm: [] });
+      allVendedoras.get(sc).leads_crm.push(r);
+    });
+    window._allVendedoras = allVendedoras;
+
+    // Índice Matrix por CPF/TEL/NOME para cruzamento CRM→Matrix
+    // (mxByCpf e mxByTel já estão definidos acima)
+    const mxByNome = new Map(mx.filter(r=>r.nome_norm).map(r=>[r.nome_norm, r]));
+    const mxByKey  = new Map(mx.filter(r=>r.nome_norm).map(r=>[nameKey(r.nome_norm), r]));
+
+    MATCH_STATS.total = crmList.length;
+
+    PROCESSED = crmList.map(crm => {
+      const { cpf_norm: cCpf, tel_norm: cTel, nome_norm: cNome } = crm;
+      const cKey = nameKey(cNome);
+
+      // Passo 1 — Localizar no Matrix (rastreio): CPF → TEL → NOME
+      let mxLead = null, matchMethod = 'none';
+      if (cCpf  && mxByCpf.has(cCpf))               { mxLead = mxByCpf.get(cCpf);  matchMethod = 'cpf';  }
+      else if (cTel && mxByTel.has(cTel))            { mxLead = mxByTel.get(cTel);  matchMethod = 'tel';  }
+      else if (cNome && mxByNome.has(cNome))         { mxLead = mxByNome.get(cNome); matchMethod = 'nome'; }
+      else if (cKey.length>=4&&mxByKey.has(cKey))    { mxLead = mxByKey.get(cKey);  matchMethod = 'nome'; }
+
+      // "Lead Rastreável" = lead do CRM que foi encontrado no Matrix
+      const rastreavel = mxLead !== null;
+
+      // Passo 2 — VendasAuditadas (Hubsoft): CPF CRM ou tel do mxLead
+      let vendRow = null;
+      const auditCpf = cCpf || (mxLead?.cpf_norm) || null;
+      if (auditCpf && VendasAuditadas.has(auditCpf))       vendRow = VendasAuditadas.get(auditCpf);
+      else if (cNome && vendByNome.has(cNome))              vendRow = vendByNome.get(cNome);
+      else if (cKey.length>=4 && vendByKey.has(cKey))       vendRow = vendByKey.get(cKey);
+
+      const venda_auditada = !!(auditCpf && VendasAuditadas.has(auditCpf))
+        || !!(vendRow?.is_ativo && (matchMethod==='cpf'||matchMethod==='tel'));
+
+      // Passo 3 — OS Aberta (instalação pendente)
+      let osAbRow = null;
+      if (!vendRow) {
+        if (cCpf&&osAbByCpf.has(cCpf))              osAbRow=osAbByCpf.get(cCpf);
+        else if (cNome&&osAbByNome.has(cNome))       osAbRow=osAbByNome.get(cNome);
+        else if (cKey.length>=4&&osAbByKey.has(cKey))osAbRow=osAbByKey.get(cKey);
+      }
+
+      // Passo 4 — Status final (baseado no CRM como fonte de verdade)
+      const crmConv    = crm.convertido === true;  // status_prospecto === 'Convertido'
+      const temServico = vendRow !== null;
+      const temOsAb    = osAbRow !== null;
+      let status;
+      if (venda_auditada)              status = 'Convertido';
+      else if (temServico && crmConv)  status = 'Convertido';
+      else if (temServico)             status = 'Convertido';
+      else if (crmConv && !RAW.vendas) status = 'Convertido';
+      else if (crmConv)                status = 'Lead em Aberto';
+      else if (temOsAb)                status = 'Pend. Instalação';
+      else if (!crmConv)               status = 'Lead Perdido';
+      else                             status = 'Sem Rastreio';
+
+      if (matchMethod !== 'none') MATCH_STATS[matchMethod]++;
+      else                        MATCH_STATS.none++;
+
+      // Passo 5 — Agilidade WhatsApp Empresa (dados do Matrix se disponível)
+      const crmTag = crm.tag || '';
+      let espera_min=null, espera_label='', espera_alerta=false;
+      if (crmTag.toUpperCase().includes('WHATSAPP EMPRESA') && mxLead) {
+        espera_min = mxLead.espera_min ?? null;
+        if (espera_min !== null && espera_min >= 0) {
+          espera_alerta = espera_min > 20;
+          espera_label  = espera_min<5?'⚡ <5min':espera_min<15?'✅ 5-15min':espera_min<20?'⚠️ 15-20min':espera_min<60?'🔴 >20min':espera_min<240?'🐌 1-4h':'❌ >4h';
+        }
+      }
+
+      const cidade   = crm.cidade || (vendRow?String(vendRow['cidade']||''):'') || (osAbRow?String(osAbRow['cidade']||''):'');
+      const bairro   = (vendRow?String(vendRow['bairro']||vendRow['bairro_instalacao']||''):'')
+                     ||(osAbRow?String(osAbRow['bairro']||''):'');
+      // Vendedora: prioriza usuario do CRM (já resolvido via FILIAL_MAP), depois Hubsoft
+      const vendedora = crm.usuario || (vendRow ? (vendRow.vendedor_real||String(vendRow['vendedor']||'')) : '');
+      // superClean garante que "9.0Evellyn Cafe" == "Evellyn" na chave de agrupamento
+      const vend_norm = superClean(vendedora);
+      const plano     = vendRow?String(vendRow['servico']||''):(crm.plano||'');
+      const valor     = vendRow?String(vendRow['valor']||''):(crm.valor||'');
+
+      const motivo_perda = (status==='Lead Perdido'||status==='Lead em Aberto')
+        ? categorizaMotivo(crm.etapa||'') : '';
+      const hoje     = new Date();
+      const diasNeg  = crm.data_cadastro ? Math.floor((hoje-crm.data_cadastro)/86400000) : null;
+      const enrolacao= /NEGOC|CONTATO|CAPTAC/i.test(crm.etapa||'') && diasNeg!==null && diasNeg>7;
+
+      return {
+        // Campos base do lead Matrix (se existir), complementados pelo CRM
+        // Regra 1 — Identidade em cascata: Hubsoft > nome_prospecto > nome_cartao > Matrix > "Cliente sem Nome"
+        nome        : (() => {
+          const _v = s => s && String(s).trim() !== '' && String(s) !== 'Não Possui prospecto' && String(s) !== 'nan' && String(s) !== '-';
+          const hsNome = vendRow ? String(vendRow['nome_razaosocial']||vendRow['nome_norm']||'').trim() : '';
+          if (_v(hsNome))          return hsNome;
+          if (_v(crm.nome))        return crm.nome;
+          if (_v(crm.nome_cartao)) return crm.nome_cartao;
+          if (_v(crm.nome_prospecto)) return crm.nome_prospecto;
+          if (_v(mxLead?.nome))    return mxLead.nome;
+          return 'Cliente sem Nome';
+        })(),
+        nome_norm   : crm.nome_norm || (mxLead?.nome_norm || ''),
+        telefone    : crm.tel_norm || (mxLead?.telefone || ''),
+        tel_norm    : crm.tel_norm || (mxLead?.tel_norm || ''),
+        cpf_norm    : cCpf || '',
+        tag         : mxLead?.tag || '',
+        tag_clean   : mxLead?.tag_clean || '',
+        data        : crm.data_cadastro || mxLead?.data || null,
+        protocolo   : mxLead?.protocolo || '',
+        agente      : mxLead?.agente || '',
+        agente_norm : mxLead?.agente_norm || '',
+        espera_min  : mxLead?.espera_min ?? null,
+        // Campos CRM
+        crm_nome    : (() => {
+          const _v = s => s && String(s).trim() !== '' && String(s) !== 'Não Possui prospecto' && String(s) !== 'nan' && String(s) !== '-';
+          const hsNome = vendRow ? String(vendRow['nome_razaosocial']||'').trim() : '';
+          if (_v(hsNome))             return hsNome;
+          if (_v(crm.nome))           return crm.nome;
+          if (_v(crm.nome_cartao))    return crm.nome_cartao;
+          if (_v(crm.nome_prospecto)) return crm.nome_prospecto;
+          return 'Cliente sem Nome';
+        })(),
+        crm_status  : crm.status || '',
+        crm_etapa   : crm.etapa || '',
+        crm_cpf     : cCpf || '',
+        crm_tag     : crmTag,
+        segundo_ponto: Boolean(crmTag.toUpperCase().includes('OUTRO PONTO')),
+        origem      : normalizeOrigem(crmTag) || 'Sem Origem Rastreada',
+        // Vendedora (nome real)
+        vendedora, vend_norm,
+        // Geo / plano
+        cidade, bairro, plano, valor,
+        // Auditoria
+        rastreavel,        // ← Lead encontrado no Matrix
+        os_hab      : temServico,
+        venda_auditada,
+        os_ab_tipo  : osAbRow?String(osAbRow['tipo_ordem_servico']||''):'',
+        os_ab_data  : osAbRow?String(osAbRow['data_inicio_programado']||''):'',
+        match_method: matchMethod,
+        status, motivo_perda, enrolacao,
+        dias_neg    : diasNeg,
+        agilidade_min  : espera_min,
+        agilidade_label: espera_label,
+        espera_alerta,
+      };
+    });
+
+    // Datas para filtro
+    const datas = PROCESSED.map(r=>r.data).filter(Boolean).sort((a,b)=>a-b);
+    if (datas.length) {
+      document.getElementById('dt-start').value = fmtDateInput(datas[0]);
+      document.getElementById('dt-end').value   = fmtDateInput(datas[datas.length-1]);
+    }
+
+    applyFilter();
+    showDashboard();
+    const totCRM  = crmList.length;
+    const totMx   = mx.length;
+    const totVend = allVendedoras.size;
+    toast(`✓ ${totCRM} leads CRM (base) · ${totMx} atendimentos Matrix · ${totVend} vendedoras`);
+
+  } catch(err) {
+    toast('Erro: ' + err.message, true);
+    console.error(err);
+  }
+  setLoad(false);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO 4 — TAGS DE ORIGEM × VENDEDORAS
+// Para cada tag CRM (WhatsApp, Hot Spot, etc.) mostra qual vendedora
+// mais converteu nesse canal — usando nomes reais do dicionário de filiais.
+// ═══════════════════════════════════════════════════════════════════════════
+function renderTagsPorVendedora() {
+  const el = document.getElementById('tags-vend-table');
+  if (!el) return;
+
+  // Apenas leads com origem e vendedora definidos
+  const base = FILTERED.filter(r => r.origem && r.origem !== 'Sem Origem Rastreada' && r.vendedora);
+
+  // Todas as origens com pelo menos 2 leads
+  const origens = [...new Set(base.map(r => r.origem))].sort();
+  // Todas as vendedoras únicas
+  const vendedoras = [...new Set(base.map(r => r.vendedora))].filter(Boolean).sort();
+
+  if (!origens.length || !vendedoras.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:16px 0">Sem dados suficientes de origem + vendedora para cruzamento.</div>';
+    return;
+  }
+
+  document.getElementById('tags-vend-total').textContent =
+    `${origens.length} origens · ${vendedoras.length} vendedoras`;
+
+  // Calcular por (origem × vendedora): leads e convertidos
+  const matrix = {};  // matrix[origem][vendedora] = { leads, conv }
+  origens.forEach(o => { matrix[o] = {}; vendedoras.forEach(v => { matrix[o][v] = { leads:0, conv:0 }; }); });
+  base.forEach(r => {
+    if (matrix[r.origem] && matrix[r.origem][r.vendedora]) {
+      matrix[r.origem][r.vendedora].leads++;
+      if (r.crm_status === 'Convertido' || r.venda_auditada) matrix[r.origem][r.vendedora].conv++;
+    }
+  });
+
+  // Para cada origem: totais e quem mais converteu
+  const origemStats = origens.map(o => {
+    const cells = vendedoras.map(v => matrix[o][v]);
+    const totalLeads = cells.reduce((s,c)=>s+c.leads,0);
+    const totalConv  = cells.reduce((s,c)=>s+c.conv,0);
+    let bestVend = '—', bestConv = 0;
+    vendedoras.forEach((v,i) => { if (cells[i].conv > bestConv) { bestConv = cells[i].conv; bestVend = v; } });
+    return { origem:o, totalLeads, totalConv, bestVend, bestConv, cells };
+  }).filter(o => o.totalLeads >= 2).sort((a,b) => b.totalConv - a.totalConv);
+
+  // Montar tabela com header e linhas
+  const headers = ['Origem / Tag','Total Leads','Total Conv.','🏆 Melhor Vendedora',
+                   ...vendedoras.map(v => v.split(' ')[0])];
+
+  el.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr>
+            ${headers.map((h,i) => `<th style="background:#0A0E18;padding:9px 12px;text-align:${i<4?'left':'center'};
+              font-weight:700;color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+              white-space:nowrap;border-bottom:1px solid var(--border2)">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${origemStats.map((o, ri) => {
+            const rowBg = ri % 2 === 0 ? '' : 'background:rgba(255,255,255,.015)';
+            const txGeral = o.totalLeads ? (o.totalConv/o.totalLeads*100).toFixed(0) : 0;
+            const txClr   = +txGeral >= 20 ? 'var(--green)' : +txGeral >= 8 ? 'var(--yellow)' : 'var(--red)';
+            const cells   = vendedoras.map((v, vi) => {
+              const c   = o.cells[vi];
+              if (!c.leads) return `<td style="padding:8px 12px;text-align:center;border-bottom:1px solid rgba(31,41,55,.4);color:var(--muted)">—</td>`;
+              const tx  = (c.conv/c.leads*100).toFixed(0);
+              const bg  = c.conv > 0 ? (v===o.bestVend ? 'rgba(0,229,195,.12)' : 'rgba(59,130,246,.06)') : '';
+              const isBest = v === o.bestVend && c.conv > 0;
+              return `<td style="padding:8px 12px;text-align:center;border-bottom:1px solid rgba(31,41,55,.4);background:${bg}">
+                <div style="font-weight:${isBest?'800':'500'};color:${isBest?'var(--accent)':'var(--text)'}">${c.conv}</div>
+                <div style="font-size:9px;color:var(--muted)">${c.leads}L · ${tx}%</div>
+              </td>`;
+            }).join('');
+            return `<tr style="${rowBg}">
+              <td style="padding:9px 12px;border-bottom:1px solid rgba(31,41,55,.4);font-weight:600;white-space:nowrap;color:var(--text)">${o.origem}</td>
+              <td style="padding:9px 12px;border-bottom:1px solid rgba(31,41,55,.4);color:var(--muted2)">${o.totalLeads}</td>
+              <td style="padding:9px 12px;border-bottom:1px solid rgba(31,41,55,.4)">
+                <span style="font-weight:700;color:${txClr}">${o.totalConv}</span>
+                <span style="font-size:10px;color:var(--muted)"> (${txGeral}%)</span>
+              </td>
+              <td style="padding:9px 12px;border-bottom:1px solid rgba(31,41,55,.4)">
+                <span style="font-weight:700;color:var(--accent)">${o.bestVend.split(' ').slice(0,2).join(' ')}</span>
+                <span style="font-size:10px;color:var(--muted)"> · ${o.bestConv} conv.</span>
+              </td>
+              ${cells}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted)">
+      Colunas por vendedora mostram: <strong style="color:var(--accent)">conversões</strong> / leads · taxa. 🏆 Destaque = melhor conversora do canal.
+    </div>`;
+}
+
+// normVendedor: alias de normVend (mantido para compatibilidade)
+function normVendedor(n) { return normVend(n); }
+
+// Categoriza motivo de perda a partir de crm_etapa (Regra 4)
+function categorizaMotivo(etapa) {
+  const e = String(etapa).toUpperCase();
+  if (!e || e === '') return 'Não Informado';
+  if (e.includes('DESISTENCIA') && e.includes('CONCORR')) return 'Desistência/Concorrência';
+  if (e.includes('DESISTENCIA')) return 'Desistência';
+  if (e.includes('CONCORR'))     return 'Concorrência';
+  if (e.includes('SEM VIABILIDADE') || e.includes('VIABILIDADE NEGATIVA')) return 'Sem Viabilidade';
+  if (e.includes('CREDITO') || e.includes('CRÉDITO')) return 'Crédito Negado';
+  if (e.includes('SEM RETORNO'))  return 'Sem Retorno';
+  if (e.includes('PRAZO'))        return 'Prazo de Instalação';
+  if (e.includes('SEM INTERESSE'))return 'Sem Interesse';
+  if (e.includes('OUTROS'))       return 'Outros Motivos';
+  if (e.includes('BASE ELEG'))    return 'Base Elegível';
+  if (e.includes('CONTATO'))      return 'Tentativa de Contato';
+  if (e.includes('CAPTACAO') || e.includes('CAPTAÇÃO')) return 'Em Captação';
+  if (e.includes('CADASTRO'))     return 'Aguard. Cadastro';
+  if (e.includes('ASSUNTOS COMERCIAIS')) return 'Assuntos Comerciais';
+  return etapa.length > 0 ? etapa.slice(0,30) : 'Não Informado';
+}
+
+function extractCidade(crm) {
+  if (!crm) return '';
+  return String(crm)
+    .replace(/VENDAS EQUIPE /i,'')
+    .replace(/REATIVAL.*CHURN/i,'')
+    .replace(/REATIVA.*/i,'')
+    .replace(/CRM - VENDAS/i,'')
+    .trim();
+}
+
+function fmtDateInput(d) {
+  if (!d) return '';
+  return d.toISOString().slice(0,10);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FILTRO POR PERÍODO
+// ═══════════════════════════════════════════════════════════════════════════
+function applyFilter() {
+  const s = document.getElementById('dt-start').value;
+  const e = document.getElementById('dt-end').value;
+  const dS = s ? new Date(s) : null;
+  const dE = e ? new Date(e + 'T23:59:59') : null;
+
+  FILTERED = PROCESSED.filter(r => {
+    if (!r.data) return true;
+    if (dS && r.data < dS) return false;
+    if (dE && r.data > dE) return false;
+    return true;
+  });
+
+  // Update period badge
+  const badge = document.getElementById('period-badge');
+  if (s && e) {
+    badge.textContent = `${fmtDate(s)} → ${fmtDate(e)}`;
+    badge.style.display = '';
+  }
+
+  renderAll();
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════════════════════════════
+function renderAll() {
+  renderKPIs();
+  renderInsights();
+  renderFunnel();
+  renderChartTag();
+  renderTopConsultoras();
+  renderLeadsCidade();
+  renderFunilCidade();
+  renderCadastroPrevio();
+  renderHeatmap();
+  renderChartPerda();
+  renderTimeline();
+  buildTableFilters();
+  filterTable();
+  // Seções de Auditoria para Diretoria
+  renderRankingVerdade();
+  renderFunilGargalo();
+  renderGeoInteligencia();
+  renderTagsPorVendedora();
+}
+
+// ── KPIs AUDITADOS — Início do dashboard com números reais ──────────────────
+function renderKPIs() {
+  const total      = FILTERED.length;                                          // Total CRM (100%)
+  const rastreavel = FILTERED.filter(r => r.rastreavel).length;               // Encontrados no Matrix
+  // Total real de vendedoras da lista manual
+  const totalVendManual = RANKING_CONSOLIDADO.filter(r=>r.na_lista).length;
+  const convCRM    = FILTERED.filter(r => r.crm_status === 'Convertido').length; // Vendas CRM
+  const auditadas  = FILTERED.filter(r => r.venda_auditada).length;           // Instalados Hubsoft
+  const emAberto   = FILTERED.filter(r => r.status === 'Lead em Aberto').length;
+  const perdidos   = FILTERED.filter(r => r.status === 'Lead Perdido').length;
+  const enrolados  = FILTERED.filter(r => r.enrolacao).length;
+  const wappLento  = FILTERED.filter(r => r.espera_alerta).length;
+
+  const txConv  = total ? (convCRM / total * 100).toFixed(1) : '0.0';
+  const txRast  = total ? (rastreavel / total * 100).toFixed(0) : '0';
+  const txInst  = convCRM ? (auditadas / convCRM * 100).toFixed(0) : '0';
+  const txPerda = total ? (perdidos / total * 100).toFixed(1) : '0.0';
+
+  // ── 4 Cards principais ────────────────────────────────────────────────────
+  const kpis = [
+    { label:'Total Leads (CRM)',
+      value: total.toLocaleString('pt-BR'),
+      sub: `Base 100% do funil · ${total} registros`,
+      icon:'📋', color:'var(--blue)' },
+    { label:'Leads Rastreáveis (Matrix)',
+      value: rastreavel.toLocaleString('pt-BR'),
+      sub: `${txRast}% do CRM encontrado no Matrix Chat`,
+      icon:'🔍', color:'var(--purple)' },
+    { label:'Vendas Convertidas (CRM)',
+      value: convCRM.toLocaleString('pt-BR'),
+      sub: `${txConv}% de conversão sobre leads CRM`,
+      icon:'💰', color:'var(--accent)' },
+    { label:'Vendas Instaladas (Hubsoft)',
+      value: auditadas.toLocaleString('pt-BR'),
+      sub: `${txInst}% das vendas CRM têm OS habilitada`,
+      icon:'✅', color:'var(--green)' },
+    { label:'Leads em Aberto ⚠️',
+      value: emAberto.toLocaleString('pt-BR'),
+      sub: `CRM "Convertido" sem OS no Hubsoft`,
+      icon:'⚠️', color:'var(--yellow)' },
+  ];
+
+  document.getElementById('kpi-row').innerHTML = kpis.map(k => `
+    <div class="kpi-card" style="--kpi-color:${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <div class="kpi-icon">${k.icon}</div>
+    </div>`).join('');
+
+  // ── Barra de qualidade do cruzamento (CRM → Matrix) ─────────────────────
+  const mT = MATCH_STATS.total||1;
+  const [mC,mTl,mN,mNo] = [MATCH_STATS.cpf||0,MATCH_STATS.tel||0,MATCH_STATS.nome||0,MATCH_STATS.none||0];
+  const matchBar = document.getElementById('match-quality-bar');
+  if (matchBar) {
+    const pC=+(mC/mT*100).toFixed(0), pTl=+(mTl/mT*100).toFixed(0),
+          pN=+(mN/mT*100).toFixed(0), pNo=+(mNo/mT*100).toFixed(0);
+    matchBar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">
+          Rastreáveis: ${(mC+mTl+mN).toLocaleString('pt-BR')} de ${mT.toLocaleString('pt-BR')} leads CRM encontrados no Matrix
+          ${wappLento>0?`· <span style="color:var(--red)">🔴 ${wappLento} WhatsApp >20min</span>`:''}
+          ${enrolados>0?`· <span style="color:var(--yellow)">⏰ ${enrolados} enrolados</span>`:''}
+        </div>
+        <div style="flex:1;display:flex;height:8px;border-radius:4px;overflow:hidden;min-width:100px">
+          <div style="width:${pC}%;background:#10B981" title="CPF: ${mC}"></div>
+          <div style="width:${pTl}%;background:#3B82F6" title="Tel: ${mTl}"></div>
+          <div style="width:${pN}%;background:#8B5CF6" title="Nome: ${mN}"></div>
+          <div style="width:${pNo}%;background:#374151" title="Sem match: ${mNo}"></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          ${[['#10B981','CPF',mC,pC],['#3B82F6','Tel',mTl,pTl],['#8B5CF6','Nome',mN,pN],['#6B7280','Sem rastreio',mNo,pNo]].map(([c,l,n,p])=>`
+            <div style="display:flex;align-items:center;gap:4px">
+              <div style="width:8px;height:8px;border-radius:2px;background:${c};flex-shrink:0"></div>
+              <span style="font-size:11px;color:var(--muted2)">${l}: <strong style="color:var(--text)">${n}</strong><span style="color:var(--muted)"> (${p}%)</span></span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+// ── INSIGHTS ──────────────────────────────────────────────────────────────
+// ── INSIGHTS ──────────────────────────────────────────────────────────────
+function isConv(r){ return r.status==='Convertido'||r.status==='Pend. Instalação'; }
+function isConvReal(r){ return r.venda_auditada; }
+
+function renderInsights() {
+  const total  = FILTERED.length;
+  const semCRM = FILTERED.filter(r=>r.status==='Sem Rastreio').length;
+
+  // Por tag
+  const tagStats = Object.entries(groupBy(FILTERED,'origem'))
+    .map(([tag,rows])=>({ tag, leads:rows.length, conv:rows.filter(isConv).length, perd:rows.filter(r=>r.status==='Lead Perdido').length }))
+    .filter(t=>t.leads>=2);
+  const bestTagConv  = [...tagStats].sort((a,b)=>(b.conv/b.leads)-(a.conv/a.leads))[0];
+  const mostSalesTag = [...tagStats].sort((a,b)=>b.conv-a.conv)[0];
+  const worstTag     = [...tagStats].sort((a,b)=>(b.perd/b.leads)-(a.perd/a.leads))[0];
+
+  // Por cidade
+  const cidStats = Object.entries(groupBy(FILTERED.filter(r=>r.cidade),'cidade'))
+    .map(([c,rows])=>({ cidade:c, leads:rows.length, conv:rows.filter(isConv).length }))
+    .filter(c=>c.leads>=2);
+  const mostLeadsCid = [...cidStats].sort((a,b)=>b.leads-a.leads)[0];
+  const bestConvCid  = [...cidStats].sort((a,b)=>(b.conv/b.leads)-(a.conv/a.leads))[0];
+
+  // Por vendedora
+  const vendStats = Object.entries(groupBy(FILTERED.filter(r=>r.vendedora),'vendedora'))
+    .map(([v,rows])=>({ vend:v, leads:rows.length, conv:rows.filter(isConv).length }))
+    .filter(v=>v.leads>=2);
+  const mostSalesVend = [...vendStats].sort((a,b)=>b.conv-a.conv)[0];
+  const bestConvVend  = [...vendStats].sort((a,b)=>(b.conv/b.leads)-(a.conv/a.leads))[0];
+
+  const items = [
+    { icon:'🏙️', bg:'rgba(249,115,22,.15)', ic:'#F97316',
+      label:'Cidade com mais leads',
+      value: mostLeadsCid?.cidade||'—',
+      detail: mostLeadsCid ? `${mostLeadsCid.leads} leads · ${mostLeadsCid.conv} vendas` : '' },
+    { icon:'🥇', bg:'rgba(16,185,129,.15)', ic:'#10B981',
+      label:'Cidade com maior conversão',
+      value: bestConvCid?.cidade||'—',
+      detail: bestConvCid ? `${bestConvCid.conv}/${bestConvCid.leads} leads (${(bestConvCid.conv/bestConvCid.leads*100).toFixed(0)}%)` : '' },
+    { icon:'💰', bg:'rgba(59,130,246,.15)', ic:'#3B82F6',
+      label:'Consultora c/ mais vendas',
+      value: mostSalesVend ? mostSalesVend.vend.split(' ').slice(0,2).join(' ') : '—',
+      detail: mostSalesVend ? `${mostSalesVend.conv} vendas de ${mostSalesVend.leads} leads` : '' },
+    { icon:'⭐', bg:'rgba(245,158,11,.15)', ic:'#F59E0B',
+      label:'Consultora c/ maior conversão',
+      value: bestConvVend ? bestConvVend.vend.split(' ').slice(0,2).join(' ') : '—',
+      detail: bestConvVend ? `${bestConvVend.conv}/${bestConvVend.leads} leads (${(bestConvVend.conv/bestConvVend.leads*100).toFixed(0)}%)` : '' },
+    { icon:'🏆', bg:'rgba(0,229,195,.12)', ic:'var(--accent)',
+      label:'Origem com melhor conversão',
+      value: bestTagConv?.tag||'—',
+      detail: bestTagConv ? `${bestTagConv.conv}/${bestTagConv.leads} (${(bestTagConv.conv/bestTagConv.leads*100).toFixed(0)}%)` : '' },
+    { icon:'📦', bg:'rgba(139,92,246,.15)', ic:'#8B5CF6',
+      label:'Origem com mais vendas',
+      value: mostSalesTag?.tag||'—',
+      detail: mostSalesTag ? `${mostSalesTag.conv} vendas de ${mostSalesTag.leads} leads` : '' },
+    { icon:'⚠️', bg:'rgba(239,68,68,.15)', ic:'#EF4444',
+      label:'Origem com maior perda',
+      value: worstTag?.tag||'—',
+      detail: worstTag ? `${worstTag.perd}/${worstTag.leads} perdidos (${(worstTag.perd/worstTag.leads*100).toFixed(0)}%)` : '' },
+    { icon:'👻', bg:'rgba(107,114,128,.15)', ic:'#9CA3AF',
+      label:'Leads sem rastreio',
+      value: semCRM.toLocaleString('pt-BR'),
+      detail: `${total?(semCRM/total*100).toFixed(0):0}% sem registro no CRM` },
+    { icon:'📊', bg:'rgba(59,130,246,.1)', ic:'#3B82F6',
+      label:'Taxa geral de conversão',
+      value: total ? `${(FILTERED.filter(isConv).length/total*100).toFixed(1)}%` : '—',
+      detail: `${FILTERED.filter(isConv).length} vendas de ${total} leads` },
+  ];
+
+  document.getElementById('insights-bar').innerHTML = items.map(i=>`
+    <div class="insight-card">
+      <div class="ins-icon" style="background:${i.bg};color:${i.ic}">${i.icon}</div>
+      <div><div class="ins-label">${i.label}</div><div class="ins-value">${i.value}</div><div class="ins-detail">${i.detail}</div></div>
+    </div>`).join('');
+}
+
+// ── FUNIL COMPLETO — BASE 100% = CRM ──────────────────────────────────────
+function renderFunnel() {
+  // Topo: Total de Leads do CRM (100%)
+  // Rastreáveis: leads do CRM encontrados no Matrix Chat
+  // Intermediárias: etapas reais do crm_etapa
+  // Conversão CRM: status_prospecto === 'Convertido'
+  // Base: Vendas Instaladas Auditadas (Hubsoft)
+  const total      = FILTERED.length;                                             // 100% = CRM
+  const rastreavel = FILTERED.filter(r => r.rastreavel).length;                  // CRM rastreados no Matrix
+  const convCRM    = FILTERED.filter(r => r.crm_status === 'Convertido').length; // status_prospecto convertido
+
+  // Etapas intermediárias via crm_etapa (do funil de vendas)
+  const etapaGroups = {
+    'Captação/Contato'   : r => /CAPTAC|CONTATO|PROSPECT/i.test(r.crm_etapa||''),
+    'Proposta/Negociação': r => /ASSUNTOS|NEGOC|ANALISE|VIABILIDADE(?! NEG)/i.test(r.crm_etapa||''),
+    'Aguard. Cadastro'   : r => /CADASTRO/i.test(r.crm_etapa||''),
+  };
+
+  const etapaCounts = Object.entries(etapaGroups).map(([label, fn]) => ({
+    name: label,
+    val : FILTERED.filter(fn).length,
+  }));
+
+  const auditadas = FILTERED.filter(r => r.venda_auditada).length;
+
+  const steps = [
+    { name:'Total Leads CRM',         val: total,      color:'#3B82F6' },
+    { name:'Rastreáveis (Matrix) 🔍', val: rastreavel, color:'#8B5CF6' },
+    ...etapaCounts.filter(e => e.val > 0).map((e, i) => ({
+      ...e, color: ['#A78BFA','#7C3AED','#6D28D9'][i] || '#6D28D9'
+    })),
+    { name:'Convertidos (CRM) 💰',    val: convCRM,    color:'#F59E0B' },
+    { name:'Instalados (Hubsoft) ✓',  val: auditadas,  color:'#10B981' },
+  ];
+
+  const maxW = 340;
+  let html = '';
+  steps.forEach((step, i) => {
+    const pct      = total ? step.val / total : 0;
+    const w        = Math.max(maxW * pct, 44);
+    const prev     = steps[i - 1];
+    const convPrev = (prev && prev.val) ? (step.val / prev.val * 100).toFixed(0) : null;
+    if (i > 0) html += `
+      <div class="funnel-arrow">
+        <div class="funnel-line"></div>
+        <div class="funnel-pct">${convPrev}% da etapa anterior</div>
+        <div class="funnel-line"></div>
+      </div>`;
+    html += `<div class="funnel-step">
+      <div class="funnel-bar" style="background:${step.color};width:${w}px;min-width:${w}px;max-width:${maxW}px">
+        <span class="funnel-name" style="font-size:10px">${step.name}</span>
+        <span class="funnel-val">${step.val.toLocaleString('pt-BR')}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('funnel-wrap').innerHTML = html;
+}
+
+// ── CHART TAG ─────────────────────────────────────────────────────────────
+function renderChartTag() {
+  const byTag = groupBy(FILTERED, 'origem');
+  const data  = Object.entries(byTag).map(([tag,rows]) => ({
+    tag, leads:rows.length,
+    conv:rows.filter(r=>r.status==='Convertido'||r.status==='Pend. Instalação').length,
+    perd:rows.filter(r=>r.status==='Lead Perdido').length,
+  })).filter(d=>d.leads>=1).sort((a,b)=>b.conv-a.conv).slice(0,12);
+
+  document.getElementById('sub-tag').textContent = `${data.length} origens identificadas`;
+
+  const labels = data.map(d=>d.tag.length>18?d.tag.slice(0,16)+'…':d.tag);
+  destroyChart('tag');
+  const ctx = document.getElementById('chart-tag').getContext('2d');
+  CHARTS.tag = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Leads', data:data.map(d=>d.leads), backgroundColor:'rgba(59,130,246,.3)', borderColor:'#3B82F6', borderWidth:1, borderRadius:4 },
+        { label:'Convertidos', data:data.map(d=>d.conv), backgroundColor:'rgba(0,229,195,.7)', borderColor:'#00E5C3', borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.5)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.5)'} }
+      }
+    }
+  });
+}
+
+// ── TOP CONSULTORAS ───────────────────────────────────────────────────────
+function renderTopConsultoras() {
+  const vendMap = window._vendVendedorMap || new Map();
+
+  // ════════════════════════════════════════════════════════════════════════
+  // CAPTURA TOTAL — todos os nomes únicos de 3 fontes, sem perder ninguém
+  // Fonte 1: nomes canônicos do FILIAL_MAP (sempre presentes)
+  // Fonte 2: todos os usuários únicos do CRM (via _allVendedoras)
+  // Fonte 3: vendedoras que aparecem em FILTERED (segurança extra)
+  // ════════════════════════════════════════════════════════════════════════
+
+  // Mapa mestre: superClean(nome) → nome canônico a exibir
+  // Prioridade: FILIAL_MAP canônico > CRM > FILTERED
+  const scToCanon = new Map();
+
+  // 1. Registrar filiais com prioridade máxima
+  Object.values(FILIAL_MAP).forEach(v => {
+    scToCanon.set(superClean(v), v);
+  });
+
+  // 2. Adicionar TODAS do RANKING_CONSOLIDADO (inclui lista manual completa)
+  RANKING_CONSOLIDADO.forEach(r => {
+    const sc = superClean(r.display);
+    if (!sc || sc.length < 2) return;
+    if (!scToCanon.has(sc)) scToCanon.set(sc, r.display);
+  });
+
+  // 3. Registrar todos do CRM (não sobrescreve filiais nem lista manual)
+  const allVend = window._allVendedoras || new Map();
+  allVend.forEach((info) => {
+    if (!info.usuario) return;
+    const sc = superClean(info.usuario);
+    if (!sc || sc === 'NAN' || sc.length < 2) return;
+    if (!scToCanon.has(sc)) scToCanon.set(sc, info.usuario);
+  });
+
+  // 4. Segurança extra: qualquer vendedora em FILTERED
+  FILTERED.forEach(r => {
+    if (!r.vendedora) return;
+    const sc = superClean(r.vendedora);
+    if (!sc || sc.length < 2) return;
+    if (!scToCanon.has(sc)) scToCanon.set(sc, r.vendedora);
+  });
+
+  // Distribuir leads de FILTERED para cada nome canônico
+  // usando superClean como chave de lookup
+  const leadsByCanon = new Map();
+  scToCanon.forEach((canon) => leadsByCanon.set(canon, []));
+
+  FILTERED.filter(r => r.vendedora).forEach(r => {
+    const sc     = superClean(r.vendedora);
+    const canon  = scToCanon.get(sc);
+    if (!canon) return;
+    leadsByCanon.get(canon).push(r);
+  });
+
+  // ── Regra 2+3: TODAS as vendedoras visíveis — FILIAL_MAP + CRM + FILTERED
+  // Constrói conjunto mestre: nomes do FILIAL_MAP + nomes do CRM via _allVendedoras
+  // Construir array de dados a partir do leadsByCanon
+  const data = Array.from(leadsByCanon.entries()).map(([vend, rows]) => {
+    const vn = normVend(vend);
+    const vs = superClean(vend);  // superClean para match robusto
+    // Vendas Reais: tenta superClean primeiro, depois normVend
+    const vendasReais = vendMap.has(vs) ? vendMap.get(vs).length
+                      : vendMap.has(vn) ? vendMap.get(vn).length : 0;
+    const conv  = rows.filter(isConv).length;
+    const leads = rows.length;
+    const taxaReal = leads ? +(vendasReais / leads * 100).toFixed(1) : 0;
+    const taxaCRM  = leads ? +(conv / leads * 100).toFixed(1) : 0;
+    return { vend, vend_norm:vn, leads, conv_crm:conv, conv_real:vendasReais,
+             taxa_crm:taxaCRM, taxa_real:taxaReal,
+             perd     : rows.filter(r=>r.status==='Lead Perdido').length,
+             rastreav : rows.filter(r=>r.rastreavel).length,    // Regra 3
+             instalados: rows.filter(r=>r.venda_auditada).length, // Regra 4
+             semLeads : leads === 0 };
+  }).sort((a,b) => {
+    // Sem leads vai para o final
+    if (a.semLeads && !b.semLeads) return 1;
+    if (!a.semLeads && b.semLeads) return -1;
+    return b.conv_real - a.conv_real || b.conv_crm - a.conv_crm;
+  });
+
+  document.getElementById('sub-vend').textContent = `${data.length} consultoras (${data.filter(d=>!d.semLeads).length} ativas)`;
+
+  // Gráfico — Vendas CRM vs Vendas Reais (Hubsoft)
+  destroyChart('vend');
+  const ctx = document.getElementById('chart-vend').getContext('2d');
+  const top = data.slice(0, 12);
+  CHARTS.vend = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: top.map(d => d.vend.split(' ').slice(0,2).join(' ')),
+      datasets: [
+        { label:'Leads',         data:top.map(d=>d.leads),     backgroundColor:'rgba(107,114,128,.2)', borderColor:'#6B7280', borderWidth:1, borderRadius:3 },
+        { label:'Vendas CRM',    data:top.map(d=>d.conv_crm),  backgroundColor:'rgba(59,130,246,.5)',  borderColor:'#3B82F6', borderWidth:1, borderRadius:3 },
+        { label:'Vendas Reais ✓',data:top.map(d=>d.conv_real), backgroundColor:'rgba(16,185,129,.8)',  borderColor:'#10B981', borderWidth:1, borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10},maxRotation:35}, grid:{color:'rgba(31,41,55,.4)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.4)'} }
+      }
+    }
+  });
+
+  // Tabela Regra 3 — destaque vermelho < 10% conversão real
+  const hasHubsoft = window._vendVendedorMap && window._vendVendedorMap.size > 0;
+  const cols = hasHubsoft
+    ? ['#','Consultora','Leads','📡 Matrix','Vendas CRM','✅ Instalados','Conv. Real %','Status']
+    : ['#','Consultora','Leads','📡 Matrix','Vendas CRM','Conv. CRM %','Status'];
+  document.getElementById('vend-thead').innerHTML =
+    `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+
+  document.getElementById('vend-tbody').innerHTML = data.map((d,i) => {
+    const posCls = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const taxa   = hasHubsoft ? d.taxa_real : d.taxa_crm;
+    // ── Regra 4: formatação condicional baseada em Vendas Reais ──────────────
+    // 0 vendas reais = alerta vermelho; < 10% = alerta laranja; sem leads = cinza especial
+    const semLeads   = d.semLeads;
+    const zeroVendas = !semLeads && d.conv_real === 0 && hasHubsoft;
+    const txCor  = semLeads   ? '#6B7280'
+                 : zeroVendas ? 'var(--red)'
+                 : taxa < 10  ? 'var(--red)'
+                 : taxa < 30  ? 'var(--yellow)'
+                 :               'var(--green)';
+    const rowBg  = semLeads   ? 'background:rgba(107,114,128,.04);opacity:.65'
+                 : zeroVendas ? 'background:rgba(239,68,68,.07);border-left:2px solid #EF4444'
+                 : taxa < 10  ? 'background:rgba(239,68,68,.05)'
+                 :               '';
+    const nomeCor = semLeads   ? 'var(--muted)'
+                  : zeroVendas ? 'var(--red)'
+                  : taxa < 10  ? 'var(--red)'
+                  :               'var(--text)';
+    const alert  = semLeads   ? '<span style="font-size:10px;color:var(--muted)">Sem leads no período</span>'
+                 : zeroVendas ? '🔴 Zero vendas'
+                 : taxa < 10  ? '🚨 Atenção'
+                 : taxa < 30  ? '⚠️ Médio'
+                 :               '✅ OK';
+    // Célula Vendas Reais com destaque especial se for 0
+    const vendRealStyle = zeroVendas
+      ? 'color:var(--red);font-weight:800;background:rgba(239,68,68,.12);border-radius:4px;padding:2px 8px'
+      : 'color:var(--accent);font-weight:700';
+    // Regra 3+4: colunas Matrix e Instalados na tabela de consultoras
+    const mxRastPct = d.leads ? Math.round(d.rastreav/d.leads*100) : 0;
+    const mxCell = semLeads ? '<td style="color:var(--muted)">—</td>'
+      : `<td><span style="font-size:10px;color:#60A5FA">${d.rastreav} <span style="color:var(--muted)">(${mxRastPct}%)</span></span></td>`;
+    const cells  = hasHubsoft
+      ? mxCell + `<td style="color:var(--blue);font-weight:700">${d.conv_crm}</td>
+         <td><span style="${vendRealStyle}">${d.instalados||d.conv_real}${zeroVendas?' ⚠️':''}</span></td>
+         <td><span class="badge" style="background:${txCor}22;color:${txCor};font-size:11px">${semLeads?'—':d.taxa_real+'%'}</span></td>`
+      : mxCell + `<td style="color:var(--blue);font-weight:700">${d.conv_crm}</td>
+         <td><span class="badge" style="background:${txCor}22;color:${txCor};font-size:11px">${semLeads?'—':d.taxa_crm+'%'}</span></td>`;
+    const leadsDisp = semLeads ? '<span style="color:var(--muted)">0</span>' : d.leads;
+    return `<tr style="${rowBg}">
+      <td><div class="rank-pos ${semLeads?'rank-n':posCls}">${i+1}</div></td>
+      <td style="font-weight:600;color:${nomeCor}">${d.vend}${semLeads?' <span style="font-size:9px;background:rgba(107,114,128,.15);border-radius:3px;padding:1px 5px;color:#6B7280">filial</span>':''}</td>
+      <td style="color:var(--muted2)">${leadsDisp}</td>
+      ${cells}
+      <td style="font-size:11px">${alert}</td>
+    </tr>`;
+  }).join('');
+
+  // Exibir nota de agilidade WhatsApp Empresa
+  renderAgilidadeWhatsApp();
+}
+
+// Regra 2 — Painel de Agilidade WhatsApp Empresa
+function renderAgilidadeWhatsApp() {
+  const wapp = FILTERED.filter(r =>
+    r.origem === 'WhatsApp Empresa' && r.agilidade_min !== null);
+  if (!wapp.length) return;
+
+  const buckets = {};
+  wapp.forEach(r => {
+    const k = r.agilidade_label || 'Sem dado';
+    buckets[k] = (buckets[k]||0) + 1;
+  });
+  const avg = (wapp.reduce((s,r)=>s+(r.agilidade_min||0),0)/wapp.length).toFixed(0);
+
+  // Inserir painel após tabela de consultoras se ainda não existir
+  let panel = document.getElementById('agilidade-panel');
+  if (!panel) {
+    const container = document.getElementById('vend-tbody')?.closest('.chart-card');
+    if (!container) return;
+    panel = document.createElement('div');
+    panel.id = 'agilidade-panel';
+    panel.style.cssText = 'margin-top:16px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:10px';
+    container.appendChild(panel);
+  }
+  const order = ['⚡ <5min','✅ 5-15min','⚠️ 15-60min','🐌 1-4h','❌ >4h'];
+  const bars = order.map(k => {
+    if (!buckets[k]) return '';
+    const pct = (buckets[k]/wapp.length*100).toFixed(0);
+    const clr = k.startsWith('⚡')||k.startsWith('✅') ? 'var(--green)'
+              : k.startsWith('⚠️') ? 'var(--yellow)' : 'var(--red)';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="min-width:80px;font-size:11px;color:var(--muted2)">${k}</div>
+      <div style="flex:1;background:var(--border);border-radius:3px;height:8px">
+        <div style="width:${pct}%;background:${clr};height:100%;border-radius:3px"></div></div>
+      <div style="min-width:36px;font-size:11px;color:var(--text);text-align:right">${buckets[k]}</div>
+    </div>`;
+  }).join('');
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent)">⚡ Agilidade — WhatsApp Empresa (${wapp.length} leads)</div>
+      <div style="font-size:11px;color:var(--muted2)">Tempo médio de fila: <strong style="color:var(--text)">${avg} min</strong></div>
+    </div>
+    ${bars}`;
+}
+
+// ── LEADS POR CIDADE + GRÁFICO ─────────────────────────────────────────────
+function renderLeadsCidade() {
+  const byCid = groupBy(FILTERED.filter(r=>r.cidade), 'cidade');
+  const data  = Object.entries(byCid).map(([c,rows])=>({
+    cidade: c,
+    leads : rows.length,
+    conv  : rows.filter(isConv).length,
+    perd  : rows.filter(r=>r.status==='Lead Perdido').length,
+    taxa  : rows.length ? +(rows.filter(isConv).length/rows.length*100).toFixed(1) : 0,
+  })).filter(d=>d.leads>=1).sort((a,b)=>b.leads-a.leads).slice(0,14);
+
+  destroyChart('cidade');
+  const ctx = document.getElementById('chart-cidade').getContext('2d');
+  CHARTS.cidade = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.map(d=>d.cidade),
+      datasets:[
+        { label:'Leads',  data:data.map(d=>d.leads), backgroundColor:'rgba(249,115,22,.25)', borderColor:'#F97316', borderWidth:1, borderRadius:4 },
+        { label:'Vendas', data:data.map(d=>d.conv),  backgroundColor:'rgba(0,229,195,.7)',   borderColor:'#00E5C3', borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10},maxRotation:40}, grid:{color:'rgba(31,41,55,.4)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.4)'} }
+      }
+    }
+  });
+}
+
+// ── FUNIL POR CIDADE ──────────────────────────────────────────────────────
+function renderFunilCidade() {
+  const byCid = groupBy(FILTERED.filter(r=>r.cidade), 'cidade');
+  const data  = Object.entries(byCid).map(([c,rows])=>({
+    cidade : c,
+    leads  : rows.length,
+    crm    : rows.filter(r=>r.crm_status).length,
+    conv   : rows.filter(isConv).length,
+  })).filter(d=>d.leads>=2).sort((a,b)=>b.leads-a.leads).slice(0,12);
+
+  document.getElementById('sub-funil-cidade').textContent = `${data.length} cidades com leads`;
+
+  destroyChart('funilCidade');
+  const ctx = document.getElementById('chart-funil-cidade').getContext('2d');
+  CHARTS.funilCidade = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.map(d=>d.cidade),
+      datasets:[
+        { label:'Leads Matrix', data:data.map(d=>d.leads), backgroundColor:'rgba(59,130,246,.3)',  borderColor:'#3B82F6', borderWidth:1, borderRadius:4 },
+        { label:'No CRM',       data:data.map(d=>d.crm),   backgroundColor:'rgba(139,92,246,.5)',  borderColor:'#8B5CF6', borderWidth:1, borderRadius:4 },
+        { label:'Vendas',       data:data.map(d=>d.conv),  backgroundColor:'rgba(16,185,129,.85)', borderColor:'#10B981', borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10},maxRotation:35}, grid:{color:'rgba(31,41,55,.4)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.4)'} }
+      }
+    }
+  });
+}
+
+// ── CADASTRO PRÉVIO ───────────────────────────────────────────────────────
+function classifyLead(r) {
+  const origem = (r.origem || '').toUpperCase();
+  const tag    = (r.crm_tag || r.crm_etapa || '').toUpperCase();
+  // Segundo ponto — detectado via origem ou tag
+  if (origem.includes('2º PONTO') || origem.includes('OUTRO PONTO') ||
+      tag.includes('OUTRO PONTO') || r.segundo_ponto)    return 'segundo_ponto';
+  // Já é cliente / reativação
+  if (origem.includes('REATIVAÇÃO') || origem.includes('REATIVACAO') ||
+      tag.includes('REATIV') || tag.includes('JÁ É CLIENTE') ||
+      tag.includes('JA E CLIENTE') || tag.includes('BASE ELEGÍVEL'))  return 'ja_cliente';
+  // Já possui cadastro prévio mas não é reativação
+  if (origem.includes('JÁ É CLIENTE') || tag.includes('JA POSSUI') ||
+      tag.includes('JÁ POSSUI'))                          return 'ja_cliente';
+  // Tem CRM → novo cadastro
+  if (r.crm_status) return 'novo_cadastro';
+  return 'sem_crm';
+}
+
+function renderCadastroPrevio() {
+  // Classificar todos os leads filtrados
+  const classes = { novo_cadastro:[], ja_cliente:[], segundo_ponto:[], sem_crm:[] };
+  FILTERED.forEach(r => { const c = classifyLead(r); classes[c].push(r); });
+
+  const tipos = [
+    { key:'novo_cadastro', label:'Novo Cliente',          color:'#10B981', icon:'✨' },
+    { key:'ja_cliente',    label:'Cliente Já Cadastrado', color:'#F59E0B', icon:'👤' },
+    { key:'segundo_ponto', label:'Segundo Ponto',         color:'#8B5CF6', icon:'📡' },
+    { key:'sem_crm',       label:'Sem CRM (Rastreio)',    color:'#6B7280', icon:'👻' },
+  ];
+  const total = FILTERED.length;
+
+  // Donut chart
+  destroyChart('cadastro');
+  const ctx = document.getElementById('chart-cadastro').getContext('2d');
+  CHARTS.cadastro = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: tipos.map(t=>t.label),
+      datasets:[{ data: tipos.map(t=>classes[t.key].length),
+        backgroundColor: tipos.map(t=>t.color+'99'),
+        borderColor: tipos.map(t=>t.color),
+        borderWidth: 2, hoverOffset: 6 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:10}}, tooltip:{...tooltipDefaults()} }
+    }
+  });
+
+  // KPIs laterais
+  document.getElementById('cadastro-kpis').innerHTML = tipos.map(t=>{
+    const n = classes[t.key].length;
+    const pct = total ? (n/total*100).toFixed(0) : 0;
+    return `<div class="cad-kpi">
+      <span class="cad-kpi-label">${t.icon} ${t.label}</span>
+      <span class="cad-kpi-val" style="color:${t.color}">${n} <span style="font-size:11px;color:var(--muted);font-weight:400">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+
+  // Tabela conversão por tipo
+  const colsT = ['Tipo de Cliente','Leads','Vendas','Perdidos','Conversão %'];
+  document.getElementById('cadastro-thead').innerHTML = `<tr>${colsT.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+  document.getElementById('cadastro-tbody').innerHTML = tipos.map(t=>{
+    const rows = classes[t.key];
+    const n    = rows.length;
+    const conv = rows.filter(isConv).length;
+    const perd = rows.filter(r=>r.status==='Lead Perdido').length;
+    const taxa = n ? (conv/n*100).toFixed(1) : 0;
+    const txCor= taxa>=60?'var(--green)':taxa>=30?'var(--yellow)':'var(--red)';
+    return `<tr>
+      <td><span style="color:${t.color}">${t.icon}</span> ${t.label}</td>
+      <td style="color:var(--muted2)">${n}</td>
+      <td style="color:var(--green);font-weight:700">${conv}</td>
+      <td style="color:var(--red)">${perd}</td>
+      <td><span class="badge" style="background:${txCor}22;color:${txCor}">${taxa}%</span></td>
+    </tr>`;
+  }).join('');
+
+  // Gráfico novos clientes por cidade
+  const novos = classes.novo_cadastro;
+  const byCidNovos = groupBy(novos.filter(r=>r.cidade), 'cidade');
+  const cidNovos = Object.entries(byCidNovos).map(([c,rows])=>({
+    cidade:c, leads:rows.length, conv:rows.filter(isConv).length
+  })).sort((a,b)=>b.leads-a.leads).slice(0,10);
+
+  destroyChart('novosCidade');
+  const ctx2 = document.getElementById('chart-novos-cidade').getContext('2d');
+  CHARTS.novosCidade = new Chart(ctx2, {
+    type:'bar',
+    data:{
+      labels: cidNovos.map(d=>d.cidade),
+      datasets:[
+        { label:'Novos Leads', data:cidNovos.map(d=>d.leads), backgroundColor:'rgba(59,130,246,.3)',  borderColor:'#3B82F6', borderWidth:1, borderRadius:4 },
+        { label:'Vendas',      data:cidNovos.map(d=>d.conv),  backgroundColor:'rgba(16,185,129,.75)', borderColor:'#10B981', borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10},maxRotation:35}, grid:{color:'rgba(31,41,55,.4)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.4)'} }
+      }
+    }
+  });
+}
+
+// ── HEATMAP CIDADES ───────────────────────────────────────────────────────
+// Regra 5 — Mapa de Calor por Cidade + Bairro
+function renderHeatmap() {
+  // Nível 1: por cidade (vendas auditadas quando possível)
+  const byCid = groupBy(FILTERED.filter(r=>r.cidade), 'cidade');
+  const cidData = Object.entries(byCid).map(([c, rows]) => ({
+    cidade : c,
+    leads  : rows.length,
+    conv   : rows.filter(isConv).length,
+    audit  : rows.filter(r=>r.venda_auditada).length,
+  })).filter(d=>d.leads>=1).sort((a,b)=>b.leads-a.leads).slice(0,18);
+
+  const grid = document.getElementById('heatmap-grid');
+  grid.innerHTML = cidData.map(d => {
+    const rate  = d.leads ? d.conv/d.leads : 0;
+    const audit = d.audit > 0 ? ` · ${d.audit} ✓` : '';
+    let bg, tc;
+    if (rate >= 0.6)      { bg='rgba(16,185,129,.18)'; tc='#10B981'; }
+    else if (rate >= 0.3) { bg='rgba(245,158,11,.18)'; tc='#F59E0B'; }
+    else                  { bg='rgba(239,68,68,.18)';  tc='#EF4444'; }
+    return `<div class="hm-cell" style="background:${bg};cursor:pointer" onclick="toggleBairros('${d.cidade.replace(/'/g,"\\'")}',this)" title="Clique para ver bairros">
+      <div class="hm-city" style="color:${tc}">${d.cidade}</div>
+      <div class="hm-leads" style="color:${tc}">${d.leads} leads${audit}</div>
+      <div class="hm-rate" style="color:${tc}">${d.leads?(d.conv/d.leads*100).toFixed(0):0}%</div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(rate*100,100)}%;background:${tc}"></div></div>
+    </div>`;
+  }).join('');
+
+  // Nível 2: bairros (oculto, aparece ao clicar na cidade)
+  const bairroPanel = document.getElementById('bairro-panel');
+  if (bairroPanel) bairroPanel.innerHTML = '';
+}
+
+// Expande bairros ao clicar na célula de cidade
+function toggleBairros(cidade, el) {
+  let panel = document.getElementById('bairro-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'bairro-panel';
+    panel.style.cssText = 'grid-column:1/-1;background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-top:4px';
+    document.getElementById('heatmap-grid').appendChild(panel);
+  }
+
+  const current = panel.dataset.cidade;
+  if (current === cidade) { panel.innerHTML=''; panel.dataset.cidade=''; return; }
+  panel.dataset.cidade = cidade;
+
+  const leads = FILTERED.filter(r => r.cidade === cidade && r.bairro);
+  if (!leads.length) { panel.innerHTML = `<div style="color:var(--muted);font-size:12px">Sem dados de bairro para ${cidade}.</div>`; return; }
+
+  const byBairro = groupBy(leads, 'bairro');
+  const bData = Object.entries(byBairro).map(([b,rows])=>({
+    bairro:b, leads:rows.length,
+    conv:rows.filter(isConv).length,
+    audit:rows.filter(r=>r.venda_auditada).length,
+  })).sort((a,b)=>b.conv-a.conv||b.leads-a.leads);
+
+  panel.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px">
+      📍 Bairros — ${cidade} (${bData.length} bairros com leads)
+      <span style="float:right;cursor:pointer;color:var(--muted)" onclick="document.getElementById('bairro-panel').innerHTML=''">✕</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+      ${bData.map(d => {
+        const rate = d.leads ? d.conv/d.leads : 0;
+        const tc = rate>=.6?'#10B981':rate>=.3?'#F59E0B':'#EF4444';
+        const auditTxt = d.audit > 0 ? `<span style="color:var(--accent)"> ✓${d.audit}</span>` : '';
+        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
+          <div style="font-size:11px;font-weight:600;color:${tc};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.bairro}</div>
+          <div style="font-size:10px;color:var(--muted2)">${d.leads} leads${auditTxt}</div>
+          <div style="font-size:16px;font-weight:800;color:${tc}">${(rate*100).toFixed(0)}%</div>
+          <div style="background:var(--border);border-radius:2px;height:4px;margin-top:4px">
+            <div style="width:${Math.min(rate*100,100)}%;background:${tc};height:100%;border-radius:2px"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// Regra 4 — Motivos de Perda (pizza por crm_etapa categorizado)
+function renderChartPerda() {
+  // Delegado para renderParetoMotivos (chamado via renderGeoInteligencia)
+  // Mantém compatibilidade com renderAll
+  renderParetoMotivos();
+}
+function _renderChartPerdaLEGACY() {
+  const perdidos = FILTERED.filter(r =>
+    r.status === 'Lead Perdido' || r.status === 'Lead em Aberto');
+
+  // Agrupar por motivo categorizado
+  const byMotivo = groupBy(perdidos, 'motivo_perda');
+  const data = Object.entries(byMotivo)
+    .map(([m, rows]) => ({ motivo: m || 'Não Informado', qtd: rows.length }))
+    .filter(d => d.qtd > 0)
+    .sort((a,b) => b.qtd - a.qtd);
+
+  const COLORS = [
+    '#EF4444','#F97316','#F59E0B','#10B981','#3B82F6',
+    '#8B5CF6','#EC4899','#14B8A6','#6366F1','#84CC16',
+    '#06B6D4','#A855F7','#F43F5E','#FB923C',
+  ];
+
+  destroyChart('perda');
+  const ctx = document.getElementById('chart-perda').getContext('2d');
+  CHARTS.perda = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.motivo),
+      datasets: [{
+        data : data.map(d => d.qtd),
+        backgroundColor: data.map((_,i) => COLORS[i % COLORS.length] + 'BB'),
+        borderColor    : data.map((_,i) => COLORS[i % COLORS.length]),
+        borderWidth    : 2,
+        hoverOffset    : 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color:'#9CA3AF', font:{size:10}, padding:8, boxWidth:12 }
+        },
+        tooltip: {
+          ...tooltipDefaults(),
+          callbacks: {
+            label: ctx => {
+              const total = data.reduce((s,d)=>s+d.qtd,0);
+              const pct   = total ? (ctx.parsed/total*100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Mini tabela de motivos abaixo do gráfico (se o canvas suportar)
+  const total = perdidos.length;
+  const after = document.getElementById('perda-table');
+  if (after && total > 0) {
+    after.innerHTML = `<div style="margin-top:10px;font-size:10px;color:var(--muted2);text-align:center">`
+      + data.slice(0,5).map(d =>
+          `<span style="margin:0 6px">${d.motivo}: <strong style="color:var(--text)">${d.qtd}</strong> (${(d.qtd/total*100).toFixed(0)}%)</span>`
+        ).join(' · ')
+      + `</div>`;
+  }
+}
+
+// ── TIMELINE ──────────────────────────────────────────────────────────────
+function renderTimeline() {
+  const byDay = {};
+  FILTERED.filter(r=>r.data).forEach(r=>{
+    const k = r.data.toISOString().slice(0,10);
+    byDay[k] = (byDay[k]||{leads:0,conv:0});
+    byDay[k].leads++;
+    if (r.status==='Convertido'||r.status==='Pend. Instalação') byDay[k].conv++;
+  });
+  const days  = Object.keys(byDay).sort();
+  const leads = days.map(d=>byDay[d].leads);
+  const convs = days.map(d=>byDay[d].conv);
+  const labels= days.map(d=>{ const [y,m,dd]=d.split('-'); return `${dd}/${m}`; });
+
+  destroyChart('timeline');
+  const ctx = document.getElementById('chart-timeline').getContext('2d');
+  CHARTS.timeline = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        { label:'Leads', data:leads, borderColor:'#3B82F6', backgroundColor:'rgba(59,130,246,.08)', fill:true, tension:.4, pointRadius:3 },
+        { label:'Convertidos', data:convs, borderColor:'#00E5C3', backgroundColor:'rgba(0,229,195,.08)', fill:true, tension:.4, pointRadius:3 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}}, tooltip:{...tooltipDefaults()} },
+      scales:{
+        x:{ ticks:{color:'#6B7280',font:{size:10},maxRotation:45}, grid:{color:'rgba(31,41,55,.5)'} },
+        y:{ ticks:{color:'#6B7280',font:{size:10}}, grid:{color:'rgba(31,41,55,.5)'} }
+      }
+    }
+  });
+}
+
+// ── TABELA ────────────────────────────────────────────────────────────────
+function buildTableFilters() {
+  populateSelect('flt-status', [...new Set(PROCESSED.map(r=>r.status))].filter(Boolean).sort());
+  populateSelect('flt-cidade', [...new Set(PROCESSED.map(r=>r.cidade))].filter(Boolean).sort());
+  populateSelect('flt-vend',   [...new Set(PROCESSED.map(r=>r.vendedora))].filter(Boolean).sort());
+  populateSelect('flt-tag',    [...new Set(PROCESSED.map(r=>r.origem))].filter(v=>v && v!=='Sem Origem Rastreada').sort());
+}
+
+function populateSelect(id, opts) {
+  const s = document.getElementById(id);
+  const cur = s.value;
+  while(s.options.length>1) s.remove(1);
+  opts.forEach(o => { const op=document.createElement('option'); op.value=op.textContent=o; s.appendChild(op); });
+  if (opts.includes(cur)) s.value = cur;
+}
+
+function filterTable() {
+  const search  = document.getElementById('tbl-search').value.toLowerCase();
+  const status  = document.getElementById('flt-status').value;
+  const cidade  = document.getElementById('flt-cidade').value;
+  const vend    = document.getElementById('flt-vend').value;
+  const tag     = document.getElementById('flt-tag').value;
+
+  let rows = FILTERED.filter(r => {
+    if (status && r.status    !== status) return false;
+    if (cidade && r.cidade    !== cidade) return false;
+    if (vend   && r.vendedora !== vend)   return false;
+    if (tag    && r.origem !== tag)    return false;
+    if (search) {
+      const hay = `${r.nome} ${r.telefone} ${r.crm_nome} ${r.cpf_norm||''} ${r.crm_cpf||''}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (SORT_COL >= 0) {
+    const cols = ['crm_nome','origem','crm_etapa','data','status','vendedora','cidade','rastreavel','match_method'];
+    rows = [...rows].sort((a,b) => {
+      const av = a[cols[SORT_COL]] || '';
+      const bv = b[cols[SORT_COL]] || '';
+      return SORT_DIR * String(av).localeCompare(String(bv), 'pt-BR');
+    });
+  }
+
+  document.getElementById('tbl-count').textContent = `${rows.length} leads`;
+
+  const thead = document.getElementById('tbl-head');
+  const cols  = ['Nome (CRM)','Origem (Tag CRM)','Etapa CRM','Data','Status','Vendedora','Cidade','Rastreável','Match'];
+  thead.innerHTML = `<tr>${cols.map((c,i)=>`<th onclick="sortTable(${i})">${c}</th>`).join('')}</tr>`;
+
+  const matchBadge = {
+    cpf  : '<span class="badge badge-green">CPF</span>',
+    tel  : '<span class="badge badge-blue">TEL</span>',
+    nome : '<span class="badge badge-orange">NOME</span>',
+    none : '<span class="badge badge-gray">—</span>',
+  };
+
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = rows.slice(0, 500).map(r => {
+    const d = r.data ? r.data.toLocaleDateString('pt-BR') : '—';
+    // Regra 4: badge especial ✅ INSTALADO quando CPF confirmado no Hubsoft
+    const badgeClass = {
+      'Convertido'       : 'badge-green',
+      'Pend. Instalação' : 'badge-yellow',
+      'Lead Perdido'     : 'badge-red',
+      'Sem Rastreio'     : 'badge-gray',
+      'Lead em Aberto'   : 'badge-orange',
+    }[r.status] || 'badge-gray';
+    const statusBadge = r.venda_auditada
+      ? `<span class="badge" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid rgba(16,185,129,.4);font-size:10px">✅ INSTALADO</span>`
+      : `<span class="badge ${badgeClass}">${r.status}</span>`;
+    // Regra 3: badges positivos — Atendido no Matrix (verde neon) vs Entrada Direta (azul)
+    // Entrada Direta não é falha — é sucesso sem passar pelo Matrix
+    const rastBadge = r.rastreavel
+      ? '<span class="badge badge-green" style="font-size:9px;background:rgba(0,229,195,.2);color:#00E5C3;border:1px solid rgba(0,229,195,.4)">📡 Atendido no Matrix</span>'
+      : '<span class="badge" style="font-size:9px;background:rgba(59,130,246,.15);color:#60A5FA;border:1px solid rgba(59,130,246,.3)">🚀 Entrada Direta</span>';
+    return `<tr>
+      <td style="font-weight:500">${r.crm_nome || r.nome || '—'}</td>
+      <td><span class="badge badge-orange" style="font-size:10px">${r.origem||'—'}</span></td>
+      <td style="color:var(--muted2);font-size:11px">${r.crm_etapa || '—'}</td>
+      <td style="color:var(--muted2)">${d}</td>
+      <td>${statusBadge}</td>
+      <td>${r.vendedora || '—'}</td>
+      <td>${r.cidade || '—'}</td>
+      <td>${rastBadge}</td>
+      <td>${matchBadge[r.match_method] || matchBadge.none}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(col) {
+  if (SORT_COL === col) SORT_DIR *= -1;
+  else { SORT_COL = col; SORT_DIR = 1; }
+  document.querySelectorAll('#tbl-head th').forEach((th,i)=>{
+    th.classList.remove('sort-asc','sort-desc');
+    if(i===col) th.classList.add(SORT_DIR===1?'sort-asc':'sort-desc');
+  });
+  filterTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ═══════════════════════════════════════════════════════════════════════════
+function exportExcel() {
+  if (!FILTERED.length) { toast('Nenhum dado para exportar', true); return; }
+
+  function toCSV(objArray) {
+    if (!objArray.length) return '';
+    const headers = Object.keys(objArray[0]);
+    const esc = v => {
+      const t = String(v ?? '');
+      return (t.includes(',') || t.includes('"') || t.includes('\n')) ? `"${t.replace(/"/g,'""')}"` : t;
+    };
+    return [headers.map(esc).join(','),
+            ...objArray.map(r => headers.map(h => esc(r[h])).join(','))
+           ].join('\r\n');
+  }
+
+  function dlCSV(csv, name) {
+    const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href:url, download:name });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const rows = FILTERED.map(r => ({
+    'Nome'               : r.crm_nome || r.nome,
+    'CPF (CRM)'          : r.crm_cpf   || '',
+    'Telefone'           : r.telefone,
+    'Origem (CRM Tag)'   : r.origem,
+    'CRM Etapa'          : r.crm_etapa,
+    'Status CRM'         : r.crm_status,
+    'Status Funil'       : r.status,
+    'Rastreável (Matrix)': r.rastreavel ? 'Sim' : 'Não',
+    'Match Via'          : r.match_method || '',
+    'Vendedora'          : r.vendedora,
+    'Cidade'             : r.cidade,
+    'Data'               : r.data ? r.data.toLocaleDateString('pt-BR') : '',
+    'Plano'              : r.plano,
+    'Valor'              : r.valor,
+    'OS Habilitada'      : r.os_hab ? 'Sim' : 'Não',
+    'Venda Auditada'     : r.venda_auditada ? 'Sim' : 'Não',
+  }));
+  dlCSV(toCSV(rows), 'bi_leads_nuvyon.csv');
+
+  setTimeout(() => {
+    const total = FILTERED.length;
+    const s1 = st => FILTERED.filter(r => r.status === st).length;
+    const resumo = [
+      { Status:'Convertido',       Qtd:s1('Convertido'),       Pct: pct(s1('Convertido'),total) },
+      { Status:'Pend. Instalacao', Qtd:s1('Pend. Instalação'), Pct: pct(s1('Pend. Instalação'),total) },
+      { Status:'Lead Perdido',     Qtd:s1('Lead Perdido'),     Pct: pct(s1('Lead Perdido'),total) },
+      { Status:'Sem Rastreio',     Qtd:s1('Sem Rastreio'),     Pct: pct(s1('Sem Rastreio'),total) },
+      { Status:'TOTAL',            Qtd:total,                  Pct:'100%' },
+    ];
+    dlCSV(toCSV(resumo), 'bi_resumo_nuvyon.csv');
+    toast('2 CSV exportados — abra no Excel ✓');
+  }, 400);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO 1 — RANKING DA VERDADE
+// Cruza CRM (status Convertido) × Hubsoft OS Vendas pelo CPF
+// Classifica gap por vendedora
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO A — RANKING DA VERDADE (Auditoria de Consultoras)
+// Colunas: Vendedora | Leads CRM | Vendas Marcadas CRM | Vendas Instaladas Hubsoft
+//          % Conversão Real | Enrolação (leads presos >7d)
+// Linha vermelha se taxa real < 10% (enroladoras)
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO A — RANKING DA VERDADE
+// Loop percorre TODAS as vendedoras do CRM (_allVendedoras).
+// "Sem Rastreio" só existe se usuario estiver vazio — qualquer nome aparece.
+// Colunas: Vendedora | Leads Totais | Convertidos (CRM) | Instalados (Hubsoft) | Taxa Real
+// ═══════════════════════════════════════════════════════════════════════════
+function renderRankingVerdade() {
+  // ════════════════════════════════════════════════════════════════════════
+  // FONTE DE DADOS: RANKING_CONSOLIDADO (calculado com Python sobre dados reais)
+  // enriquecido ao vivo com dados de conversão do PROCESSED atual
+  // ════════════════════════════════════════════════════════════════════════
+  const allVend = window._allVendedoras || new Map();
+  const VA      = window._VendasAuditadas || new Map();
+
+  // Construir mapa ao vivo: sc → { leads, conv, inst, enrolados } a partir do PROCESSED
+  const liveData = new Map();
+  allVend.forEach((info, sc_key) => {
+    const leadsCRM      = info.leads_crm || [];
+    const convertidoCRM = leadsCRM.filter(r => r.convertido).length;
+    let   instalados    = 0;
+    leadsCRM.forEach(cr => { if (cr.cpf_norm && VA.has(cr.cpf_norm)) instalados++; });
+    const enrolados = leadsCRM.filter(cr => {
+      const dias = cr.data_cadastro ? Math.floor((new Date()-cr.data_cadastro)/86400000) : null;
+      return /NEGOC|CONTATO|CAPTAC/i.test(cr.etapa||'') && dias!==null && dias>7;
+    }).length;
+    liveData.set(sc_key, { leads: leadsCRM.length, conv: convertidoCRM, inst: instalados, enrolados });
+  });
+
+  // Mesclar RANKING_CONSOLIDADO (fonte primária) com liveData (dados ao vivo)
+  // Se ambos têm dados para a mesma vendedora, prioriza o maior para leads/conv
+  // mas usa liveData.inst quando disponível (CPF match mais preciso)
+  const seen = new Set();
+  const rows = [];
+
+  RANKING_CONSOLIDADO.forEach(r => {
+    const sc = superClean(r.display);
+    if (seen.has(sc)) return;
+    seen.add(sc);
+
+    const live      = liveData.get(sc) || liveData.get(r.sc) || null;
+    // Prioridade: se liveData tem CPF matches, usa; senão usa dados consolidados
+    const leads     = live ? Math.max(live.leads, r.leads) : r.leads;
+    const conv      = live ? Math.max(live.conv,  r.conv)  : r.conv;
+    const inst      = live && live.inst > 0 ? live.inst : r.inst;
+    const enrolados = live ? live.enrolados : 0;
+    const gap       = Math.max(0, conv - inst);
+    const taxaReal  = leads ? +(inst/leads*100).toFixed(1) : 0;
+    const taxaCRM   = leads ? +(conv/leads*100).toFixed(1) : 0;
+
+    rows.push({
+      usuario    : r.display,
+      vend_norm  : sc,
+      totalLeads : leads,
+      convertidoCRM: conv,
+      instalados : inst,
+      gap, taxaReal, taxaCRM, enrolados,
+      na_lista   : r.na_lista,
+      semLeads   : leads === 0 && inst === 0,
+    });
+  });
+
+  // Adicionar vendedoras vivas não presentes no RANKING_CONSOLIDADO
+  allVend.forEach((info, sc_key) => {
+    if (seen.has(sc_key)) return;
+    const usuario = info.usuario;
+    if (!usuario || !usuario.trim()) return;
+    seen.add(sc_key);
+    const live = liveData.get(sc_key) || { leads:0, conv:0, inst:0, enrolados:0 };
+    const gap  = Math.max(0, live.conv - live.inst);
+    const taxa = live.leads ? +(live.inst/live.leads*100).toFixed(1) : 0;
+    rows.push({
+      usuario, vend_norm: sc_key,
+      totalLeads: live.leads, convertidoCRM: live.conv,
+      instalados: live.inst, gap,
+      taxaReal: taxa, taxaCRM: live.leads ? +(live.conv/live.leads*100).toFixed(1) : 0,
+      enrolados: live.enrolados, na_lista: false, semLeads: live.leads===0 && live.inst===0,
+    });
+  });
+
+  // Ordenar: instalados desc → convertidos desc → nome asc
+  rows.sort((a,b) => b.instalados - a.instalados || b.convertidoCRM - a.convertidoCRM || a.usuario.localeCompare(b.usuario,'pt-BR'));
+
+  // KPIs de auditoria
+  const totLeads   = rows.reduce((s,r)=>s+r.totalLeads,0);
+  const totConvCRM = rows.reduce((s,r)=>s+r.convertidoCRM,0);
+  const totHub     = rows.reduce((s,r)=>s+r.instalados,0);
+  const totGap     = rows.reduce((s,r)=>s+r.gap,0);
+  const totEnrol   = rows.reduce((s,r)=>s+r.enrolados,0);
+  const qtdBaixa   = rows.filter(r=>r.taxaReal<10&&r.totalLeads>=3).length;
+
+  document.getElementById('ranking-verdade-stats').textContent =
+    `${rows.filter(r=>r.na_lista).length} da lista · ${rows.length} total`;
+
+  const kpiEl = document.getElementById('audit-kpis-ranking');
+  if (kpiEl) {
+    const kpis = [
+      { l:'Leads no CRM',          v:totLeads,   c:'var(--blue)',   i:'📋' },
+      { l:'Convertidos (CRM)',      v:totConvCRM, c:'var(--purple)', i:'📝' },
+      { l:'Instalados (Hubsoft) ✓', v:totHub,     c:'var(--green)',  i:'✅', s:'CPF + status ativo' },
+      { l:'GAP (CRM sem Hubsoft)',  v:totGap,     c:'var(--red)',    i:'⚠️', s:'Inconsistências' },
+      { l:'Enrolados >7 dias',      v:totEnrol,   c:'var(--yellow)', i:'⏰' },
+      { l:'Conv. Real < 10%',       v:qtdBaixa,   c:'var(--orange)', i:'🚨' },
+    ];
+    [...kpiEl.children].forEach((el,i) => {
+      const k = kpis[i]; if(!k) return;
+      el.querySelector('.av-val').textContent = k.v;
+      el.querySelector('.av-val').style.color  = k.c;
+      el.querySelector('.av-lbl').textContent  = `${k.i} ${k.l}`;
+      el.querySelector('.av-sub').textContent  = k.s||'';
+    });
+  }
+
+  // Cabeçalho
+  const thead = document.getElementById('ranking-verdade-thead');
+  if (thead) thead.innerHTML = [
+    '#','Vendedora','Leads (CRM)','Convertidos (CRM)',
+    '✅ Instalados (Hubsoft)','Taxa Real %','GAP','Enrolados','Auditoria'
+  ].map(c=>`<th>${c}</th>`).join('');
+
+  // Linhas
+  const tbody = document.getElementById('ranking-verdade-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = rows.map((r,i) => {
+    const posC      = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const zeroInst  = !r.semLeads && r.instalados===0;
+    const isAlt     = r.taxaReal<10 && r.totalLeads>=3;
+    const isGap     = r.gap>0;
+    const foraLista = !r.na_lista;
+
+    const tC = r.semLeads   ? '#6B7280'
+             : zeroInst     ? 'var(--red)'
+             : r.taxaReal>=30? 'var(--green)'
+             : r.taxaReal>=10? 'var(--yellow)'
+             :                  'var(--red)';
+
+    const rowStyle = r.semLeads  ? 'opacity:.6;background:rgba(107,114,128,.04)'
+                   : zeroInst    ? 'background:rgba(239,68,68,.07);border-left:2px solid #EF4444'
+                   : isGap       ? 'background:rgba(239,68,68,.05)'
+                   :               '';
+
+    const nomeCor  = r.semLeads  ? 'var(--muted)'
+                   : zeroInst    ? 'var(--red)'
+                   : isAlt       ? 'var(--red)'
+                   :               'var(--text)';
+
+    // Badge taxa > 100% = instalações sem CRM (ex-leads anteriores)
+    const taxaDisplay = r.taxaReal > 100
+      ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#F59E0B;font-size:11px">${r.taxaReal}% ⭐</span>`
+      : `<span class="badge" style="background:${tC}22;color:${tC}">${r.semLeads?'—':r.taxaReal+'%'}</span>`;
+
+    const instDisp = zeroInst
+      ? `<span style="color:var(--red);font-weight:800;background:rgba(239,68,68,.12);border-radius:4px;padding:2px 8px">0 ⚠️</span>`
+      : `<span style="color:var(--green);font-weight:700">${r.instalados}</span>`;
+
+    const gapB  = isGap
+      ? `<span class="badge badge-inconsist">+${r.gap}</span>`
+      : `<span class="badge badge-green">OK</span>`;
+
+    const enrB  = r.enrolados>0
+      ? `<span class="badge badge-yellow">${r.enrolados}</span>`
+      : `<span style="color:var(--muted)">—</span>`;
+
+    const statB = r.semLeads    ? `<span class="badge badge-gray">Sem leads</span>`
+                : foraLista     ? `<span class="badge badge-blue">Fora lista</span>`
+                : isGap         ? `<span class="badge badge-inconsist">Inconsistência</span>`
+                : zeroInst      ? `<span class="badge" style="background:rgba(239,68,68,.15);color:var(--red)">Zero Vendas 🚨</span>`
+                : isAlt         ? `<span class="badge badge-yellow">Baixo Conv.</span>`
+                :                 `<span class="badge badge-green">OK ✓</span>`;
+
+    // Badge de filial se aplicável
+    const usuarioSC = superClean(r.usuario);
+    const filialOrig = Object.entries(FILIAL_MAP).find(([k,v])=>superClean(v)===usuarioSC)?.[0]||'';
+    const filialTag  = filialOrig
+      ? ` <span style="font-size:9px;background:rgba(59,130,246,.12);border-radius:3px;padding:1px 6px;color:#60A5FA;border:1px solid rgba(59,130,246,.2)">${filialOrig.replace('FILIAL ','')}</span>`
+      : '';
+
+    return `<tr style="${rowStyle}">
+      <td><div class="rank-pos ${r.semLeads?'rank-n':posC}">${i+1}</div></td>
+      <td style="font-weight:700;color:${nomeCor}">${r.usuario}${filialTag}</td>
+      <td style="color:var(--muted2)">${r.totalLeads||'<span style="color:var(--muted)">0</span>'}</td>
+      <td style="color:var(--blue)">${r.convertidoCRM}</td>
+      <td>${instDisp}</td>
+      <td>${taxaDisplay}</td>
+      <td>${gapB}</td>
+      <td>${enrB}</td>
+      <td>${statB}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+function renderFunilGargalo() {
+  const wapp = FILTERED.filter(r => r.origem === 'WhatsApp Empresa');
+
+  const totEl = document.getElementById('gargalo-total');
+  if (totEl) totEl.textContent = `${wapp.length} leads WhatsApp Empresa`;
+
+  if (!wapp.length) {
+    ['gargalo-funil','gargalo-pendencia'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sem leads WhatsApp Empresa no período.</div>';
+    });
+    return;
+  }
+
+  // — Funil de etapas —
+  const STAGES = [
+    { label:'Entrada (todos)',          fn: r => true },
+    { label:'Chegou ao CRM',            fn: r => !!r.crm_status },
+    { label:'Em Negociação/Contato',    fn: r => /CONTATO|CAPTAC|NEGOC/i.test(r.crm_etapa||'') },
+    { label:'Qualificado/Proposta',     fn: r => /CADASTRO|ASSUNTOS|VIABILIDADE(?! NEG)/i.test(r.crm_etapa||'') },
+    { label:'Convertido CRM',           fn: r => r.crm_status === 'Convertido' },
+    { label:'Instalado (Hubsoft) ✓',    fn: r => r.venda_auditada },
+  ];
+  const counts = STAGES.map(st => wapp.filter(st.fn).length);
+  const maxV   = counts[0]||1;
+  const COLORS = ['#3B82F6','#8B5CF6','#F59E0B','#F97316','#10B981','#00E5C3'];
+
+  const funilEl = document.getElementById('gargalo-funil');
+  if (funilEl) {
+    funilEl.innerHTML = STAGES.map((st,i) => {
+      const n    = counts[i];
+      const prev = counts[i-1];
+      const drop = (i>0&&prev>0) ? ((prev-n)/prev*100).toFixed(0) : null;
+      const w    = Math.max((n/maxV)*100,3);
+      return `<div class="gargalo-stage">
+        <div class="gargalo-label">${st.label}</div>
+        <div class="gargalo-bar-wrap">
+          <div class="gargalo-bar" style="width:${w}%;background:${COLORS[i]}AA;border-left:3px solid ${COLORS[i]}">
+            <span class="gargalo-bar-txt">${n}</span></div>
+          <span class="gargalo-pct">${maxV?(n/maxV*100).toFixed(0):0}%</span>
+          ${drop!==null&&+drop>0?`<span style="font-size:10px;color:var(--red)">▼${drop}%</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // — Pendência por vendedora (> 20 min = vermelho) —
+  const byVendWA = {};
+  wapp.filter(r=>r.vendedora).forEach(r=>{
+    const k = r.vend_norm||r.vendedora;
+    if (!byVendWA[k]) byVendWA[k]={ vend:r.vendedora, leads:[] };
+    byVendWA[k].leads.push(r);
+  });
+  const pendData = Object.values(byVendWA).map(v=>{
+    const comTempo = v.leads.filter(r=>r.agilidade_min!==null&&r.agilidade_min>=0);
+    const avg      = comTempo.length ? comTempo.reduce((s,r)=>s+r.agilidade_min,0)/comTempo.length : null;
+    const lentos   = v.leads.filter(r=>r.espera_alerta).length;
+    return { vend:v.vend, total:v.leads.length, avg, lentos };
+  }).sort((a,b)=>(b.avg||0)-(a.avg||0));
+
+  const maxPend = Math.max(...pendData.map(d=>d.avg||0),1);
+  const pendEl = document.getElementById('gargalo-pendencia');
+  if (pendEl) {
+    pendEl.innerHTML = pendData.slice(0,12).map(d => {
+      const avg    = d.avg!==null ? d.avg.toFixed(0) : '—';
+      const isRed  = d.avg!==null && d.avg > 20;  // 🔴 > 20 min
+      const clr    = !d.avg?'var(--muted)':d.avg<15?'var(--green)':d.avg<20?'var(--yellow)':'var(--red)';
+      const w      = d.avg ? (d.avg/maxPend*100).toFixed(0) : 0;
+      const lbl    = d.avg===null?'—':d.avg<5?'⚡ <5min':d.avg<15?'✅ Bom':d.avg<20?'⚠️ Alerta':'🔴 >20min';
+      const lentosTag = d.lentos>0?`<span class="badge badge-inconsist" style="font-size:9px">${d.lentos} lead(s)</span>`:'';
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;${isRed?'background:rgba(239,68,68,.06);border-radius:6px;padding:4px 8px':''}">
+        <div style="min-width:130px;font-size:11px;font-weight:600;color:${isRed?'var(--red)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.vend.split(' ').slice(0,2).join(' ')}</div>
+        <div style="flex:1;background:var(--border);border-radius:3px;height:8px">
+          <div style="width:${w}%;background:${clr};height:100%;border-radius:3px;transition:width .5s"></div></div>
+        <div style="min-width:40px;font-size:12px;font-weight:700;color:${clr};text-align:right">${avg}m</div>
+        <div style="min-width:70px;font-size:10px;color:var(--muted)">${lbl} ${lentosTag}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO C — MAPA DE CALOR DE OPORTUNIDADE (Bairros sem viabilidade)
+// Top 5 bairros onde estamos perdendo dinheiro em tráfego sem ter rede
+// ═══════════════════════════════════════════════════════════════════════════
+function renderGeoInteligencia() {
+  const isSV = r => /SEM VIABILIDADE|VIABILIDADE NEGATIVA/i.test(r.crm_etapa||'')
+    || r.motivo_perda === 'Sem Viabilidade';
+
+  const comLocal = FILTERED.filter(r => r.cidade);
+
+  // Agrupar por bairro (preferência) ou cidade
+  const comBairro = comLocal.filter(r => r.bairro && r.bairro.length > 2);
+  const source    = comBairro.length >= 5 ? comBairro : comLocal;
+  const groupKey  = comBairro.length >= 5 ? 'bairro' : 'cidade';
+
+  const byCid = groupBy(comLocal, 'cidade');
+  const cidGeo = Object.entries(byCid).map(([cidade,rows])=>({
+    cidade,
+    total  : rows.length,
+    semViab: rows.filter(isSV).length,
+    conv   : rows.filter(isConv).length,
+    taxa   : rows.length ? +(rows.filter(isConv).length/rows.length*100).toFixed(1):0,
+  })).filter(d=>d.total>=1);
+
+  const byLoc = groupBy(source, groupKey);
+  const locGeo = Object.entries(byLoc).map(([loc,rows])=>({
+    loc,
+    cidade   : rows[0]?.cidade||'',
+    total    : rows.length,
+    semViab  : rows.filter(isSV).length,
+    conv     : rows.filter(isConv).length,
+  })).filter(d=>d.total>=1);
+
+  const geoTot = document.getElementById('geo-total');
+  if (geoTot) geoTot.textContent = `${cidGeo.length} cidades · ${locGeo.length} ${groupKey}s`;
+
+  // — Top 5 sem viabilidade —
+  const svRank = locGeo.filter(d=>d.semViab>0).sort((a,b)=>b.semViab-a.semViab).slice(0,5);
+  const svEl   = document.getElementById('geo-sem-viab');
+  if (svEl) {
+    const totalSV = svRank.reduce((s,d)=>s+d.semViab,0);
+    if (!svRank.length) {
+      svEl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px 0">Sem dados de viabilidade. Preencha crm_etapa.</div>';
+    } else {
+      svEl.innerHTML = `
+        <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted2);line-height:1.5">
+          📢 <strong style="color:var(--red)">${totalSV} leads</strong> perdidos por falta de rede nos top 5 ${groupKey}s.<br>
+          Estamos a investir em tráfego pago sem ter infraestrutura nesses locais.
+        </div>
+        ${svRank.map((d,i)=>{
+          const RANK_COLORS=['#EF4444','#F97316','#F59E0B','#FACC15','#A3A3A3'];
+          const rc  = RANK_COLORS[i];
+          const w   = (d.semViab/svRank[0].semViab*100).toFixed(0);
+          const loc2= d.cidade && d.cidade!==d.loc?`<br><span style="font-size:10px;color:var(--muted)">${d.cidade}</span>`:'';
+          return `<div class="geo-row">
+            <div class="geo-rank" style="background:${rc}22;color:${rc}">${i+1}</div>
+            <div class="geo-info">
+              <div class="geo-name">${d.loc}${loc2}</div>
+              <div class="geo-sub">${d.total} leads · ${d.semViab} sem viab. · ${d.conv} convertidos</div>
+            </div>
+            <div class="geo-bar-wrap">
+              <div style="background:var(--border);border-radius:3px;height:6px">
+                <div style="width:${w}%;background:${rc};height:100%;border-radius:3px"></div></div></div>
+            <div class="geo-val" style="color:${rc}">${d.semViab}</div>
+          </div>`;
+        }).join('')}`;
+    }
+  }
+
+  // — Top bairros/cidades com maior conversão —
+  const convRank = locGeo.filter(d=>d.total>=2&&d.conv>0)
+    .sort((a,b)=>(b.conv/b.total)-(a.conv/a.total)||b.conv-a.conv)
+    .slice(0,8);
+  const topConvEl = document.getElementById('geo-top-conv');
+  if (topConvEl) {
+    topConvEl.innerHTML = convRank.map((d,i)=>{
+      const taxa = d.total?(d.conv/d.total*100).toFixed(0):'0';
+      const clr  = +taxa>=60?'#10B981':+taxa>=30?'#F59E0B':'#3B82F6';
+      const rc   = i===0?'#10B981':i===1?'#A3E635':i===2?'#22D3EE':'#6B7280';
+      const loc2 = d.cidade&&d.cidade!==d.loc?`<br><span style="font-size:10px;color:var(--muted)">${d.cidade}</span>`:'';
+      return `<div class="geo-row">
+        <div class="geo-rank" style="background:${rc}22;color:${rc}">${i+1}</div>
+        <div class="geo-info">
+          <div class="geo-name">${d.loc}${loc2}</div>
+          <div class="geo-sub">${d.total} leads · ${d.conv} vendas</div>
+        </div>
+        <div class="geo-bar-wrap">
+          <div style="background:var(--border);border-radius:3px;height:6px">
+            <div style="width:${Math.min(+taxa,100)}%;background:${clr};height:100%;border-radius:3px"></div></div></div>
+        <div class="geo-val" style="color:${clr}">${taxa}%</div>
+      </div>`;
+    }).join('');
+  }
+
+  // — Gráfico Pareto (Seção D): motivos de perda —
+  renderParetoMotivos();
+
+  // — Gráfico cidade: sem viab vs convertidos —
+  const cidSort = [...cidGeo].sort((a,b)=>b.semViab-a.semViab||b.total-a.total).slice(0,12);
+  destroyChart('geoCidade');
+  const ctx = document.getElementById('chart-geo-cidade');
+  if (ctx) {
+    CHARTS.geoCidade = new Chart(ctx.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:cidSort.map(d=>d.cidade),
+        datasets:[
+          {label:'Sem Viabilidade',data:cidSort.map(d=>d.semViab),backgroundColor:'rgba(239,68,68,.6)', borderColor:'#EF4444',borderWidth:1,borderRadius:4},
+          {label:'Convertidos',    data:cidSort.map(d=>d.conv),   backgroundColor:'rgba(16,185,129,.6)',borderColor:'#10B981',borderWidth:1,borderRadius:4},
+          {label:'Total Leads',    data:cidSort.map(d=>d.total),  backgroundColor:'rgba(59,130,246,.2)',borderColor:'#3B82F6',borderWidth:1,borderRadius:3},
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#9CA3AF',font:{size:10}}},tooltip:{...tooltipDefaults()}},
+        scales:{x:{ticks:{color:'#6B7280',font:{size:10},maxRotation:35},grid:{color:'rgba(31,41,55,.4)'}},
+                y:{ticks:{color:'#6B7280',font:{size:10}},grid:{color:'rgba(31,41,55,.4)'}}}}
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEÇÃO D — PARETO DOS MOTIVOS DE PERDA (20% causam 80%)
+// Usa crm_etapa categorizado, gráfico combinado barras+linha acumulada
+// ═══════════════════════════════════════════════════════════════════════════
+function renderParetoMotivos() {
+  const perdidos = FILTERED.filter(r => r.status==='Lead Perdido'||r.status==='Lead em Aberto');
+  if (!perdidos.length) return;
+
+  const byMotivo = {};
+  perdidos.forEach(r => {
+    const m = r.motivo_perda || 'Não Informado';
+    byMotivo[m] = (byMotivo[m]||0) + 1;
+  });
+
+  // Ordenar por quantidade (Pareto: maior para menor)
+  const sorted = Object.entries(byMotivo).sort((a,b)=>b[1]-a[1]);
+  const total  = sorted.reduce((s,[,v])=>s+v, 0);
+  let acum = 0;
+  const paretoData = sorted.map(([m,v]) => {
+    acum += v;
+    return { motivo:m, qtd:v, acum_pct: +(acum/total*100).toFixed(1) };
+  });
+
+  // Identificar a fronteira dos 80% (os 20% de motivos que causam 80% das perdas)
+  const limite80 = paretoData.findIndex(d => d.acum_pct >= 80);
+
+  destroyChart('pareto');
+  const ctx = document.getElementById('chart-perda')?.getContext('2d');
+  if (!ctx) return;
+
+  CHARTS.pareto = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: paretoData.map(d => d.motivo.length>20?d.motivo.slice(0,18)+'…':d.motivo),
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Leads Perdidos',
+          data : paretoData.map(d => d.qtd),
+          backgroundColor: paretoData.map((_,i) => i<=limite80 ? 'rgba(239,68,68,.75)' : 'rgba(107,114,128,.4)'),
+          borderColor    : paretoData.map((_,i) => i<=limite80 ? '#EF4444' : '#6B7280'),
+          borderWidth: 1, borderRadius: 4, yAxisID:'y',
+        },
+        {
+          type: 'line',
+          label: '% Acumulado',
+          data : paretoData.map(d => d.acum_pct),
+          borderColor: '#F59E0B', backgroundColor: 'transparent',
+          pointBackgroundColor: '#F59E0B', pointRadius: 3,
+          tension: 0.2, yAxisID: 'y2',
+        },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{labels:{color:'#9CA3AF',font:{size:10}}},
+        tooltip: {
+          ...tooltipDefaults(),
+          callbacks: {
+            afterLabel: ctx => ctx.datasetIndex===0
+              ? ` Acumulado: ${paretoData[ctx.dataIndex]?.acum_pct}%` : '',
+          }
+        },
+        annotation: {
+          annotations: {
+            line80: {
+              type:'line', yMin:80, yMax:80, yScaleID:'y2',
+              borderColor:'rgba(245,158,11,.5)', borderWidth:1, borderDash:[4,4],
+              label:{content:'80%',enabled:true,color:'#F59E0B',font:{size:9}},
+            }
+          }
+        }
+      },
+      scales: {
+        x:  { ticks:{color:'#6B7280',font:{size:9},maxRotation:40}, grid:{color:'rgba(31,41,55,.4)'} },
+        y:  { ticks:{color:'#EF4444',font:{size:9}}, grid:{color:'rgba(31,41,55,.3)'},
+              title:{display:true,text:'Leads Perdidos',color:'#6B7280',font:{size:9}} },
+        y2: { position:'right', ticks:{color:'#F59E0B',font:{size:9},callback:v=>v+'%'},
+              grid:{display:false}, min:0, max:100,
+              title:{display:true,text:'% Acumulado',color:'#F59E0B',font:{size:9}} },
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTAR RELATÓRIO DE AUDITORIA PARA DIRETORIA (PDF via window.print)
+// ═══════════════════════════════════════════════════════════════════════════
+function exportarAuditoriaPDF() {
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const total = FILTERED.length;
+  const conv  = FILTERED.filter(r => r.venda_auditada).length;
+  const gap   = FILTERED.filter(r => r.crm_status === 'Convertido' && !r.venda_auditada).length;
+  const semViab = FILTERED.filter(r => /SEM VIABILIDADE|VIABILIDADE NEGATIVA/i.test(r.crm_etapa||'')).length;
+
+  // Tabela do Ranking da Verdade — usa RANKING_CONSOLIDADO para dados completos
+  const vendRows = RANKING_CONSOLIDADO.map(r => ({
+    vend    : r.display,
+    total   : r.leads,
+    crmConv : r.conv,
+    hubConv : r.inst,
+    gap     : r.gap,
+    taxa    : r.taxa,
+  })).sort((a,b)=>b.hubConv-a.hubConv);
+
+  // Bairros sem viabilidade
+  const comLocal = FILTERED.filter(r=>r.cidade);
+  const isSV = r => /SEM VIABILIDADE|VIABILIDADE NEGATIVA/i.test(r.crm_etapa||'');
+  const cidGeoP = Object.entries(groupBy(comLocal,'cidade'))
+    .map(([c,rows])=>({ cidade:c, total:rows.length, semViab:rows.filter(isSV).length, conv:rows.filter(isConv).length }))
+    .filter(d=>d.semViab>0).sort((a,b)=>b.semViab-a.semViab).slice(0,8);
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório de Auditoria de Vendas — ${hoje}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#fff;color:#111;font-size:12px;padding:28px}
+.logo-bar{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #EF4444;padding-bottom:14px;margin-bottom:22px}
+.title{font-size:22px;font-weight:800;color:#06090F}
+.subtitle{font-size:12px;color:#666;margin-top:3px}
+.badge-audit{background:#FEE2E2;color:#EF4444;border:1px solid #FECACA;border-radius:5px;padding:3px 10px;font-size:11px;font-weight:700}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.kpi{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px}
+.kpi-val{font-size:28px;font-weight:800;font-family:Arial;line-height:1}
+.kpi-lbl{font-size:10px;color:#666;margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.sec{margin-bottom:24px}
+.sec-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#333;border-left:3px solid #EF4444;padding-left:8px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#F1F5F9;padding:8px 10px;text-align:left;font-weight:700;color:#555;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #E2E8F0}
+td{padding:8px 10px;border-bottom:1px solid #F1F5F9}
+tr:nth-child(even) td{background:#FAFAFA}
+tr.alert-row td{background:#FEF2F2}
+.badge-ok{background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 7px;font-weight:700;font-size:10px}
+.badge-inc{background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 7px;font-weight:700;font-size:10px}
+.badge-med{background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 7px;font-weight:700;font-size:10px}
+.footer{margin-top:28px;padding-top:12px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;font-size:10px;color:#999}
+@media print{body{padding:14px}.no-print{display:none}}
+</style>
+</head>
+<body>
+<div class="logo-bar">
+  <div>
+    <div class="title">Relatório de Auditoria de Vendas</div>
+    <div class="subtitle">Período analisado · Gerado em ${hoje} · Nuvyon ISP</div>
+  </div>
+  <div class="badge-audit">⚠️ CONFIDENCIAL — DIRETORIA</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val">${total}</div><div class="kpi-lbl">Total de Leads</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#059669">${conv}</div><div class="kpi-lbl">Vendas Auditadas (Hubsoft)</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#DC2626">${gap}</div><div class="kpi-lbl">Inconsistências de Auditoria</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#D97706">${semViab}</div><div class="kpi-lbl">Leads s/ Viabilidade</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🔎 Ranking da Verdade — Performance por Consultora</div>
+  <table>
+    <thead><tr><th>#</th><th>Consultora</th><th>Leads</th><th>Vendas CRM</th><th>Vendas Reais ✓</th><th>Gap</th><th>Conv. Real %</th><th>Status Auditoria</th></tr></thead>
+    <tbody>
+    ${vendRows.map((r,i)=>{
+      const isA = r.taxa < 10 && r.total >= 3;
+      const auditStatus = r.gap > 0 ? '<span class="badge-inc">Inconsistência</span>'
+                        : isA        ? '<span class="badge-med">Baixo Desempenho</span>'
+                        :              '<span class="badge-ok">OK</span>';
+      return `<tr class="${isA||r.gap>0?'alert-row':''}">
+        <td>${i+1}</td><td><strong>${r.vend}</strong></td>
+        <td>${r.total}</td><td>${r.crmConv}</td>
+        <td><strong>${r.hubConv}</strong></td>
+        <td>${r.gap>0?`<strong style="color:#DC2626">+${r.gap}</strong>`:'—'}</td>
+        <td><strong>${r.taxa}%</strong></td><td>${auditStatus}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🗺️ Cidades com mais leads Sem Viabilidade (onde NÃO investir em tráfego)</div>
+  <table>
+    <thead><tr><th>#</th><th>Cidade</th><th>Total Leads</th><th>Sem Viabilidade</th><th>Convertidos</th><th>% Sem Viab.</th></tr></thead>
+    <tbody>
+    ${cidGeoP.map((d,i)=>`<tr class="${d.semViab>3?'alert-row':''}">
+      <td>${i+1}</td><td><strong>${d.cidade}</strong></td><td>${d.total}</td>
+      <td><strong style="color:#DC2626">${d.semViab}</strong></td><td style="color:#059669">${d.conv}</td>
+      <td><strong>${d.total?(d.semViab/d.total*100).toFixed(0):0}%</strong></td>
+    </tr>`).join('')}
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <div>Dashboard BI Comercial · Eng. Eric Jonas · erj.informatica@gmail.com</div>
+  <div>Documento gerado automaticamente em ${hoje} · CONFIDENCIAL</div>
+</div>
+<scr"+"ipt>window.onload=()=>window.print()<\/scr"+"ipt>
+</body></html>`;
+
+  const w = window.open('','_blank','width=1000,height=750');
+  if (w) { w.document.write(html); w.document.close(); }
+  else toast('Permita popups para exportar o PDF', true);
+}
+
+function pct(n, total) { return total ? (n/total*100).toFixed(1)+'%' : '0%'; }
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function groupBy(arr, key) {
+  return arr.reduce((acc, r) => {
+    const k = r[key] || 'Outro';
+    (acc[k] = acc[k]||[]).push(r);
+    return acc;
+  }, {});
+}
+
+function tooltipDefaults() {
+  return {
+    callbacks:{},
+    backgroundColor:'#111827',
+    borderColor:'#1F2937',
+    borderWidth:1,
+    titleColor:'#F1F5F9',
+    bodyColor:'#9CA3AF',
+    padding:10,
+  };
+}
+
+function destroyChart(key) {
+  if (CHARTS[key]) { CHARTS[key].destroy(); delete CHARTS[key]; }
+}
+
+function setLoad(show, msg='') {
+  const el = document.getElementById('loading');
+  el.style.display = show ? 'flex' : 'none';
+  if (msg) document.getElementById('load-msg').textContent = msg;
+}
+
+let toastTimer;
+function toast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = err ? 'var(--red)' : 'var(--accent)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+
+function showDashboard() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard-screen').style.display = 'block';
+  document.getElementById('topbar-controls').style.display = 'flex';
+  document.getElementById('topbar-upload-btn').style.display = 'block';
+}
+
+function showUpload() {
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard-screen').style.display = 'none';
+  document.getElementById('topbar-controls').style.display = 'none';
+  document.getElementById('topbar-upload-btn').style.display = 'none';
+}
+
+function resetDashboard() {
+  if (!confirm('Resetar dashboard e limpar todos os dados?')) return;
+  Object.keys(RAW).forEach(k=>RAW[k]=null);
+  PROCESSED=[]; FILTERED=[]; CHARTS={};
+  ['matrix','crm','vendas','osab'].forEach(k=>{
+    const dz=document.getElementById(`dz-${k}`);
+    dz.classList.remove('loaded','active');
+    const b=dz.querySelector('.dz-badge');
+    if(b)b.remove();
+    document.getElementById(`fn-${k}`).textContent='Clique ou arraste o arquivo aqui';
+    document.getElementById(`f-${k}`).value='';
+  });
+  document.getElementById('btn-analyze').disabled=true;
+  showUpload();
+  toast('Dashboard resetado');
+}
+
+// Scroll top button
+window.addEventListener('scroll', ()=>{
+  document.getElementById('scrolltop').classList.toggle('show', window.scrollY>300);
+});
+
+// Chart.js defaults
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.register(ChartDataLabels);
+ChartDataLabels && (Chart.defaults.plugins.datalabels = { display:false });
+
+// ── EXPORTS GLOBAIS — garante que onclick inline funcione em qualquer ambiente
+// (necessário quando scripts externos como Cloudflare são injetados antes deste bloco)
+window.runAnalysis          = runAnalysis;
+window.applyFilter          = applyFilter;
+window.resetDashboard       = resetDashboard;
+window.exportExcel          = exportExcel;
+window.filterTable          = filterTable;
+window.sortTable            = sortTable;
+window.toggleBairros        = toggleBairros;
+window.exportarAuditoriaPDF = exportarAuditoriaPDF;
+window.processUpload        = processUpload;
+window.showUpload           = showUpload;
+</script>
+</body>
+</html>

@@ -28,18 +28,59 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 input,select,textarea{font-family:inherit}
 button{cursor:pointer}
 
-/* ── LAYOUT ── */
+/* ── LAYOUT SIDEBAR ── */
 #app{display:flex;flex-direction:column;min-height:100vh}
-#topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
-#topbar h1{font-size:17px;font-weight:800;letter-spacing:-.02em}
+
+/* Topbar: topo estreito com stats e ações */
+#topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:200;height:54px}
+#topbar h1{font-size:16px;font-weight:800;letter-spacing:-.02em}
 #topbar h1 span{color:var(--accent)}
 #topbar p{color:var(--muted);font-size:11px;margin-top:2px}
-#tabbar{background:var(--panel);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:2px;overflow-x:auto;position:sticky;top:57px;z-index:99}
-.tab-btn{background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;padding:12px 16px;font-weight:500;font-size:13px;white-space:nowrap;transition:all .2s}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
-.tab-btn:hover:not(.active){color:var(--text)}
-#main{padding:20px 24px;max-width:1300px;margin:0 auto;width:100%;flex:1}
+
+/* Wrapper abaixo do topbar: sidebar + conteúdo */
+#layout-body{display:flex;min-height:calc(100vh - 54px)}
+
+/* Sidebar vertical */
+.sidebar{width:220px;min-width:220px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;padding:20px 0 16px;z-index:100;transition:all .25s}
+.sidebar.collapsed{width:0;min-width:0;padding:0;overflow:hidden}
+#sidebar-toggle{position:fixed;left:220px;top:50%;transform:translateY(-50%);z-index:200;background:var(--panel);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;width:16px;height:48px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);transition:left .25s}
+#sidebar-toggle:hover{background:var(--border);color:var(--text)}
+.sidebar.collapsed ~ #sidebar-toggle{left:0}
+#main{flex:1;overflow-y:auto;overflow-x:hidden;min-width:0}
+.sidebar .logo{padding:0 20px 18px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.sidebar .logo-title{font-size:18px;font-weight:800;letter-spacing:.04em;color:var(--text);line-height:1}
+.sidebar .logo-title span{color:var(--accent)}
+.sidebar .logo-sub{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.07em}
+.sidebar nav{flex:1;display:flex;flex-direction:column;gap:2px;padding:0 10px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .18s;user-select:none;white-space:nowrap}
+.nav-item:hover{background:var(--card);color:var(--text)}
+.nav-item.active{background:rgba(0,201,167,.12);color:var(--accent);font-weight:700;border:1px solid rgba(0,201,167,.2)}
+.nav-item .nav-icon{font-size:16px;flex-shrink:0}
+/* Sub-itens dentro de um grupo de nav */
+.nav-group-label{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:10px 12px 4px;font-weight:700}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--border);margin-top:auto}
+.sidebar-logout{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;color:#e74c3c;cursor:pointer;transition:all .18s}
+.sidebar-logout:hover{background:rgba(231,76,60,.08)}
+
+/* Conteúdo principal */
+#main{flex:1;padding:22px 26px;min-width:0;overflow-y:auto}
 .tab-content{display:none}.tab-content.active{display:block}
+
+/* Tabbar legado: escondido (sidebar substituiu) */
+/* tabbar JS-controlled */
+/* tab-btn JS-controlled */
+
+/* Responsivo: sidebar vira drawer em telas < 768px */
+@media(max-width:600px){
+  #layout-body{flex-direction:column}
+  .sidebar{width:100%;min-width:unset;height:auto;position:relative;top:0;border-right:none;border-bottom:1px solid var(--border);flex-direction:row;padding:8px 10px;overflow-x:auto}
+  .sidebar .logo{display:none}
+  .sidebar nav{flex-direction:row;gap:4px;padding:0}
+  .nav-group-label{display:none}
+  .sidebar-footer{display:none}
+  .nav-item{padding:7px 12px;font-size:12px;white-space:nowrap;border-radius:20px}
+  #main{padding:14px 16px}
+}
 
 /* ── CARDS & ATOMS ── */
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
@@ -224,6 +265,11 @@ td{padding:9px}
 .bon-badge-blue{background:#3b82f622;color:#3B82F6;border-color:#3b82f655}
 .bon-badge-muted{background:var(--panel);color:var(--muted);border-color:var(--border)}
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Supabase client — inicializado antes de qualquer outro script
+    const _SUPA = supabase.createClient('https://tijefreqgogqwwwhejsp.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpamVmcmVxZ29ncXd3d2hlanNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NjU0MjksImV4cCI6MjA5MTU0MTQyOX0.XefqPltzFbOMEaP3BFiSRyfq6CDE38ltxblXiMalWkw');
+  </script>
 </head>
 <body>
 <div id="app">
@@ -237,7 +283,7 @@ td{padding:9px}
       <p>Inteligência Operacional — acesso restrito</p>
     </div>
     <div class="login-field">
-      <label>Usuário</label>
+      <label>Email</label>
       <input type="text" id="login-user" autocomplete="username" placeholder="seu usuário" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="login-field">
@@ -250,7 +296,6 @@ td{padding:9px}
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <div id="login-diag" style="font-size:11px;color:var(--muted);text-align:left;background:var(--panel);border-radius:7px;padding:10px;display:none;max-height:140px;overflow-y:auto;font-family:monospace;word-break:break-all"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
-        <button onclick="openGhConfig()" style="background:#00C9A722;border:1px solid #00C9A744;color:var(--accent);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-weight:700">☁ Configurar GitHub</button>
         <button onclick="loginDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">🔍 Diagnóstico</button>
         <button onclick="loginReset()" style="background:transparent;border:1px solid #e74c3c44;color:#e74c3c;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">⚠ Resetar</button>
       </div>
@@ -332,89 +377,50 @@ const ABAS = [
   { id:'gestao',        label:'📊 Gestão Geral',       grupo:'gestao' },
   { id:'clientes',      label:'🩺 Saúde do Cliente',   grupo:'gestao' },
   { id:'gestor',        label:'⚖️ Gestor Justo',       grupo:'gestao' },
-  { id:'infra',         label:'📡 Análise Infra',       grupo:'gestao' },
+  { id:'config',        label:'⚙️ Configurações',       grupo:'gestao' },
   // Grupo: Comercial
-  { id:'bi-comercial',  label:'💼 BI Comercial',        grupo:'comercial' },
   { id:'visao360',      label:'🔍 Visão 360',           grupo:'comercial' },
   { id:'cancelamentos', label:'🚫 Cancelamentos',       grupo:'comercial' },
-  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'comercial' },
   // Grupo: SAC
   { id:'sac',           label:'🎧 Auditoria SAC',       grupo:'sac' },
   { id:'nps',           label:'⭐ NPS Pesquisa',        grupo:'sac' },
-  // Grupo: Logística
-  { id:'despacho',      label:'🚚 Logística',           grupo:'logistica' },
-  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'logistica' },
-  // Grupo: Configurações
-  { id:'config',        label:'⚙️ Configurações',       grupo:'config' },
+  { id:'bonificacao',   label:'🏅 Bonificação',         grupo:'sac' },
+  { id:'bi', label:'💼 BI Comercial', grupo:'comercial' },
+  // Grupo: Técnica
+  { id:'despacho',      label:'🚚 Logística',           grupo:'tecnica' },
+  { id:'infra',         label:'📡 Análise Infra',       grupo:'tecnica' },
+  { id:'campo',         label:'🔧 Qualidade Técnica',   grupo:'tecnica' },
+  // IA
 ];
 
 // Grupos de abas para o menu lateral/dropdown (Tarefa 4)
 const ABA_GRUPOS = [
-  { id:'gestao',    label:'📊 Gestão',        abas:['gestao','clientes','gestor','infra'] },
-  { id:'comercial', label:'🎯 Comercial',     abas:['bi-comercial','visao360','cancelamentos','bonificacao'] },
-  { id:'sac',       label:'🎧 SAC',           abas:['sac','nps'] },
-  { id:'logistica', label:'🚚 Logística',     abas:['despacho','campo'] },
-  { id:'config',    label:'⚙️ Configurações', abas:['config'] },
+  { id:'gestao',    label:'📊 Gestão',    icon:'📊', abas:['gestao','clientes','gestor','config'] },
+  { id:'comercial', label:'🛒 Comercial', icon:'🛒', abas:['visao360','cancelamentos','bi'] },
+  { id:'sac',       label:'🎧 SAC',       icon:'🎧', abas:['sac','nps','bonificacao'] },
+  { id:'tecnica',   label:'🔧 Técnica',   icon:'🔧', abas:['despacho','infra','campo'] },
 ];
 
 /* ══════════════════════════════════════════════════════════════
    BANCO DE DADOS — GitHub API (repositório privado)
    Fallback automático para localStorage se offline
 ══════════════════════════════════════════════════════════════ */
-const DB_KEY      = 'nuvyon_users_v2';       // fallback local
 const GH_CFG_KEY  = 'nuvyon_gh_config';      // config GitHub local
-const GH_FILE     = 'nuvyon_banco.json';      // arquivo no repo
+// arquivo no repo
 
-/* ── Config GitHub (salva só na máquina do admin) ── */
-function ghGetConfig() {
-  try { return JSON.parse(localStorage.getItem(GH_CFG_KEY))||null; } catch { return null; }
-}
-function ghSetConfig(cfg) { localStorage.setItem(GH_CFG_KEY, JSON.stringify(cfg)); }
-function ghClearConfig() { localStorage.removeItem(GH_CFG_KEY); }
+
+
+
 
 /* ── Indicador de modo ── */
 let GH_MODE = false; // true = GitHub ativo
-let GH_SHA  = null;  // SHA do arquivo atual no GitHub (necessário para update)
+// SHA do arquivo atual no GitHub (necessário para update)
 
-function setModeIndicator(mode) {
-  GH_MODE = mode;
-  const el = document.getElementById('db-mode-badge');
-  if (el) {
-    el.textContent = mode ? '☁ GitHub' : '💾 Local';
-    el.style.color  = mode ? 'var(--accent)' : '#f39c12';
-    el.title = mode ? 'Banco sincronizado com GitHub' : 'Banco local — configure GitHub para sincronizar';
-  }
-}
 
-/* ── GitHub API helpers ── */
-async function ghGet(cfg) {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
-  const r = await fetch(url, { headers: {
-    'Authorization': `token ${cfg.token}`,
-    'Accept': 'application/vnd.github.v3+json'
-  }});
-  if (r.status === 404) return null; // arquivo não existe ainda
-  if (!r.ok) throw new Error(`GitHub GET ${r.status}: ${await r.text()}`);
-  const data = await r.json();
-  GH_SHA = data.sha;
-  return JSON.parse(atob(data.content.replace(/\n/g,'')));
-}
 
-async function ghPut(cfg, banco) {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${GH_FILE}`;
-  const body = {
-    message: `nuvyon: atualização do banco ${new Date().toLocaleString('pt-BR')}`,
-    content: btoa(unescape(encodeURIComponent(JSON.stringify(banco, null, 2)))),
-    ...(GH_SHA ? { sha: GH_SHA } : {})
-  };
-  const r = await fetch(url, { method: 'PUT',
-    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`GitHub PUT ${r.status}: ${await r.text()}`);
-  const data = await r.json();
-  GH_SHA = data.content.sha;
-}
+
+
+
 
 /* ── dbLoad / dbSave com GitHub + fallback ── */
 async function sha256(s) {
@@ -423,39 +429,12 @@ async function sha256(s) {
 }
 
 async function dbLoad() {
-  const cfg = ghGetConfig();
-  if (cfg && location.protocol !== 'file:') {
-    try {
-      const banco = await ghGet(cfg);
-      if (banco && Array.isArray(banco.users)) {
-        localStorage.setItem(DB_KEY, JSON.stringify(banco.users)); // cache local
-        dbLogLocal(`Banco carregado do GitHub (${banco.users.length} usuários)`);
-        setModeIndicator(true);
-        return banco.users;
-      }
-    } catch(e) {
-      console.warn('GitHub indisponível, usando cache local:', e.message);
-      dbLogLocal('GitHub indisponível — usando cache local');
-    }
-  }
-  setModeIndicator(false);
-  try { return JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch { return []; }
+  // Auth via Supabase — dbLoad não é mais usado para login
+  return [];
 }
 
 async function dbSave(users) {
-  // Sempre salvar local primeiro (imediato)
-  localStorage.setItem(DB_KEY, JSON.stringify(users));
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') { setModeIndicator(false); return; }
-  try {
-    const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-    await ghPut(cfg, { users, logs, updated: new Date().toISOString() });
-    setModeIndicator(true);
-  } catch(e) {
-    console.warn('Falha ao salvar no GitHub:', e.message);
-    dbLogLocal('Falha ao gravar no GitHub: ' + e.message);
-    setModeIndicator(false);
-  }
+  // Auth via Supabase — dbSave não é mais usado
 }
 
 function dbLogLocal(msg) {
@@ -476,46 +455,33 @@ let _USERS_CACHE = []; // cache em memória após login
 
 /* ── Inicializar banco ── */
 async function initDB() {
-  showLoginStatus('Carregando...', 'muted');
-
-  // 1. Tentar GitHub primeiro
-  let loaded = [];
-  const cfg = ghGetConfig();
-  if (cfg && location.protocol !== 'file:') {
-    try {
-      const banco = await ghGet(cfg);
-      if (banco && Array.isArray(banco.users) && banco.users.length) {
-        loaded = banco.users;
-        localStorage.setItem(DB_KEY, JSON.stringify(loaded));
-        setModeIndicator(true);
-        dbLogLocal('Banco carregado do GitHub (' + loaded.length + ' usuários)');
+  showLoginStatus('Verificando sessão...', 'muted');
+  try {
+    const { data: { session } } = await _SUPA.auth.getSession();
+    if (session) {
+      // Sessão activa — carregar perfil
+      SESSION = _supaSessionToSession(session);
+      showLoginStatus('', '');
+      document.getElementById('login-overlay').style.display = 'none';
+      applySession();
+    } else {
+      showLoginStatus('', '');
+    }
+    // Escutar mudanças de auth
+    _SUPA.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        SESSION = _supaSessionToSession(session);
+        document.getElementById('login-overlay').style.display = 'none';
+        applySession();
+      } else if (event === 'SIGNED_OUT') {
+        SESSION = null;
+        location.reload();
       }
-    } catch(e) {
-      dbLogLocal('GitHub indisponível — usando cache local: ' + e.message);
-      setModeIndicator(false);
-    }
+    });
+  } catch(e) {
+    console.error('[Auth]', e);
+    showLoginStatus('Erro de conexão', 'error');
   }
-
-  // 2. Fallback: localStorage
-  if (!loaded.length) {
-    try { loaded = JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch { loaded = []; }
-  }
-
-  // 3. Criar usuário master padrão se ainda vazio
-  if (!loaded.length) {
-    const hash = await sha256('eric2024');
-    loaded = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
-    localStorage.setItem(DB_KEY, JSON.stringify(loaded));
-    dbLogLocal('Banco criado do zero — usuário padrão: eric / eric2024');
-    // Tentar salvar no GitHub também
-    if (cfg && location.protocol !== 'file:') {
-      try { await ghPut(cfg, { users: loaded, logs: [], updated: new Date().toISOString() }); }
-      catch(e) { dbLogLocal('Não foi possível salvar banco no GitHub: ' + e.message); }
-    }
-  }
-
-  _USERS_CACHE = loaded;
-  showLoginStatus('', '');
 }
 
 function showLoginStatus(msg, color) {
@@ -527,56 +493,30 @@ function showLoginStatus(msg, color) {
 
 /* ── Login ── */
 async function doLogin() {
-  const u   = (document.getElementById('login-user').value||'').trim().toLowerCase();
-  const p   = document.getElementById('login-pass').value||'';
-  const err = document.getElementById('login-err');
+  const email = (document.getElementById('login-user').value || '').trim();
+  const pass  = (document.getElementById('login-pass').value || '');
+  const err   = document.getElementById('login-err');
   err.textContent = '';
-  if (!u||!p) { err.textContent = 'Preencha usuário e senha.'; return; }
-
+  if (!email || !pass) { err.textContent = 'Preencha email e senha.'; return; }
   const btn = document.getElementById('login-btn');
-  btn.textContent = 'Verificando...';
-  btn.disabled    = true;
-
+  btn.textContent = 'Entrando...'; btn.disabled = true;
   try {
-    const h = await sha256(p);
-
-    // ── NÃO chamar dbLoad() aqui ──────────────────────────────────────────
-    // _USERS_CACHE já foi carregado pelo initDB no window.onload.
-    // Chamar dbLoad() novamente durante o login pode:
-    //   • Ser lento (GitHub leva 1-3s)
-    //   • Falhar silenciosamente e retornar [] → login quebra
-    // ─────────────────────────────────────────────────────────────────────
-    let cache = _USERS_CACHE;
-
-    // Só usar localStorage como último recurso se cache estiver vazio
-    if (!cache || !cache.length) {
-      try { cache = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch { cache = []; }
-      if (cache.length) _USERS_CACHE = cache;
-    }
-
-    const found = cache.find(x => x.user.toLowerCase() === u && x.hash === h);
-
-    if (!found) {
-      const n = cache.length;
-      err.textContent = n === 0
-        ? '❌ Banco vazio. Clique em ⚠ Resetar para definir uma senha.'
-        : '❌ Usuário ou senha inválidos.';
-      dbLog('Falha login: ' + u + ' (' + n + ' users no cache)');
+    const { data, error } = await _SUPA.auth.signInWithPassword({ email, password: pass });
+    if (error) {
+      err.textContent = error.message === 'Invalid login credentials'
+        ? '❌ Email ou senha inválidos.'
+        : '❌ ' + error.message;
       return;
     }
-
-    SESSION = found;
-    dbLog('Login: ' + SESSION.user);
+    SESSION = _supaSessionToSession(data.session);
     document.getElementById('login-overlay').style.display = 'none';
     applySession();
-
+  } catch(e) {
+    err.textContent = '❌ Erro: ' + e.message;
   } finally {
-    btn.textContent = 'Entrar';
-    btn.disabled    = false;
-    showLoginStatus('', '');
+    btn.textContent = 'Entrar'; btn.disabled = false;
   }
 }
-
 /* ── Aplicar sessão v3.7 (RBAC dinâmico) ── */
 function applySession() {
   if (!SESSION) return;
@@ -599,11 +539,17 @@ function applySession() {
   badge.onclick = isMaster ? openAdmin : null;
   badge.style.cursor = isMaster ? 'pointer' : 'default';
 
-  // 2. Mostrar tabbar e reconstruir via RBAC
-  const tabbar = document.getElementById('tabbar');
-  if (tabbar) tabbar.style.display = '';
+  // 2. Construir menus com RBAC
   const abasAutorizadas = isMaster ? ABAS.map(a => a.id) : (SESSION.abas || []);
+
+  // Tabbar (oculto — mantido para compat. RBAC)
+  const tabbar = document.getElementById('tabbar');
   MenuRBAC.build(abasAutorizadas);
+
+  // Sidebar: mostrar e construir grupos
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.style.display = '';
+  if (typeof buildSidebar === 'function') buildSidebar(abasAutorizadas);
 
   // 3. Garantir que painéis de conteúdo não-autorizados ficam ocultos
   document.querySelectorAll('.tab-content').forEach(el => {
@@ -615,19 +561,17 @@ function applySession() {
   const first = MenuRBAC.firstAllowed(abasAutorizadas);
   if (_showTabOrig) {
     _showTabOrig(first);
-    MenuRBAC.activate(first);
+    MenuRBAC.activate(first); // também chama sidebarActivate()
   }
-
-  // 5. Auto-carregar Drive se usuário tiver API Key
-  if (SESSION && SESSION.driveApiKey && SESSION.driveApiKey.trim()) {
-    setTimeout(function() { driveAutoLoad(SESSION.driveApiKey.trim()); }, 800);
-  }
+  // Construir sidebar agrupada e activar item inicial
+  if (typeof buildGroupedTabbar === 'function') buildGroupedTabbar();
+  if (typeof sidebarActivate === 'function') sidebarActivate(first);
 }
 
 /* ── Logoff ── */
-function doLogout() {
+async function doLogout() {
   if (!confirm('Deseja sair?')) return;
-  dbLog(`Logout: ${SESSION?.user}`);
+  await _SUPA.auth.signOut();
   SESSION = null;
   location.reload();
 }
@@ -692,10 +636,9 @@ function renderLogs() {
 function renderDbStatus() {
   const users = _USERS_CACHE;
   const logs = JSON.parse(localStorage.getItem('nuvyon_logs')||'[]');
-  const cfg = ghGetConfig();
   const ghInfo = cfg
-    ? '<div style="margin-top:8px;background:var(--accent)11;border:1px solid var(--accent)33;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">☁ GitHub Ativo</div><div style="font-size:11px;color:var(--muted)">Repo: <strong style="color:var(--text)">' + cfg.owner + '/' + cfg.repo + '</strong></div><div style="font-size:11px;color:var(--muted)">Arquivo: <code style="background:var(--card);padding:1px 4px;border-radius:3px">nuvyon_banco.json</code></div><button onclick="openGhConfig()" style="margin-top:8px;background:transparent;border:1px solid var(--accent)44;color:var(--accent);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer">✏ Editar config</button></div>'
-    : '<div style="margin-top:8px;background:#f39c1211;border:1px solid #f39c1233;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:#f39c12;margin-bottom:4px">💾 Modo Local</div><div style="font-size:11px;color:var(--muted)">Banco armazenado apenas neste navegador.</div><button onclick="openGhConfig()" style="margin-top:8px;background:var(--accent);color:#000;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">☁ Configurar GitHub</button></div>';
+    ? '<div style="margin-top:8px;background:var(--accent)11;border:1px solid var(--accent)33;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">☁ GitHub Ativo</div><div style="font-size:11px;color:var(--muted)">Repo: <strong style="color:var(--text)">' + cfg.owner + '/' + cfg.repo + '</strong></div><div style="font-size:11px;color:var(--muted)">Arquivo: <code style="background:var(--card);padding:1px 4px;border-radius:3px">nuvyon_banco.json</code></div></div>'
+    : '<div style="margin-top:8px;background:#f39c1211;border:1px solid #f39c1233;border-radius:7px;padding:10px"><div style="font-size:11px;font-weight:700;color:#f39c12;margin-bottom:4px">💾 Modo Local</div><div style="font-size:11px;color:var(--muted)">Banco armazenado apenas neste navegador.</div></div>';
   document.getElementById('db-status').innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
     '<div style="background:var(--card);border-radius:7px;padding:10px"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + users.length + '</div><div style="font-size:11px;color:var(--muted)">usuários</div></div>' +
@@ -803,144 +746,35 @@ function dbImport() {
 }
 
 /* ── Diagnóstico e reset de banco (visível na tela de login) ── */
-function loginDiag() {
+async function loginDiag() {
   var diag = document.getElementById('login-diag');
   if (!diag) return;
-  // Toggle
   diag.style.display = diag.style.display === 'block' ? 'none' : 'block';
   if (diag.style.display === 'none') return;
-  var users = _USERS_CACHE;
-  var cfg   = ghGetConfig();
-  var localUsers = [];
-  try { localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch(e) {}
-  var linhas = [
-    '<strong>Cache (' + users.length + ' usuário(s)):</strong>',
-    users.length
-      ? users.map(function(u){ return '&nbsp;• ' + u.user + ' [' + (u.role||'user') + '] hash:' + (u.hash||'').slice(0,8) + '…'; }).join('<br>')
-      : '<span style="color:var(--red)">VAZIO — clique ⚠ Resetar</span>',
-    '<br><strong>localStorage:</strong> ' + localUsers.length + ' usuário(s)',
-    '<strong>GitHub:</strong> ' + (cfg ? cfg.owner+'/'+cfg.repo : 'não configurado'),
-    '<br><em style="color:var(--muted)">Senha não funciona? Clique ⚠ Resetar.</em>',
-  ];
-  diag.innerHTML = linhas.join('<br>');
+  const { data: { session } } = await _SUPA.auth.getSession();
+  var lines = [];
+  if (session) {
+    lines.push('<strong>Sessão activa:</strong> ' + session.user.email);
+    lines.push('Role: ' + (session.user.user_metadata?.role || 'user'));
+    lines.push('Expira: ' + new Date(session.expires_at * 1000).toLocaleString('pt-BR'));
+  } else {
+    lines.push('<span style="color:var(--red)">Sem sessão activa.</span>');
+  }
+  lines.push('<br><em style="color:var(--muted)">Gerencie utilizadores em app.supabase.com</em>');
+  diag.innerHTML = lines.join('<br>');
 }
 
 async function loginReset() {
-  const novaSenha = prompt(
-    'RESETAR ACESSO\n\nUsuários no cache: ' + _USERS_CACHE.length + '\n\nNova senha para "eric":'
-  );
-  if (!novaSenha || !novaSenha.trim()) return;
-
-  const hash     = await sha256(novaSenha.trim());
-  const newUsers = [{ user:'eric', hash, abas: ABAS.map(a=>a.id), role:'master', criado: new Date().toLocaleString('pt-BR') }];
-
-  // Aplicar em memória imediatamente
-  _USERS_CACHE = newUsers;
-
-  // Gravar localStorage (limpa versões antigas)
-  ['nuvyon_users_v2','nuvyon_users','nuvyon_banco'].forEach(function(k){ localStorage.removeItem(k); });
-  localStorage.setItem(DB_KEY, JSON.stringify(newUsers));
-  GH_SHA = null;
-
-  // Tentar GitHub
-  var cfg = ghGetConfig();
-  if (cfg && location.protocol !== 'file:') {
-    try { await ghPut(cfg, { users: newUsers, logs: [], updated: new Date().toISOString() }); }
-    catch(e) { dbLogLocal('Reset local OK — GitHub offline: ' + e.message); }
-  }
-
-  // Feedback visual
-  var errEl = document.getElementById('login-err');
-  if (errEl) {
-    errEl.style.color  = 'var(--accent)';
-    errEl.textContent  = '✅ Senha redefinida! Utilizador: eric / Senha: ' + novaSenha.trim();
-  }
-  // Preencher campo usuário automaticamente
-  var userEl = document.getElementById('login-user');
-  if (userEl) userEl.value = 'eric';
-}
-
-/* ── Configuração GitHub ── */
-function openGhConfig() {
-  const cfg = ghGetConfig();
-  if (cfg) {
-    document.getElementById('gh-owner').value = cfg.owner||'';
-    document.getElementById('gh-repo').value  = cfg.repo||'';
-    document.getElementById('gh-token').value = cfg.token||'';
-  }
-  // Mostrar aviso se aberto via file://
-  const det = document.getElementById('gh-config-detail');
-  if (location.protocol === 'file:') {
-    det.style.display = 'block';
-    det.innerHTML = '<span style="color:#f39c12">⚠ Você está abrindo o dashboard como arquivo local (file://).</span><br>' +
-      'O GitHub funcionará normalmente quando acessar via <strong>https://erjinfo.github.io/dashboard-nuvyon/</strong><br>' +
-      'Configure o token aqui — ele fica salvo nesta máquina e será usado automaticamente no acesso via HTTPS.';
+  const email = prompt('Email para redefinir senha:');
+  if (!email || !email.trim()) return;
+  const { error } = await _SUPA.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: location.href
+  });
+  const errEl = document.getElementById('login-err');
+  if (error) {
+    if (errEl) errEl.textContent = '❌ ' + error.message;
   } else {
-    if (det) { det.style.display='none'; det.textContent=''; }
-  }
-  document.getElementById('gh-config-msg').textContent = '';
-  document.getElementById('gh-config-modal').style.display = 'flex';
-}
-function closeGhConfig() { document.getElementById('gh-config-modal').style.display = 'none'; }
-
-async function ghTestAndSave() {
-  // Limpar URL se usuário colou a URL completa
-  let owner = document.getElementById('gh-owner').value.trim()
-    .replace(/https?:\/\/(www\.)?(github\.com|github\.io)\/?/gi, '')
-    .replace(/\/.*/,'').trim();
-  document.getElementById('gh-owner').value = owner; // atualizar o campo
-  let repo  = document.getElementById('gh-repo').value.trim()
-    .replace(/https?:\/\/[^/]+\//gi,'').replace(/\.git$/,'').trim();
-  document.getElementById('gh-repo').value = repo;
-  const token = document.getElementById('gh-token').value.trim();
-  const msg   = document.getElementById('gh-config-msg');
-  const det   = document.getElementById('gh-config-detail');
-  if (!owner||!repo||!token) { msg.style.color='#e74c3c'; msg.textContent='❌ Preencha todos os campos'; return; }
-
-  // Salvar config sempre (funciona no HTTPS mesmo configurando via file://)
-  ghSetConfig({ owner, repo, token });
-
-  // Se estiver rodando como file://, não pode fazer fetch — apenas salva e orienta
-  if (location.protocol === 'file:') {
-    msg.style.color='#f39c12'; msg.textContent='⚠ Configuração salva (modo local)';
-    det.style.display='block';
-    det.innerHTML = '<strong style="color:#f39c12">⚠ Arquivo aberto localmente (file://)</strong><br><br>' +
-      'O browser bloqueia conexões externas neste modo. A configuração foi salva e funcionará automaticamente quando acessar via:<br><br>' +
-      '<strong style="color:var(--accent)">https://erjinfo.github.io/dashboard-nuvyon/</strong><br><br>' +
-      'Coloque o arquivo HTML no repositório e acesse pelo GitHub Pages — o banco do GitHub será sincronizado normalmente.';
-    setModeIndicator(false);
-    return;
-  }
-
-  msg.style.color='var(--muted)'; msg.textContent='🔄 Testando conexão...';
-  det.style.display='none';
-  try {
-    const r = await fetch('https://api.github.com/repos/' + owner + '/' + repo, {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (r.status === 401) throw new Error('Token inválido ou expirado. Gere um novo em github.com/settings/tokens');
-    if (r.status === 404) throw new Error('Repo "' + owner + '/' + repo + '" não encontrado. Verifique o nome e se o token tem permissão "repo".');
-    if (!r.ok) throw new Error('Erro HTTP ' + r.status);
-    const repoData = await r.json();
-    if (!repoData.private) {
-      if (!confirm('Repositório PÚBLICO: o nuvyon_banco.json ficará visível (senhas são hash SHA-256).\n\nContinuar?')) return;
-    }
-    msg.style.color='var(--accent)'; msg.textContent='✅ Conectado! Sincronizando...';
-    det.style.display='block';
-    det.textContent = 'Repo: ' + repoData.full_name + ' | Privado: ' + repoData.private + ' | OK';
-    const localUsers = JSON.parse(localStorage.getItem(DB_KEY)||'[]');
-    _USERS_CACHE = localUsers.length ? localUsers : _USERS_CACHE;
-    if (_USERS_CACHE.length) {
-      GH_SHA = null;
-      try { await ghGet({owner,repo,token}); } catch {}
-      await dbSave(_USERS_CACHE);
-      msg.textContent = '✅ ' + _USERS_CACHE.length + ' usuário(s) sincronizados no GitHub!';
-    }
-    setModeIndicator(true);
-    setTimeout(closeGhConfig, 2500);
-  } catch(e) {
-    msg.style.color='#e74c3c'; msg.textContent='❌ ' + e.message;
-    det.style.display='block'; det.textContent = e.toString();
+    if (errEl) { errEl.style.color = 'var(--accent)'; errEl.textContent = '✅ Email enviado! Verifique a caixa de entrada.'; }
   }
 }
 
@@ -951,462 +785,15 @@ async function ghTestAndSave() {
    • Todos que acessarem a página carregam automaticamente
    • Só o usuário com config GitHub pode sobrescrever
 ══════════════════════════════════════════════════════════════ */
-const RELAT_FILE    = 'nuvyon_relatorios.json'; // arquivo principal
-const RELAT_VERSION = '5.0'; // bump para forçar reload quando estrutura mudar
-let   RELAT_SHA     = null;  // SHA do arquivo atual (necessário para PUT)
+// arquivo principal
 
 // Arquivos individuais por slot (nome fixo no repo → sobrescreve ao re-upload)
-const GH_SLOT_FILES = {
-  crm    : 'base_crm.json',
-  vendas : 'base_vendas.json',
-  matrix : 'base_matrix.json',
-  osab   : 'base_osab.json',
-  os     : 'base_os.json',
-  at     : 'base_at.json',
-  sac    : 'base_sac.json',
-  kml    : 'base_kml.json',
-};
-const _slotSHAs = {}; // SHA por slot (para sobrescrita)
 
-/* ── Salvar relatórios no GitHub ─────────────────────────────── */
-async function ghSaveRelatorios() {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return false;
 
-  // ── Nova estratégia: salvar cada slot como arquivo individual ─────────────
-  // Evita o erro 422 "file too large" da API GitHub (limite ~1MB por PUT).
-  // Cada base_crm.json, base_os.json etc. fica abaixo desse limite.
-  // ─────────────────────────────────────────────────────────────────────────
 
-  const slots = {
-    os:           STATE.rawOS,
-    at:           STATE.rawAT,
-    sac:          STATE.rawSAC,
-    nps:          STATE.rawNPS,
-    agentes:      STATE.rawAgentes,
-    matrix:       STATE.relatorioAnalitico,
-    npsTelefonia: STATE.rawNpsTelefonia,
-    osab:         STATE.rawOSAb,
-    sinais:       STATE.rawSinais,
-    crm:          STATE.rawCRM,
-    vendas:       STATE.rawVendas,
-  };
 
-  _setRelatIndicator('saving');
-  let ok = 0, fail = 0;
 
-  for (const [key, data] of Object.entries(slots)) {
-    if (!data || (Array.isArray(data) && !data.length)) continue;
-    try {
-      // Verificar tamanho antes de enviar (~750KB limit para base64 seguro)
-      const json   = JSON.stringify(data);
-      const bytes  = new TextEncoder().encode(json).length;
 
-      if (bytes > 750_000) {
-        // Arquivo grande demais: salvar só as primeiras 5000 linhas como amostra
-        const sample = Array.isArray(data) ? data.slice(0, 5000) : data;
-        const jsonS  = JSON.stringify(sample);
-        console.warn(`[Nuvyon] ${key}: ${(bytes/1024).toFixed(0)}KB > 750KB — salvando amostra (${sample.length} rows)`);
-        const saved = await ghSaveSlot(key, sample);
-        saved ? ok++ : fail++;
-      } else {
-        const saved = await ghSaveSlot(key, data);
-        saved ? ok++ : fail++;
-      }
-    } catch(e) {
-      console.warn(`[Nuvyon] Erro ao salvar slot ${key}:`, e.message);
-      fail++;
-    }
-  }
-
-  if (ok > 0) {
-    _setRelatIndicator('saved', new Date(), `${ok} arquivo(s) salvos`);
-    console.log(`[Nuvyon] ✅ ${ok} slot(s) salvos no GitHub` + (fail ? ` · ${fail} falharam` : ''));
-    return true;
-  } else {
-    _setRelatIndicator('error', null, `${fail} arquivo(s) falharam`);
-    return false;
-  }
-}
-
-/* ── Carregar relatórios do GitHub ───────────────────────────── */
-/**
- * ghSaveSlot(key, rows) — Envia um único slot ao GitHub com nome fixo.
- * Isso permite que qualquer usuário com acesso ao repo já abra o dashboard
- * preenchido, sem precisar fazer upload manual.
- * O arquivo é sempre sobrescrito (envia SHA atual se existir).
- */
-async function ghSaveSlot(key, rows) {
-  const cfg = ghGetConfig();
-  if (!cfg || !rows || !rows.length) return false;
-  const fileName = GH_SLOT_FILES[key];
-  if (!fileName) return false;
-
-  // Verificar tamanho do conteúdo ANTES de tentar o PUT
-  // GitHub API rejeita com 422 arquivos > ~1MB (encoded em base64 fica ~33% maior)
-  const json    = JSON.stringify(rows);
-  const bytes   = new TextEncoder().encode(json).length;
-  const MAX     = 900_000; // ~900KB margem de segurança
-
-  if (bytes > MAX) {
-    console.warn(`[Nuvyon] ${fileName}: ${(bytes/1024).toFixed(0)}KB excede ${MAX/1024}KB — não será salvo no GitHub`);
-    // Mostrar aviso no badge sem travar
-    const el = document.getElementById('relat-status-badge');
-    if (el) el.textContent = `⚠ ${key}: arquivo muito grande para GitHub`;
-    return false;
-  }
-
-  const content = btoa(unescape(encodeURIComponent(json)));
-  const url     = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
-
-  // Buscar SHA atual para sobrescrita
-  if (!_slotSHAs[key]) {
-    try {
-      const r = await fetch(url, {
-        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-      });
-      if (r.ok) { const d = await r.json(); _slotSHAs[key] = d.sha; }
-    } catch(_) {}
-  }
-
-  try {
-    const resp = await fetch(url, {
-      method : 'PUT',
-      headers: {
-        'Authorization': `token ${cfg.token}`,
-        'Accept'       : 'application/vnd.github.v3+json',
-        'Content-Type' : 'application/json',
-      },
-      body: JSON.stringify({
-        message : `nuvyon: ${key} ${new Date().toLocaleString('pt-BR')}`,
-        content,
-        ...(_slotSHAs[key] ? { sha: _slotSHAs[key] } : {}),
-      }),
-    });
-
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      // Erro 422 = arquivo muito grande (não deve chegar aqui com a verificação acima)
-      if (resp.status === 422) {
-        console.warn(`[Nuvyon] ${fileName}: 422 arquivo grande demais (${(bytes/1024).toFixed(0)}KB)`);
-        return false;
-      }
-      throw new Error(`PUT ${resp.status}: ${errBody.slice(0, 120)}`);
-    }
-
-    const data = await resp.json();
-    _slotSHAs[key] = data.content.sha;
-    console.log(`[Nuvyon] ✅ ${fileName} salvo (${(bytes/1024).toFixed(0)}KB)`);
-    return true;
-  } catch(e) {
-    console.warn(`[Nuvyon] Falha ao salvar ${fileName}:`, e.message);
-    return false;
-  }
-}
-
-/**
- * ghLoadSlots() — Carrega slots individuais do GitHub no onload.
- * Para cada slot com arquivo no repo, restaura os dados no STATE.
- * Chamado automaticamente no window.onload se gh-token estiver configurado.
- */
-async function ghLoadSlots(silent = false) {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return 0;
-  let count = 0;
-
-  for (const [key, fileName] of Object.entries(GH_SLOT_FILES)) {
-    try {
-      const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${fileName}`;
-      const r   = await fetch(url, {
-        headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-      });
-      if (!r.ok) continue;
-      const data = await r.json();
-      _slotSHAs[key] = data.sha;
-      const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-      if (!Array.isArray(rows) || !rows.length) continue;
-
-      // Aplicar ao STATE
-      if      (key==='crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-      else if (key==='vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-      else if (key==='matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
-      else if (key==='osab')   { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
-      else if (key==='os')     { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
-      else if (key==='at')     { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
-      else if (key==='sac')    { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
-      else if (key==='nps')    { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
-      else if (key==='sinais') { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
-
-      count++;
-      if (!silent) console.log(`[Nuvyon] ${fileName} ✅ (${rows.length} rows)`);
-    } catch(e) {
-      if (!silent) console.warn(`[Nuvyon] ${fileName} falhou:`, e.message);
-    }
-  }
-
-  // FIX: processar e renderizar DEPOIS de carregar todos os slots
-  if (count > 0) {
-    if (typeof _processRestoredState === 'function') _processRestoredState();
-    // BI Comercial: renderizar após sessão estar pronta (aguarda login)
-    const _biRender = () => {
-      if ((STATE.rawCRM || STATE.rawVendas) && typeof renderBIComercial === 'function') {
-        renderBIComercial();
-      }
-    };
-    // Se já logado, renderizar agora; senão, tentar novamente em 2s
-    if (SESSION) { _biRender(); }
-    else { setTimeout(_biRender, 2500); }
-
-    const el = document.getElementById('relat-status-badge');
-    if (!silent && el) el.textContent = `☁ ${count} arquivo(s) sincronizados`;
-    _setRelatIndicator('loaded', new Date(), `${count} slot(s) do GitHub`);
-  }
-
-  return count;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ghLoadAll — varre o repositório INTEIRO e restaura todos os arquivos
-// reconhecidos, independente do nome. Funciona com nomes como:
-//   relatorio_de_crm_2026-03-16T15_55_22_8714-03_00.xlsx (já convertido para JSON)
-//   6relatorio-de-ordens-de-servico-abertas-20260312...xlsx
-// ─────────────────────────────────────────────────────────────────────────────
-async function ghListRepo(cfg, dir = '') {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${dir}`;
-  const r   = await fetch(url, {
-    headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
-  });
-  if (!r.ok) throw new Error(`LIST ${r.status}`);
-  const items = await r.json();
-  if (!Array.isArray(items)) return [];
-  const files = [];
-  for (const item of items) {
-    if (item.type === 'file') files.push(item);
-    else if (item.type === 'dir' && dir === '') {
-      try { files.push(...await ghListRepo(cfg, item.path)); } catch(_) {}
-    }
-  }
-  return files;
-}
-
-function _guessSlotKey(filename, rows) {
-  const n    = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const cols = (rows && rows[0]) ? Object.keys(rows[0]).map(k => k.toLowerCase()).join(',') : '';
-
-  // Por nome de arquivo
-  if (n.includes('crm') || n.includes('prospecto'))                      return 'crm';
-  if (n.includes('servicos') || n.includes('servico') || (n.includes('vendas') && !n.includes('crm'))) return 'vendas';
-  if (n.includes('matrix') || n.includes('analitico'))                   return 'matrix';
-  if (n.includes('abertas') || n.includes('osab'))                       return 'osab';
-  if (n.includes('ordens') || (n.includes('relatorio') && n.includes('os') && !n.includes('abertas'))) return 'os';
-  if (n.includes('atendimento') && !n.includes('analitico'))             return 'at';
-  if (n.includes('sac') || n.includes('relatoriosac'))                   return 'sac';
-  if (n.includes('nps') && !n.includes('telefon'))                       return 'nps';
-  if (n.includes('nps') && n.includes('telefon'))                        return 'npsTelefonia';
-  if (n.includes('sinais') || n.includes('sinal'))                       return 'sinais';
-  if (n.includes('agentes') || n.includes('agente'))                     return 'agentes';
-  if (n.includes('kml'))                                                  return 'kml';
-
-  // Por colunas do conteúdo
-  if (cols.includes('status_prospecto') || cols.includes('prospecto_cpf'))    return 'crm';
-  if (cols.includes('servico_status') || cols.includes('servico_descricao'))  return 'vendas';
-  if (cols.includes('protocolo') && cols.includes('agente'))                  return 'matrix';
-  if (cols.includes('tipo_ordem_servico') && cols.includes('data_abertura'))  return 'osab';
-  if (cols.includes('numero_ordem_servico') || cols.includes('id_ordem_servico')) return 'os';
-
-  return null;
-}
-
-function _parseCsvSimple(text) {
-  try {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) return [];
-    const sep  = (lines[0].match(/;/g)||[]).length >= (lines[0].match(/,/g)||[]).length ? ';' : ',';
-    const hdrs = lines[0].split(sep).map(h => h.replace(/^["']|["']$/g,'').trim());
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const vals = []; let cur = '', inQ = false;
-      for (const ch of lines[i]) {
-        if (ch === '"') { inQ=!inQ; continue; }
-        if (ch === sep && !inQ) { vals.push(cur.trim()); cur=''; continue; }
-        cur += ch;
-      }
-      vals.push(cur.trim());
-      if (vals.every(v=>!v)) continue;
-      rows.push(Object.fromEntries(hdrs.map((h,i)=>[h, vals[i]??''])));
-    }
-    return rows;
-  } catch(e) { return []; }
-}
-
-function ghApplySlot(key, rows) {
-  if (!rows || !Array.isArray(rows) || !rows.length) return;
-  if      (key==='crm')          { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-  else if (key==='vendas')       { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-  else if (key==='matrix')       { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
-  else if (key==='osab')         { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
-  else if (key==='os')           { STATE.rawOS=rows; pendingFiles.os=rows; STATE.loaded.os=true; }
-  else if (key==='at')           { STATE.rawAT=rows; pendingFiles.at=rows; STATE.loaded.at=true; }
-  else if (key==='sac')          { STATE.rawSAC=rows; pendingFiles.sac=rows; STATE.loaded.sac=true; }
-  else if (key==='nps')          { STATE.rawNPS=rows; pendingFiles.nps=rows; STATE.loaded.nps=true; }
-  else if (key==='sinais')       { STATE.rawSinais=rows; pendingFiles.sinais=rows; STATE.loaded.sinais=true; }
-  else if (key==='agentes')      { STATE.rawAgentes=rows; pendingFiles.agentes=rows; STATE.loaded.agentes=true; }
-  else if (key==='npsTelefonia') { STATE.rawNpsTelefonia=rows; pendingFiles.npsTelefonia=rows; STATE.loaded.npsTelefonia=true; }
-}
-
-async function ghLoadAll(silent = false) {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return 0;
-
-  const el = document.getElementById('relat-status-badge');
-  if (!silent && el) el.textContent = '⏳ Lendo repositório...';
-
-  let files;
-  try { files = await ghListRepo(cfg); }
-  catch(e) {
-    console.warn('[Nuvyon] ghLoadAll: falha ao listar repo:', e.message);
-    if (!silent && el) el.textContent = '❌ GitHub: ' + e.message;
-    return 0;
-  }
-
-  if (!files.length) {
-    if (!silent && el) el.textContent = '○ Repositório vazio';
-    return 0;
-  }
-
-  if (!silent && el) el.textContent = `⏳ ${files.length} arquivo(s)...`;
-  let count = 0, loaded = [];
-
-  for (const file of files) {
-    const name = file.name.toLowerCase();
-    if (!name.endsWith('.json') && !name.endsWith('.csv')) continue;
-    if (file.size > 50*1024*1024) continue;
-    try {
-      let rows = null, resolvedKey = null;
-      if (name.endsWith('.json')) {
-        const r = await fetch(
-          `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${file.path}`,
-          { headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }}
-        );
-        if (!r.ok) continue;
-        const data = await r.json();
-        const slotKey = Object.entries(GH_SLOT_FILES).find(([,v])=>v===file.name)?.[0];
-        if (slotKey) _slotSHAs[slotKey] = data.sha;
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-        // Payload consolidado nuvyon
-        if (decoded && decoded.version && decoded.arquivos) {
-          for (const [key, entry] of Object.entries(decoded.arquivos||{})) {
-            try {
-              const r2 = JSON.parse(decodeURIComponent(escape(atob(entry.data.replace(/\n/g,'')))));
-              ghApplySlot(key, r2);
-              count++; loaded.push(key);
-            } catch(_) {}
-          }
-          continue;
-        }
-        if (Array.isArray(decoded)) { rows=decoded; resolvedKey=slotKey||_guessSlotKey(file.name, decoded); }
-        else if (decoded && Array.isArray(decoded.rows)) { rows=decoded.rows; resolvedKey=slotKey||_guessSlotKey(file.name, decoded.rows); }
-      } else if (name.endsWith('.csv')) {
-        const r = await fetch(file.download_url, { headers: { 'Authorization': `token ${cfg.token}` }});
-        if (!r.ok) continue;
-        rows = _parseCsvSimple(await r.text());
-        resolvedKey = _guessSlotKey(file.name, rows);
-      }
-      if (rows && rows.length && resolvedKey) {
-        ghApplySlot(resolvedKey, rows);
-        count++; loaded.push(resolvedKey);
-        console.log(`[Nuvyon] ✅ ${file.name} → "${resolvedKey}" (${rows.length} rows)`);
-      }
-    } catch(e) { console.warn(`[Nuvyon] ${file.name}:`, e.message); }
-  }
-
-  if (count > 0) {
-    if (typeof _processRestoredState === 'function') _processRestoredState();
-    const _bi = () => { if ((STATE.rawCRM||STATE.rawVendas) && typeof renderBIComercial==='function') renderBIComercial(); };
-    if (SESSION) _bi(); else setTimeout(_bi, 2500);
-    const unique = [...new Set(loaded)];
-    _setRelatIndicator('loaded', new Date(), `${unique.length} slot(s): ${unique.join(', ')}`);
-    if (!silent && el) el.textContent = `☁ ${unique.length} arquivo(s)`;
-  } else {
-    if (!silent && el) el.textContent = '○ Sem dados no GitHub';
-  }
-  return count;
-}
-
-async function ghLoadRelatorios(silent = false) {
-  const cfg = ghGetConfig();
-  if (!cfg || location.protocol === 'file:') return false;
-
-  try {
-    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${RELAT_FILE}`;
-    const r = await fetch(url, {
-      headers: {
-        'Authorization': `token ${cfg.token}`,
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-
-    if (r.status === 404) {
-      if (!silent) _setRelatIndicator('empty');
-      return false; // ainda não tem relatório salvo
-    }
-    if (!r.ok) throw new Error(`GET ${r.status}`);
-
-    const data = await r.json();
-    RELAT_SHA = data.sha;
-    const payload = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-
-    if (payload.version !== RELAT_VERSION) {
-      console.warn('[Nuvyon] Versão do relatório incompatível:', payload.version);
-      if (!silent) _setRelatIndicator('version');
-      return false;
-    }
-
-    // Restaurar cada arquivo
-    let count = 0;
-    for (const [key, entry] of Object.entries(payload.arquivos || {})) {
-      try {
-        const rows = JSON.parse(decodeURIComponent(escape(atob(entry.data))));
-        // Atribuir ao STATE e pendingFiles conforme o slot
-        if (key === 'os')           { STATE.rawOS  = rows; pendingFiles.os  = rows; STATE.loaded.os  = true;  ghSaveSlot('os',  rows).catch(()=>{}); }
-        else if (key === 'at')      { STATE.rawAT  = rows; pendingFiles.at  = rows; STATE.loaded.at  = true;  ghSaveSlot('at',  rows).catch(()=>{}); }
-        else if (key === 'sac')     { STATE.rawSAC = rows; pendingFiles.sac = rows; STATE.loaded.sac = true;  ghSaveSlot('sac', rows).catch(()=>{}); }
-        else if (key === 'prod')    { STATE.rawProd = rows; pendingFiles.prod = rows; }
-        else if (key === 'nps')     { STATE.rawNPS = rows; pendingFiles.nps = rows; STATE.loaded.nps = true; }
-        else if (key === 'agentes') { STATE.rawAgentes = rows; pendingFiles.agentes = rows; STATE.loaded.agentes = true; }
-        else if (key === 'matrix')  { STATE.relatorioAnalitico = rows; pendingFiles.matrix = rows; STATE.loaded.matrix = true; }
-        else if (key === 'npsTelefonia') { STATE.rawNpsTelefonia = rows; pendingFiles.npsTelefonia = rows; STATE.loaded.npsTelefonia = true; }
-        else if (key === 'osab')    { STATE.rawOSAb = rows; STATE.rawOSAbertas = rows; pendingFiles.osab = rows; STATE.loaded.osab = true; }
-        else if (key === 'sinais')  { STATE.rawSinais = rows; pendingFiles.sinais = rows; STATE.loaded.sinais = true; }
-        else if (key === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-        else if (key === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-
-        if (entry.nomes) STATE.nomes[key] = entry.nomes;
-        count++;
-      } catch(e) {
-        console.warn(`[Nuvyon] Falha ao restaurar ${key}:`, e.message);
-      }
-    }
-
-    if (count === 0) return false;
-
-    // Processar dados restaurados (mesmo fluxo do aplicarDados)
-    _processRestoredState();
-
-    const dt = new Date(payload.savedAt);
-    _setRelatIndicator('loaded', dt, `${count} arquivo(s) · salvo por ${payload.savedBy}`);
-    if (!silent) {
-      const prog = document.getElementById('upload-progress');
-      if (prog) prog.textContent = `☁ Relatórios restaurados do GitHub (${count} arquivo(s), salvo em ${dt.toLocaleString('pt-BR')})`;
-    }
-    console.log(`[Nuvyon] ${count} relatório(s) carregados do GitHub ✅`);
-    return true;
-  } catch(e) {
-    console.warn('[Nuvyon] Falha ao carregar relatórios:', e.message);
-    _setRelatIndicator('error', null, e.message);
-    return false;
-  }
-}
 
 /* ── Processar STATE após restauração (reprocessa igual ao aplicarDados) ── */
 function _processRestoredState() {
@@ -1471,34 +858,9 @@ function _processRestoredState() {
   setTimeout(() => renderAll(), 50);
 }
 
-/* ── Indicador visual de status dos relatórios ───────────────── */
-function _setRelatIndicator(status, date, extra) {
-  const el = document.getElementById('relat-status-badge');
-  if (!el) return;
-  const msgs = {
-    saved:   `☁ Salvo ${date ? date.toLocaleTimeString('pt-BR') : ''}`,
-    loaded:  `☁ Carregado ${date ? date.toLocaleDateString('pt-BR') : ''} ${extra||''}`,
-    saving:  '⏳ Salvando...',
-    empty:   '○ Sem dados salvos',
-    error:   `⚠ Erro: ${extra||''}`,
-    version: '⚠ Versão incompatível',
-  };
-  el.textContent = msgs[status] || status;
-  el.style.color = status === 'saved' || status === 'loaded' ? 'var(--accent)'
-    : status === 'saving' ? 'var(--yellow)'
-    : 'var(--red)';
-}
+
 
 /* ── Auto-load na inicialização da página ────────────────────── */
-window.addEventListener('load', async () => {
-  // Ao abrir: varrer o repositório GitHub inteiro e restaurar todos os dados.
-  // ghLoadAll lida com qualquer nome de arquivo — não precisa de nome fixo.
-  setTimeout(async () => {
-    const cfg = ghGetConfig();
-    if (!cfg || location.protocol === 'file:') return;
-    await ghLoadAll(false);
-  }, 3000); // 3s — após login completar
-});
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1529,11 +891,14 @@ const MenuRBAC = {
     lo.onclick = doLogout;
     tabbar.appendChild(lo);
   },
-  /** Ativa visualmente o botão da aba corrente */
+  /** Ativa visualmente o botão da aba corrente (tabbar + sidebar) */
   activate(id) {
+    // Tabbar legado
     document.querySelectorAll('#tabbar .tab-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('tab-' + id);
     if (btn) btn.classList.add('active');
+    // Sidebar
+    if (typeof sidebarActivate === 'function') sidebarActivate(id);
   },
   /** Retorna a primeira aba autorizada */
   firstAllowed(abas) { return abas.find(a => ABAS.some(ab => ab.id === a)) || ABAS[0].id; }
@@ -1562,7 +927,7 @@ window.addEventListener('load', async () => {
 });
 </script>
 
-<!-- TOP BAR -->
+<!-- TOP BAR (estreito) -->
 <div id="topbar">
   <div>
     <h1><span>▸</span> Nuvyon — Inteligência Operacional</h1>
@@ -1570,30 +935,34 @@ window.addEventListener('load', async () => {
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-    <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap" title="Modo do banco de dados">💾 Local</div>
-    <div id="relat-status-badge" onclick="ghLoadAll(false)" style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Clique para recarregar relatórios do GitHub">○ Relatórios</div>
-    <button onclick="openUpload()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:12px">⬆ Carregar Dados</button>
+    <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null"
+         style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap"
+         title="Modo do banco de dados">💾 Local</div>
+    <button onclick="openUpload()"
+            style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:7px 14px;font-weight:800;font-size:12px">⬆ Carregar Dados</button>
   </div>
 </div>
 
-<!-- TAB BAR — Agrupada (Tarefa 4) -->
-<div id="tabbar">
-  <!-- Grupos serão gerados por buildGroupedTabbar() após login -->
-  <button class="tab-btn active" onclick="showTab('gestao')" id="tab-gestao">📊 Gestão Geral</button>
-  <button class="tab-btn" id="tab-logoff" onclick="doLogout()" style="margin-left:auto;color:#e74c3c;border-bottom-color:transparent" title="Sair do sistema">🚪 Sair</button>
+<!-- LAYOUT BODY: sidebar + conteúdo -->
+<div id="layout-body">
+
+<!-- SIDEBAR — menu lateral -->
+<div class="sidebar" id="sidebar" style="display:none">
+  <div class="logo">
+    <div class="logo-title">NUVYON <span>4.0</span></div>
+    <div class="logo-sub">Dashboard Operacional</div>
+  </div>
+  <nav id="sidebar-nav">
+    <!-- Grupos gerados por buildSidebar() após login -->
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-logout" onclick="doLogout()">🚪 Sair</div>
+  </div>
 </div>
-<style>
-/* Dropdown de grupo na tabbar */
-.tabgroup-wrap{position:relative;display:inline-flex}
-.tabgroup-btn{background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;padding:10px 14px;font-weight:700;font-size:12px;white-space:nowrap;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
-.tabgroup-btn.active,.tabgroup-btn:hover{color:var(--accent)}
-.tabgroup-btn.active{border-bottom-color:var(--accent)}
-.tabgroup-dropdown{display:none;position:absolute;top:100%;left:0;background:var(--card);border:1px solid var(--border);border-radius:10px;min-width:200px;z-index:200;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
-.tabgroup-wrap:hover .tabgroup-dropdown,.tabgroup-dropdown:hover{display:block}
-.tabgroup-item{display:block;width:100%;text-align:left;background:transparent;border:none;color:var(--muted2);padding:8px 12px;border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
-.tabgroup-item:hover,.tabgroup-item.active{background:var(--panel);color:var(--accent)}
-.tabgroup-item.active{font-weight:700}
-</style>
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="Esconder/Mostrar menu">◀</button>
+
+<!-- TABBAR legado (oculto por CSS — mantido para compat. RBAC) -->
+<div id="tabbar" style="display:none" aria-hidden="true"></div>
 
 <!-- MAIN CONTENT -->
 <div id="main">
@@ -1626,121 +995,17 @@ window.addEventListener('load', async () => {
     </div>
   </div>
   
-  <!-- ══════════ ABA BI COMERCIAL ══════════ -->
-  <div id="tab-content-bi-comercial" class="tab-content" style="display:none">
 
-    <!-- ── Upload rápido dentro da aba (não precisa abrir o painel global) ── -->
-    <div id="bi-upload-bar" style="background:var(--panel);border-bottom:1px solid var(--border);padding:14px 20px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">Fontes do Funil:</span>
-
-        <!-- CRM -->
-        <label id="bi-slot-crm" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #8B5CF644;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
-          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('crm',this)">
-          <span id="bi-slot-crm-icon" style="font-size:14px">💼</span>
-          <div>
-            <div style="font-weight:700;color:#8B5CF6;font-size:11px">CRM Hubsoft</div>
-            <div id="bi-slot-crm-name" style="font-size:10px;color:var(--muted)">Clique para carregar</div>
-          </div>
-        </label>
-
-        <!-- Vendas/Serviços -->
-        <label id="bi-slot-vendas" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #10B98144;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
-          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('vendas',this)">
-          <span id="bi-slot-vendas-icon" style="font-size:14px">🛒</span>
-          <div>
-            <div style="font-weight:700;color:#10B981;font-size:11px">Vendas / Serviços</div>
-            <div id="bi-slot-vendas-name" style="font-size:10px;color:var(--muted)">Clique para carregar</div>
-          </div>
-        </label>
-
-        <!-- Matrix / Atendimento Analítico -->
-        <label id="bi-slot-matrix" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #F59E0B44;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:180px">
-          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('matrix',this)">
-          <span id="bi-slot-matrix-icon" style="font-size:14px">💬</span>
-          <div>
-            <div style="font-weight:700;color:#F59E0B;font-size:11px">Atendimento Analítico</div>
-            <div id="bi-slot-matrix-name" style="font-size:10px;color:var(--muted)">Aceite · Matrix Chat</div>
-          </div>
-        </label>
-
-        <!-- OS Abertas -->
-        <label id="bi-slot-osab" style="display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid #3B82F644;border-radius:8px;padding:7px 12px;cursor:pointer;transition:all .2s;font-size:12px;min-width:160px">
-          <input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="biQuickUpload('osab',this)">
-          <span id="bi-slot-osab-icon" style="font-size:14px">🔧</span>
-          <div>
-            <div style="font-weight:700;color:#3B82F6;font-size:11px">OS Abertas</div>
-            <div id="bi-slot-osab-name" style="font-size:10px;color:var(--muted)">Instalações realizadas</div>
-          </div>
-        </label>
-
-        <div id="bi-upload-status" style="font-size:11px;color:var(--muted);margin-left:auto"></div>
-      </div>
-    </div>
-
-    <!-- Tela vazia (quando nenhum dado está carregado) -->
-    <div id="bi-upload-screen" style="display:none;min-height:300px;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:40px 20px;text-align:center">
-      <div style="font-size:48px">💼</div>
-      <div style="font-size:20px;font-weight:800;color:var(--accent)">BI Comercial</div>
-      <div style="color:var(--muted);font-size:13px;max-width:440px;line-height:1.7">
-        Carregue pelo menos o <strong style="color:var(--text)">CRM Hubsoft</strong> usando os botões acima
-        para ativar o Funil de Conversão e o Ranking da Verdade.
-      </div>
-    </div>
-
-    <div id="bi-dashboard" style="display:none;padding:20px">
-
-      <!-- ── Funil de Conversão ───────────────────────────────────────────── -->
-      <div id="bi-funil-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#8B5CF6,#10B981,#F59E0B,#3B82F6)"></div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">📊 Funil Comercial</div>
-        <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:16px">Jornada do Lead → Instalação</div>
-        <div id="bi-funil" style="display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:4px"></div>
-        <div id="bi-funil-fonte" style="font-size:10px;color:var(--muted);margin-top:10px;text-align:right"></div>
-      </div>
-
-      <!-- ── KPIs ─────────────────────────────────────────────────────────── -->
-      <div id="bi-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:22px"></div>
-      <!-- Ranking da Verdade -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#EF4444,#F97316)"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <div>
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">🔎 Auditoria</div>
-            <div style="font-size:17px;font-weight:800;color:var(--text);font-family:var(--font-head,monospace)">Ranking da Verdade</div>
-            <div style="font-size:11px;color:var(--muted)" id="bi-ranking-sub"></div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <div id="bi-inconsist-badge"></div>
-            <button onclick="biFiltrarEnroladas()" id="bi-btn-enrol" style="background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.35);border-radius:7px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">⏰ Enroladas</button>
-            <button onclick="biExportarCSV()" style="background:var(--panel);color:var(--muted2);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">⬇ CSV</button>
-          </div>
-        </div>
-        <div style="overflow:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead>
-              <tr id="bi-ranking-head" style="background:var(--panel)"></tr>
-            </thead>
-            <tbody id="bi-ranking-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- Gráfico Pareto motivos de perda -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden">
-          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#EF4444,#F97316)"></div>
-          <div style="font-size:12px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">📊 Pareto — Motivos de Perda</div>
-          <canvas id="bi-chart-pareto" height="220"></canvas>
-          <div id="bi-pareto-table" style="margin-top:8px"></div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden">
-          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#8B5CF6,#3B82F6)"></div>
-          <div style="font-size:12px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">🏷 Conversão por Origem (Tag CRM)</div>
-          <canvas id="bi-chart-tags" height="220"></canvas>
-        </div>
-      </div>
-    </div>
+  <!-- ══════════ ABA BI COMERCIAL (iframe) ══════════ -->
+  <div class="tab-content" id="tab-content-bi" style="display:none;height:calc(100vh - 54px);padding:0">
+    <iframe
+      id="bi-frame"
+      src="bi-comercial.html"
+      style="width:100%;height:100%;border:none;display:block"
+      allow="downloads"
+    ></iframe>
   </div>
+
 
   <!-- ══════════ ABA VISÃO 360 ══════════ -->
   <div class="tab-content" id="tab-content-visao360">
@@ -1946,13 +1211,31 @@ window.addEventListener('load', async () => {
 
   <!-- ══════ ABA CONFIGURAÇÕES ══════ -->
   <div class="tab-content" id="tab-content-config">
-    <div style="max-width:860px;margin:0 auto;padding:28px 20px">
+    
+      <!-- Supabase Auth -->
+      <div style="background:var(--card);border:1px solid #3ECF8E44;border-radius:14px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#3ECF8E,#1C7C54)"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:20px">🔐</span>
+          <div style="font-size:14px;font-weight:800;color:var(--text)">Gestão de Utilizadores</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Os utilizadores são geridos directamente no <strong style="color:#3ECF8E">Supabase</strong>.<br>
+          Para adicionar ou remover acessos, aceda ao painel de Auth.
+        </div>
+        <a href="https://supabase.com/dashboard/project/tijefreqgogqwwwhejsp/auth/users"
+           target="_blank"
+           style="display:inline-flex;align-items:center;gap:6px;background:#3ECF8E22;color:#3ECF8E;border:1px solid #3ECF8E44;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;text-decoration:none">
+          👥 Abrir painel de utilizadores ↗
+        </a>
+        <div id="supa-session-info" style="margin-top:12px;font-size:11px;color:var(--muted)"></div>
+      </div>
+<div style="max-width:860px;margin:0 auto;padding:28px 20px">
       <div style="font-family:var(--font-head,monospace);font-size:22px;font-weight:800;color:var(--accent);margin-bottom:6px">⚙️ Configurações</div>
       <div style="color:var(--muted);font-size:13px;margin-bottom:28px">GitHub Sync, Usuários e Preferências do Sistema</div>
 
-      <!-- GitHub Sync -->
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00E5C3,#3B82F6)"></div>
+        
         <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">☁ Sincronização GitHub</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:16px">
           Quando configurado, os arquivos carregados são enviados automaticamente ao repositório.<br>
@@ -1961,26 +1244,33 @@ window.addEventListener('load', async () => {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
           <div>
             <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">OWNER (usuário GitHub)</label>
-            <input id="cfg-gh-owner" placeholder="ex: erjinfo" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-          </div>
+            </div>
           <div>
             <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">REPOSITÓRIO</label>
-            <input id="cfg-gh-repo" placeholder="ex: dashboard-nuvyon" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-          </div>
+            </div>
         </div>
         <div style="margin-bottom:14px">
           <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px">TOKEN GITHUB (Personal Access Token — permissão: repo)</label>
-          <input id="cfg-gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-        </div>
+          </div>
         <div style="display:flex;gap:10px;align-items:center">
-          <button onclick="cfgSaveGitHub()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:13px;cursor:pointer">✅ Salvar e Testar</button>
-          <button onclick="cfgClearGitHub()" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer">🗑 Remover</button>
+          <button onclick="" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-weight:800;font-size:13px;cursor:pointer">✅ Salvar e Testar</button>
+          <button onclick="" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer">🗑 Remover</button>
           <span id="cfg-gh-msg" style="font-size:12px;color:var(--accent)"></span>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Arquivos sincronizados automaticamente:</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${Object.entries(GH_SLOT_FILES||{}).map(([k,f])=>`<span style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:10px;font-family:monospace;color:var(--muted2)">${k} → ${f}</span>`).join('')}
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:700">☁ Arquivos sincronizados automaticamente (nome fixo, sobrescreve a cada upload):</div>
+          <div id="cfg-slots-status" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+            .map(([k,f])=>`
+              <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text)">${k}</div>
+                  <div style="font-size:10px;color:var(--muted);font-family:monospace">${f}</div>
+                </div>
+                <div id="cfg-slot-${k}" style="font-size:16px" title="Status do slot">⚫</div>
+              </div>`).join('')}
+          </div>
+          <div style="margin-top:10px">
+            <button onclick="cfgCheckSlots()" style="background:var(--panel);color:var(--muted2);border:1px solid var(--border);border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer">🔍 Verificar arquivos no GitHub</button>
           </div>
         </div>
       </div>
@@ -2001,13 +1291,14 @@ window.addEventListener('load', async () => {
           Motor de Prioridade: calculateOSPriority (P10/P8/P5/P3)<br>
           BI Comercial: superClean + resolveVendedoraBI (6 passos)<br>
           GitHub Sync: upload automático com sobrescrita por slot<br>
-          Desenvolvido por <strong style="color:var(--accent)">Eng. Eric Jonas</strong> · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="422730286c2b2c242d302f23362b212302252f232b2e6c212d2f">[email&#160;protected]</a>
+          Desenvolvido por <strong style="color:var(--accent)">Eng. Eric Jonas</strong> · <a href="mailto:erj.informatica@gmail.com" style="color:var(--accent)">erj.informatica@gmail.com</a>
         </div>
       </div>
     </div>
   </div>
 
 </div><!-- #main -->
+</div><!-- /layout-body -->
 
 <!-- FOOTER -->
 <div id="footer">
@@ -2137,27 +1428,6 @@ window.addEventListener('load', async () => {
         </div>
         <div class="upload-slot-status" id="slot-npsTelefonia-icon">○</div>
       </div>
-      <!-- BI Comercial: CRM + Vendas Hubsoft -->
-      <div class="upload-slot" id="slot-crm" style="border-color:#8B5CF644;background:#8B5CF605">
-        <input type="file" accept=".csv,.xlsx,.xls" onchange="handleFile('crm',this)">
-        <div class="upload-slot-icon">💼</div>
-        <div class="upload-slot-info">
-          <div class="upload-slot-title" style="color:#8B5CF6">CRM Hubsoft <span style="background:#8B5CF622;color:#8B5CF6;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px">BI Comercial</span></div>
-          <div class="upload-slot-hint">relatorio_de_crm*.csv — status_prospecto + usuario + cpf</div>
-          <div class="upload-slot-file" id="slot-crm-name" style="color:var(--muted)">Nenhum arquivo — habilita Ranking da Verdade</div>
-        </div>
-        <div class="upload-slot-status" id="slot-crm-icon">○</div>
-      </div>
-      <div class="upload-slot" id="slot-vendas" style="border-color:#10B98144;background:#10B98105">
-        <input type="file" accept=".csv,.xlsx,.xls" onchange="handleFile('vendas',this)">
-        <div class="upload-slot-icon">🛒</div>
-        <div class="upload-slot-info">
-          <div class="upload-slot-title" style="color:#10B981">Vendas Hubsoft (Serviços) <span style="background:#10B98122;color:#10B981;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px">BI Comercial</span></div>
-          <div class="upload-slot-hint">relatorio-de-servicos*.csv/.xlsx — vendas instaladas por CPF</div>
-          <div class="upload-slot-file" id="slot-vendas-name" style="color:var(--muted)">Nenhum arquivo — habilita auditoria de vendas reais</div>
-        </div>
-        <div class="upload-slot-status" id="slot-vendas-icon">○</div>
-      </div>
       <div class="upload-slot" id="slot-kml" style="border-color:var(--accent)44;background:var(--accent)05">
         <input type="file" accept=".kml" onchange="handleFile('kml',this)">
         <div class="upload-slot-icon">🗺️</div>
@@ -2267,8 +1537,6 @@ const STATE = {
   rankingNPS: null,         // calculado por NPSIntelligence
   sacFCR: null,             // SACEngine output — FCR + deduplicação + produtividade composta
   rawKML: null,             // { codNorm → { id, nome, lat, lng } } — Fonte Primária de Verdade
-  rawCRM: null,             // Relatório CRM (status_prospecto + usuario + cpf)
-  rawVendas: null,          // Relatório Hubsoft Serviços (vendas instaladas)
   nomes: { os: null, at: null, sac: null, kml: null, crm: null, vendas: null },
   loaded: { os: false, at: false, sac: false, nps: false, osab: false, sinais: false, agentes: false, matrix: false, npsTelefonia: false, kml: false, crm: false, vendas: false }
 };
@@ -3376,29 +2644,6 @@ async function handleFile(tipo, input) {
       if (STATE.relatorioAnalitico) setTimeout(() => { renderBonificacao(); renderGestao(); }, 0);
     }
 
-    // ── Auto-aplicar CRM e Vendas (BI Comercial) ─────────────────────────
-    // Aplica imediatamente ao STATE e renderiza o BI sem precisar clicar "Aplicar"
-    if (tipo === 'crm' && rows.length > 0) {
-      STATE.rawCRM     = rows;
-      STATE.loaded.crm = true;
-      pendingFiles.crm = rows;
-      // Salvar no GitHub automaticamente
-      if (typeof ghSaveSlot === 'function') ghSaveSlot('crm', rows).catch(()=>{});
-      // Atualizar slot visual
-      const slotName = document.getElementById('slot-crm-name');
-      if (slotName) slotName.textContent = `✔ ${file.name} (${rows.length} linhas)`;
-      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
-    }
-    if (tipo === 'vendas' && rows.length > 0) {
-      STATE.rawVendas     = rows;
-      STATE.loaded.vendas = true;
-      pendingFiles.vendas = rows;
-      if (typeof ghSaveSlot === 'function') ghSaveSlot('vendas', rows).catch(()=>{});
-      const slotName = document.getElementById('slot-vendas-name');
-      if (slotName) slotName.textContent = `✔ ${file.name} (${rows.length} linhas)`;
-      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
-    }
-
     if (tipo === 'nps') {
       const el = document.getElementById('slot-nps-name');
       const ic = document.getElementById('slot-nps-icon');
@@ -3490,28 +2735,6 @@ function aplicarDados() {
     // Novos arquivos v3.6
     if (pendingFiles.osab)   { STATE.rawOSAb  = pendingFiles.osab;   STATE.rawOSAbertas = pendingFiles.osab; STATE.loaded.osab = true; }
     if (pendingFiles.sinais)  { STATE.rawSinais  = pendingFiles.sinais;  STATE.loaded.sinais  = true; }
-
-    // ── BI Comercial: CRM + Vendas Hubsoft ──────────────────────────────────
-    if (pendingFiles.crm) {
-      STATE.rawCRM = pendingFiles.crm;
-      STATE.loaded.crm = true;
-      if (typeof ghSaveSlot === 'function') ghSaveSlot('crm', pendingFiles.crm).catch(()=>{});
-    }
-    if (pendingFiles.vendas) {
-      STATE.rawVendas = pendingFiles.vendas;
-      STATE.loaded.vendas = true;
-      if (typeof ghSaveSlot === 'function') ghSaveSlot('vendas', pendingFiles.vendas).catch(()=>{});
-    }
-    // BI Comercial: renderizar e navegar para a aba automaticamente
-    if (pendingFiles.crm || pendingFiles.vendas) {
-      setTimeout(() => {
-        if (typeof renderBIComercial === 'function') renderBIComercial();
-        // Navegar para a aba BI Comercial automaticamente após aplicar
-        if (typeof window.showTab === 'function') window.showTab('bi-comercial');
-      }, 100);
-    } else if (STATE.rawCRM || STATE.rawVendas) {
-      setTimeout(() => { if (typeof renderBIComercial === 'function') renderBIComercial(); }, 0);
-    }
     if (pendingFiles.kml) {
       // KML já vem pré-parseado como { codNorm → { id, nome, lat, lng } }
       STATE.rawKML    = pendingFiles.kml;
@@ -3641,14 +2864,7 @@ function aplicarDados() {
     closeUpload();
     renderAll();
 
-    // ── Auto-salvar relatórios no GitHub após aplicar ─────────────────
-    if (ghGetConfig() && location.protocol !== 'file:') {
-      _setRelatIndicator('saving');
-      setTimeout(async () => {
-        await ghSaveRelatorios();
-      }, 800); // aguarda renderAll() completar
-    }
-  }, 50);
+}, 50);
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -5205,7 +4421,66 @@ function exportarPDF() {
 .vt{font-weight:800;color:${vc};font-size:13px;margin-bottom:5px}.vx{font-size:12px;color:#334155;line-height:1.6}
 .ft{margin-top:22px;padding-top:12px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#5A6A85}
 ${tipo==='agente' && dados.enrolacoes>0 ? '.alerta{background:#FFF3CD;border:1px solid #F4A429;border-radius:6px;padding:8px 12px;font-size:11px;color:#856404;margin-bottom:8px}' : ''}
-@media print{body{padding:14px}}</style></head><body>
+@media print{body{padding:14px}}
+/* Tabbar oculto — sidebar é o menu principal */
+
+/* ── Sidebar grupos expansíveis ─────────────────────────────────────────── */
+.sidebar-group { margin-bottom: 4px; }
+
+.sidebar-group-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px; cursor: pointer; border-radius: 8px; margin: 0 8px;
+  color: var(--muted); font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .07em;
+  transition: background .15s, color .15s;
+  user-select: none;
+}
+.sidebar-group-header:hover { background: var(--border); color: var(--text); }
+.sidebar-group-label { flex: 1; }
+.sidebar-group-arrow { font-size: 10px; transition: transform .2s; }
+.sidebar-group.collapsed .sidebar-group-arrow { transform: rotate(-90deg); }
+
+.sidebar-sub { overflow: hidden; transition: max-height .25s ease; max-height: 400px; }
+.sidebar-group.collapsed .sidebar-sub { max-height: 0; }
+
+.sidebar-sub-item {
+  display: block; padding: 8px 16px 8px 36px; margin: 1px 8px;
+  border-radius: 7px; cursor: pointer; font-size: 12px;
+  color: var(--muted); transition: background .15s, color .15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-sub-item:hover { background: var(--border); color: var(--text); }
+.sidebar-sub-item.active {
+  background: rgba(0,201,167,.12);
+  color: var(--accent);
+  font-weight: 700;
+  border-left: 2px solid var(--accent);
+  padding-left: 34px;
+}
+
+
+/* ── Chat IA flutuante ─────────────────────────────────────────────────── */
+#ia-fab:hover { transform:scale(1.1); box-shadow:0 6px 28px #00C9A766; }
+#ia-fab.active { transform:scale(0.95); }
+#ia-chat-panel { animation: iaChatIn .2s ease; }
+@keyframes iaChatIn {
+  from { opacity:0; transform:translateY(12px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+#ia-msgs::-webkit-scrollbar { width:4px; }
+#ia-msgs::-webkit-scrollbar-track { background:transparent; }
+#ia-msgs::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.ia-msg-user { background:var(--accent)18; border:1px solid var(--accent)33;
+               border-radius:12px 12px 2px 12px; padding:8px 12px;
+               font-size:12px; color:var(--text); align-self:flex-end;
+               max-width:85%; line-height:1.5; }
+.ia-msg-ai   { background:var(--panel); border:1px solid var(--border);
+               border-radius:2px 12px 12px 12px; padding:10px 12px;
+               font-size:12px; color:var(--text); align-self:flex-start;
+               max-width:92%; line-height:1.6; }
+.ia-msg-ai h4 { color:var(--accent); font-size:12px; margin:8px 0 4px; }
+.ia-msg-ai li { margin:3px 0; }
+</style></head><body>
 <div class="hdr"><div><div class="nome">${ne}</div><div class="cargo">${tipo==='agente'?'Agente SAC':'Técnico de Campo'} · ${hoje}${aval?` · Avaliador: ${aval}`:''}</div></div><div class="badge">⚖️ ${ver.toUpperCase()}</div></div>
 ${tipo==='agente' && dados.alertas?.length ? dados.alertas.map(a=>`<div class="alerta">⚠ ${a}</div>`).join('') : ''}
 <div class="sec"><div class="st">📊 Indicadores de Performance</div><div class="kg">${ind.map(i=>`<div class="kp"><div class="kv">${i.v}</div><div class="kl">${i.l}</div></div>`).join('')}</div></div>
@@ -5278,7 +4553,103 @@ ${tipo==='agente' && dados.alertas?.length ? dados.alertas.map(a=>`<div class="a
   </div>
 </div>
 <div class="ft"><div>Nuvyon — Inteligência Operacional · ${hoje}</div><div style="font-weight:700;color:#00C9A7">Eng. Eric Jonas · erj.informatica@gmail.com</div></div>
-<script>window.onload=()=>{window.print();}<\/script></body></html>`;
+<script>window.onload=()=>{window.print();}<\/script>
+<!-- ══════════ PAINEL BI COMERCIAL (overlay) ══════════ -->
+
+
+
+<!-- ══════════ CHAT IA FLUTUANTE ══════════ -->
+<div id="ia-fab" onclick="iaToggleChat()"
+  title="Inteligência IA — Nuvyon"
+  style="position:fixed;bottom:24px;right:24px;z-index:9500;
+         width:52px;height:52px;border-radius:50%;
+         background:linear-gradient(135deg,#00C9A7,#0099CC);
+         box-shadow:0 4px 20px #00C9A744;
+         display:flex;align-items:center;justify-content:center;
+         cursor:pointer;font-size:22px;
+         transition:transform .2s,box-shadow .2s;
+         user-select:none">
+  🤖
+</div>
+
+<div id="ia-chat-panel"
+  style="position:fixed;bottom:88px;right:24px;z-index:9499;
+         width:380px;max-width:calc(100vw - 32px);
+         background:var(--card);border:1px solid var(--border);
+         border-radius:16px;box-shadow:0 8px 40px #00000088;
+         display:none;flex-direction:column;overflow:hidden;
+         max-height:70vh">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;
+              padding:14px 16px;background:var(--panel);border-bottom:1px solid var(--border);
+              flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">🤖</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--accent)">IA Nuvyon</div>
+        <div style="font-size:10px;color:var(--muted)">Powered by Groq · llama-3.3-70b</div>
+      </div>
+    </div>
+    <button onclick="iaToggleChat()"
+      style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px">✕</button>
+  </div>
+
+  <!-- Botões de análise rápida -->
+  <div style="display:flex;gap:6px;padding:10px 12px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0">
+    <button onclick="iaAnalisar('boletim_tecnicos')"
+      style="background:var(--panel);color:var(--accent);border:1px solid var(--accent)44;
+             border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+      🔧 Técnicos
+    </button>
+    <button onclick="iaAnalisar('clientes_risco')"
+      style="background:var(--panel);color:#EF4444;border:1px solid #EF444444;
+             border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+      ⚠️ Risco
+    </button>
+    <button onclick="iaAnalisar('sac_performance')"
+      style="background:var(--panel);color:#8B5CF6;border:1px solid #8B5CF644;
+             border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+      🎧 SAC
+    </button>
+    <button onclick="iaAnalisar('resumo_geral')"
+      style="background:var(--panel);color:var(--muted2);border:1px solid var(--border);
+             border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+      📊 Resumo
+    </button>
+    <button onclick="iaAnalisar('acoes_prioritarias')"
+      style="background:var(--panel);color:#F59E0B;border:1px solid #F59E0B44;
+             border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+      🎯 Ações
+    </button>
+  </div>
+
+  <!-- Histórico de mensagens -->
+  <div id="ia-msgs"
+    style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:120px">
+    <div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0">
+      Olá! Carregue os dados e pergunte o que quiser sobre a operação.
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="ia-chat-status"
+    style="padding:0 12px;font-size:11px;color:var(--muted);min-height:16px;flex-shrink:0"></div>
+
+  <!-- Input -->
+  <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0">
+    <input id="ia-chat-input"
+      placeholder="Pergunte sobre os dados..."
+      style="flex:1;background:var(--panel);border:1px solid var(--border);
+             border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;outline:none"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaPerguntar();}">
+    <button onclick="iaPerguntar()"
+      style="background:var(--accent);color:#000;border:none;border-radius:8px;
+             padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer">↑</button>
+  </div>
+</div>
+
+</body></html>`;
 
   const w = window.open('','_blank','width=900,height=700');
   if (w) { w.document.write(html); w.document.close(); }
@@ -5319,18 +4690,14 @@ function showTab(t) {
   if (t === 'despacho')     { renderDespachoCanc(); }
   if (t === 'infra')        { renderInfra(); }
   if (t === 'bonificacao')  { renderBonificacao(); }
-
-  if (t === 'bi-comercial') {
-    // Renderizar imediatamente se houver dados
-    if (typeof renderBIComercial === 'function') {
-      // Pequeno delay para garantir que o tab-content já está display:block
-      setTimeout(renderBIComercial, 50);
-    }
-  }
+  if (t === 'bi')     { var f=document.getElementById('bi-frame'); if(f&&!f.src)f.src='bi-comercial.html'; }
   if (t === 'config') {
     if (typeof _initConfigTab === 'function') _initConfigTab();
   }
-  // Atualizar grupo ativo na tabbar (Tarefa 4)
+  // Atualizar sidebar ativa
+  if (typeof sidebarActivate === 'function') sidebarActivate(t);
+
+  // Atualizar grupo ativo na tabbar (compat. legado — dropdown)
   if (typeof ABA_GRUPOS !== 'undefined') {
     ABA_GRUPOS.forEach(g => {
       const gbtn = document.getElementById('tabgroup-'+g.id);
@@ -5347,11 +4714,6 @@ function openUpload() { document.getElementById('upload-overlay').classList.add(
 function closeUpload(e) {
   if (e && e.target !== document.getElementById('upload-overlay')) return;
   document.getElementById('upload-overlay').classList.remove('open');
-  // Se a aba BI Comercial estiver activa e tiver dados, re-renderizar
-  const biTab = document.getElementById('tab-content-bi-comercial');
-  if (biTab && biTab.classList.contains('active') && typeof renderBIComercial === 'function') {
-    setTimeout(renderBIComercial, 100);
-  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -5493,18 +4855,34 @@ const NPSIntelligence = {
     rawNPS.forEach(r => {
       const notaRaw = r['Opção'] || r['opcao'] || r['Nota'] || r['nota'] || r['Score'] || '';
       const nota    = extrairNotaW(notaRaw);
-      // Prioridade para código do agente: Origem > Resposta > Agente
-      const origemRaw = String(r['Origem'] || r['origem'] || r['ORIGEM'] || '').trim();
-      const respRaw   = String(r['Resposta'] || r['resposta'] || r['Agente'] || r['agente'] || '').trim();
-      const codRaw    = origemRaw || respRaw;
-      const janela    = String(r['__janela'] || '');
-      const sheet     = String(r['__sheet']  || '').toLowerCase();
+      const janela = String(r['__janela'] || '');
+      const sheet  = String(r['__sheet']  || '').toLowerCase();
+
+      // Extrair nome/código do agente — nunca usar campo que parece nota/emoji
+      const _isNota = v => { const s=String(v||'').trim(); return /^[1-5]$/.test(s)||/##1f[0-9a-f]+##/i.test(s)||/[😍😊😐😕😡]/.test(s)||/excelente|ótimo|bom|regular|ruim|péssimo/i.test(s); };
+
+      // Colunas candidatas para nome do agente (ordem de prioridade)
+      const _agCols = ['Agente','agente','AGENTE','Número externo','numero_externo',
+                       'Agent','Cod.','cod','Código','codigo','Origem','origem'];
+      let codRaw = '';
+      for (const col of _agCols) {
+        const v = String(r[col] || '').trim();
+        if (v && !_isNota(v)) { codRaw = v; break; }
+      }
+      // Fallback: primeiro campo não-nota com conteúdo
+      if (!codRaw) {
+        for (const v of Object.values(r)) {
+          const vs = String(v||'').trim();
+          if (vs && vs.length > 1 && !_isNota(vs)) { codRaw = vs; break; }
+        }
+      }
+      const respRaw = codRaw;
 
       // Resolver nome: Mapa Mestre → agenteMap → fallback ao código
       const nomeResolvido = resolveByCode(codRaw);
       const nome = nomeResolvido
-        || (hasMap ? NPSIntelligence.resolveAgent(respRaw, agenteMap) : null)
-        || String(r['Agente'] || r['agente'] || codRaw || '').trim();
+        || (hasMap ? NPSIntelligence.resolveAgent(codRaw, agenteMap) : null)
+        || codRaw;
 
       if (!nome) return;
       if (!perAg[nome]) perAg[nome] = { notas: [], recl: [] };
@@ -8077,6 +7455,29 @@ function renderDespacho() {
 
   let html = '<div style="padding:20px">';
 
+  // ── Tabela de Prioridades ─────────────────────────────────────────────────
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px;overflow:hidden">
+    <div style="background:var(--panel);padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;font-weight:800;color:var(--text)">⚡ Tabela de Prioridades de Campo</span>
+      <span style="font-size:10px;color:var(--muted)">calculateOSPriority — pesos automáticos por tipo</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0">
+      ${[
+        { peso:10, label:'CRÍTICO',  cor:'#DC2626', badge:'🔴', desc:'Premium · Reversão de Cancelamento',       motivo:'Receita em risco imediato — atender hoje' },
+        { peso:8,  label:'URGENTE',  cor:'#EF4444', badge:'🟠', desc:'Fibra Sem Sinal (LOS) · OS Infância <7d',  motivo:'SLA violado ou cliente novo sem acesso' },
+        { peso:5,  label:'ALTA',     cor:'#F97316', badge:'🟡', desc:'Reincidência',                              motivo:'Risco de churn — segunda visita no problema' },
+        { peso:3,  label:'MÉDIA',    cor:'#F59E0B', badge:'🟢', desc:'Ativação · Instalação',                    motivo:'Novo cliente — gera receita recorrente' },
+        { peso:1,  label:'BAIXA',    cor:'#6B7280', badge:'⚪', desc:'Migração · Manutenção · Cancelamento',     motivo:'Melhorias e retiradas sem urgência' },
+      ].map(p => `<div style="padding:12px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="background:${p.cor}22;color:${p.cor};border:1px solid ${p.cor}44;border-radius:5px;padding:1px 8px;font-size:10px;font-weight:800">${p.badge} P${p.peso} ${p.label}</span>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">${p.desc}</div>
+        <div style="font-size:10px;color:var(--muted)">${p.motivo}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
   // KPIs
   html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:18px">
     ${_dKpi('Total OS', totalOS, 'var(--accent)')}
@@ -10622,12 +10023,7 @@ function uploadSetTab(tab) {
   }
 }
 
-function _driveFmt(n) {
-  if (!n) return '';
-  if (n < 1024) return n + 'B';
-  if (n < 1048576) return Math.round(n/1024) + 'KB';
-  return (n/1048576).toFixed(1) + 'MB';
-}
+
 
 function driveScan() {
   var sEl = document.getElementById('drive-status-msg');
@@ -10781,100 +10177,7 @@ function driveImportAll() {
   next();
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DRIVE AUTO-LOAD — busca e importa todos os relatórios no login
-   Usa SESSION.driveApiKey (salvo no banco de usuários GitHub)
-══════════════════════════════════════════════════════════════ */
-function driveAutoLoad(apiKey) {
-  if (!apiKey) return;
-  var notif = document.createElement('div');
-  notif.id = 'drive-al-notif';
-  notif.style.cssText = 'position:fixed;bottom:18px;right:18px;background:var(--panel);'
-    + 'border:1px solid #4285f444;border-radius:10px;padding:11px 16px;font-size:12px;'
-    + 'color:var(--text);z-index:900;display:flex;align-items:center;gap:8px;'
-    + 'box-shadow:0 4px 20px #00000050;max-width:320px';
-  notif.innerHTML = '<span id="dal-spin" style="display:inline-block">🔄</span> Carregando relatórios do Drive…';
-  document.body.appendChild(notif);
 
-  var spin = notif.querySelector('#dal-spin');
-  var angle = 0;
-  var spinTimer = setInterval(function(){
-    angle = (angle + 15) % 360;
-    if(spin) spin.style.transform = 'rotate('+angle+'deg)';
-  }, 50);
-
-  function dismiss(msg, color) {
-    clearInterval(spinTimer);
-    notif.innerHTML = '<span style="color:' + color + '">' + msg + '</span>';
-    setTimeout(function(){ if(notif.parentNode) notif.parentNode.removeChild(notif); }, 4000);
-  }
-
-  var folderId = (typeof DRIVE_FOLDER_ID !== 'undefined' ? DRIVE_FOLDER_ID : '1SGlZZyPglW181NBEHzxnUpOfXChUX6qR');
-  var q   = "'" + folderId + "' in parents and trashed=false";
-  var fld = 'files(id,name,size,modifiedTime)';
-  var url = 'https://www.googleapis.com/drive/v3/files'
-          + '?q='      + encodeURIComponent(q)
-          + '&fields=' + encodeURIComponent(fld)
-          + '&pageSize=50&key=' + encodeURIComponent(apiKey);
-
-  fetch(url)
-    .then(function(r){
-      if (!r.ok) return r.text().then(function(t){ throw new Error('Drive '+r.status+': '+t.slice(0,80)); });
-      return r.json();
-    })
-    .then(function(data){
-      var files = data.files || [];
-      var MAP = (typeof DRIVE_MAP !== 'undefined') ? DRIVE_MAP : [];
-      var matched = {};
-      files.forEach(function(f){
-        for (var i = 0; i < MAP.length; i++) {
-          if (MAP[i].r.test(f.name)) {
-            var t = MAP[i].tipo;
-            if (!matched[t] || f.modifiedTime > matched[t].modifiedTime)
-              matched[t] = Object.assign({}, f, {_m: MAP[i]});
-            break;
-          }
-        }
-      });
-      var tipos = Object.keys(matched);
-      if (!tipos.length) { dismiss('☁ Nenhum relatório identificado no Drive.', 'var(--muted)'); return; }
-
-      var ok = 0, fail = 0;
-      function next(i) {
-        if (i >= tipos.length) {
-          if (ok > 0 && typeof aplicarDados === 'function') aplicarDados();
-          dismiss(
-            ok ? '✅ ' + ok + ' relatório(s) carregados do Drive' : '❌ Falha ao carregar relatórios',
-            ok ? 'var(--green)' : 'var(--red)'
-          );
-          return;
-        }
-        var tipo = tipos[i];
-        var f    = matched[tipo];
-        var ext  = f.name.split('.').pop().toLowerCase();
-        var mimes = {
-          xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          xls:'application/vnd.ms-excel', csv:'text/csv',
-          kml:'application/vnd.google-earth.kml+xml'
-        };
-        var dlUrl = 'https://www.googleapis.com/drive/v3/files/' + f.id
-                  + '?alt=media&key=' + encodeURIComponent(apiKey);
-        fetch(dlUrl)
-          .then(function(r){ if(!r.ok)throw new Error('HTTP '+r.status); return r.blob(); })
-          .then(function(blob){
-            var mime = mimes[ext] || blob.type || 'application/octet-stream';
-            return handleFile(tipo, {files:[new File([blob], f.name, {type:mime})]});
-          })
-          .then(function(){ ok++; next(i+1); })
-          .catch(function(e){ console.warn('driveAutoLoad:', tipo, e.message); fail++; next(i+1); });
-      }
-      next(0);
-    })
-    .catch(function(err){
-      console.error('driveAutoLoad:', err);
-      dismiss('☁ Erro Drive: ' + err.message.slice(0,50), 'var(--red)');
-    });
-}
 
 /* ── Editar API Key Drive de um usuário (admin) ── */
 async function adminEditApiKey(idx) {
@@ -10899,707 +10202,356 @@ async function adminEditApiKey(idx) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BI COMERCIAL — Motor Inline (Nuvyon v5)
-// superClean + FILIAL_MAP + renderBIComercial + Ranking da Verdade blindado
-// Garante que TODAS as vendedoras do CRM apareçam (mesmo com 0 vendas)
-// ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * superClean(str) — normalização máxima para comparação de vendedoras.
- * Implementação exata conforme spec:
- *   str.normalize('NFD')
- *      .replace(/[\u0300-\u036f]/g, "")   → remove acentos
- *      .replace(/[^a-zA-Z]/g, "")          → remove números, espaços, especiais
- *      .toUpperCase()                       → MAIÚSCULAS
- *
- * Exemplos:
- *   "9.0 Evellyn Café"  → "EVELLYNCAFE"
- *   "8Leticia Carvalho" → "LETICIACARVALHO"
- *   "Ana Paula Moraes"  → "ANAPAULAMORAES"
- *   "Thais Moreira"     → "THAISMOREIRA"
- *   "1 - Ana Paula"     → "ANAPAULA"
- */
-function superClean(str) {
-  if (!str) return '';
-  return String(str)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z]/g, '')
-    .toUpperCase();
-}
+// ── Sidebar com grupos expansíveis ──────────────────────────────────────────
+function buildSidebar(abasAutorizadas) {
+  var nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+  nav.innerHTML = '';
 
-/**
- * FILIAL_MAP_BI — dicionário canônico de vendedoras
- * Chaves: superClean(padrão) → nome real exibido no dashboard
- * Cobertura: filiais Matrix + variações de nome do CRM + prefixos numéricos
- */
-const FILIAL_MAP_BI = {
-  // ── Tania (Filial Passos) ─────────────────────────────────────────────
-  'FILIALPASSOS'       : 'Tania',
-  'TANIA'              : 'Tania',
-  'TANIALEMOS'         : 'Tania',
-  // ── Victoria Schiavelli (Filial CB / Casa Branca) ─────────────────────
-  'FILIALCB'           : 'Victoria Schiavelli',
-  'FILIALCASABRANCA'   : 'Victoria Schiavelli',
-  'VICTORIA'           : 'Victoria Schiavelli',
-  'VICTORIASCHIAVELLI' : 'Victoria Schiavelli',
-  // ── Lavinia Martins (Filial Rio Pardo) ───────────────────────────────
-  'FILIALRIOPARDO'     : 'Lavinia Martins',
-  'LAVINIA'            : 'Lavinia Martins',
-  'LAVINIAMARTINS'     : 'Lavinia Martins',
-  // ── Thais Moreira (Filial Monte Santo) ──────────────────────────────
-  'FILIALMONTESANTO'   : 'Thais Moreira',
-  'THAIS'              : 'Thais Moreira',
-  'THAISMOREIRA'       : 'Thais Moreira',
-  // ── 9.0Evellyn Cafe (Filial Mogi) ────────────────────────────────────
-  'FILIALMOGI'         : '9.0Evellyn Cafe',
-  'EVELLYN'            : '9.0Evellyn Cafe',
-  'EVELLYNCAFE'        : '9.0Evellyn Cafe',
-  'EVELYNCAFE'         : '9.0Evellyn Cafe',   // variação comum de digitação
-  // ── 8Leticia Carvalho (Filial Caconde) ───────────────────────────────
-  'FILIALCACONDE'      : '8Leticia Carvalho',
-  'FILIALCACOND'       : '8Leticia Carvalho',
-  'LETICIA'            : '8Leticia Carvalho',
-  'LETICIACARVALHO'    : '8Leticia Carvalho',
-  // ── Ana Paula Moraes ─────────────────────────────────────────────────
-  // Presente no CRM como "Ana Paula", "1 - Ana Paula", "ANA PAULA MORAES"
-  'ANAPAULA'           : 'Ana Paula Moraes',
-  'ANAPAULAMORAES'     : 'Ana Paula Moraes',
-  'ANAPAULAMORAE'      : 'Ana Paula Moraes',
-};
-
-const _BI_FILIAL_VALS = new Map(
-  Object.values(FILIAL_MAP_BI).map(v => [superClean(v), v])
-);
-
-/**
- * resolveVendedoraBI(raw): resolve qualquer string de nome para o canônico.
- * Usa superClean() em ambos os lados → insensível a acentos, números, espaços.
- *
- * Passos (ordem de tentativa):
- *  1. Exact match: superClean(raw) === chave do FILIAL_MAP
- *  2. Starts-with: superClean(raw) começa com a chave (≥4 chars)
- *  3. Key starts-with: chave começa com superClean(raw) (≥5 chars)
- *  4. Match no valor canônico (raw já é o nome real)
- *  5. Substring: qualquer chave está contida em superClean(raw) (≥5 chars)
- *  6. Fallback: remove prefixo numérico/separador (ex: "1 - Ana Paula" → "Ana Paula")
- */
-function resolveVendedoraBI(raw) {
-  if (!raw || String(raw).trim() === '') return '';
-  const s  = String(raw).trim();
-  const sc = superClean(s);
-  if (!sc) return s;
-
-  // Passo 1 — match exato
-  for (const [k,v] of Object.entries(FILIAL_MAP_BI)) {
-    if (sc === superClean(k)) return v;
-  }
-  // Passo 2 — sc começa com chave
-  for (const [k,v] of Object.entries(FILIAL_MAP_BI)) {
-    const kc = superClean(k);
-    if (kc.length >= 4 && sc.startsWith(kc)) return v;
-  }
-  // Passo 3 — chave começa com sc
-  for (const [k,v] of Object.entries(FILIAL_MAP_BI)) {
-    const kc = superClean(k);
-    if (sc.length >= 5 && kc.startsWith(sc)) return v;
-  }
-  // Passo 4 — match no valor canônico
-  if (_BI_FILIAL_VALS.has(sc)) return _BI_FILIAL_VALS.get(sc);
-  for (const [vc,v] of _BI_FILIAL_VALS) {
-    if (vc.length >= 5 && sc.startsWith(vc)) return v;
-    if (sc.length >= 5 && vc.startsWith(sc)) return v;
-  }
-  // Passo 5 — chave CONTIDA em sc (ex: sc="ANAPAULAMORAES" contém "ANAPAULA")
-  for (const [k,v] of Object.entries(FILIAL_MAP_BI)) {
-    const kc = superClean(k);
-    if (kc.length >= 5 && sc.includes(kc)) return v;
-  }
-  // Passo 6 — remove prefixo numérico "1 - " "8" etc.
-  return s.replace(/^[\d\s.\-]+/, '').trim() || s;
-}
-
-/** normCPF: dígitos apenas, 11 últimos */
-function biNormCPF(v) {
-  const d = String(v||'').replace(/\D/g,'');
-  return d.length >= 11 ? d.slice(-11) : (d || null);
-}
-
-/** categorizaMotivoBI: classifica crm_etapa em motivo de perda */
-function categorizaMotivoBI(etapa) {
-  const e = String(etapa||'').toUpperCase();
-  if (!e) return 'Não Informado';
-  if (e.includes('DESISTENCIA')&&e.includes('CONCORR')) return 'Desistência/Concorrência';
-  if (e.includes('DESISTENCIA')) return 'Desistência';
-  if (e.includes('CONCORR'))     return 'Concorrência';
-  if (e.includes('SEM VIABILIDADE')||e.includes('VIABILIDADE NEGATIVA')) return 'Sem Viabilidade';
-  if (e.includes('CREDITO')||e.includes('CRÉDITO')) return 'Crédito Negado';
-  if (e.includes('SEM RETORNO'))  return 'Sem Retorno';
-  if (e.includes('PRAZO'))        return 'Prazo';
-  if (e.includes('SEM INTERESSE'))return 'Sem Interesse';
-  if (e.includes('NEGOC'))        return 'Em Negociação';
-  if (e.includes('OUTROS'))       return 'Outros';
-  return etapa.length > 0 ? String(etapa).slice(0,30) : 'Não Informado';
-}
-
-// Estado do BI Comercial
-const _BI = {
-  vendRows: [],      // resultado do cruzamento por vendedora
-  allLeads: [],      // todos os leads CRM processados
-  filtroEnroladas: false,
-  chartPareto: null,
-  chartTags: null,
-};
-
-// ── Upload rápido direto da aba BI ─────────────────────────────────────────
-async function biQuickUpload(tipo, input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  const iconEl = document.getElementById('bi-slot-' + tipo + '-icon');
-  const nameEl = document.getElementById('bi-slot-' + tipo + '-name');
-  if (iconEl) iconEl.textContent = '⏳';
-  if (nameEl) nameEl.textContent = 'Lendo...';
-  try {
-    const rows = await readFileAsRows(file, {
-      raw: true,
-      delimiter: tipo === 'matrix' ? ';' : undefined,
+  ABA_GRUPOS.forEach(function(grupo) {
+    // Filtrar abas do grupo que o utilizador tem acesso
+    var abasDoGrupo = grupo.abas.filter(function(id) {
+      return abasAutorizadas.includes(id);
     });
-    // Aplicar ao STATE igual ao handleFile
-    if      (tipo === 'crm')    { STATE.rawCRM=rows; pendingFiles.crm=rows; STATE.loaded.crm=true; }
-    else if (tipo === 'vendas') { STATE.rawVendas=rows; pendingFiles.vendas=rows; STATE.loaded.vendas=true; }
-    else if (tipo === 'matrix') { STATE.relatorioAnalitico=rows; pendingFiles.matrix=rows; STATE.loaded.matrix=true; }
-    else if (tipo === 'osab')   { STATE.rawOSAb=rows; STATE.rawOSAbertas=rows; pendingFiles.osab=rows; STATE.loaded.osab=true; }
-    if (iconEl) iconEl.textContent = '✅';
-    if (nameEl) nameEl.textContent = file.name.slice(0,28) + ' (' + rows.length + ')';
-    // Salvar no GitHub automaticamente se configurado
-    if (GH_SLOT_FILES[tipo] && typeof ghSaveSlot === 'function') {
-      ghSaveSlot(tipo, rows).catch(()=>{});
-    }
-    renderBIComercial();
-  } catch(e) {
-    if (iconEl) iconEl.textContent = '❌';
-    if (nameEl) nameEl.textContent = 'Erro: ' + e.message.slice(0,30);
-  }
-}
+    if (!abasDoGrupo.length) return;
 
-// Sincroniza ícones dos slots de upload da aba BI com o STATE actual
-function biSyncSlots() {
-  const slots = {
-    crm   : { data: STATE.rawCRM,               color:'#8B5CF6', icon:'💼' },
-    vendas: { data: STATE.rawVendas,             color:'#10B981', icon:'🛒' },
-    matrix: { data: STATE.relatorioAnalitico,    color:'#F59E0B', icon:'💬' },
-    osab  : { data: STATE.rawOSAb,               color:'#3B82F6', icon:'🔧' },
-  };
-  Object.entries(slots).forEach(([tipo, {data, icon}]) => {
-    const lbl = document.getElementById('bi-slot-' + tipo);
-    const ico = document.getElementById('bi-slot-' + tipo + '-icon');
-    const nm  = document.getElementById('bi-slot-' + tipo + '-name');
-    if (!lbl) return;
-    const loaded = data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0);
-    if (loaded) {
-      lbl.style.borderColor = slots[tipo].color + '88';
-      lbl.style.background  = slots[tipo].color + '11';
-      if (ico) ico.textContent = '✅';
-      if (nm)  nm.textContent  = Array.isArray(data) ? data.length + ' registros' : 'Carregado';
-    }
-  });
-}
+    // Container do grupo
+    var grpDiv = document.createElement('div');
+    grpDiv.className = 'sidebar-group';
+    grpDiv.id = 'sidebar-group-' + grupo.id;
 
-// ── Funil de Conversão ────────────────────────────────────────────────────
-function renderBIFunil(crmList, osabRaw, matrixRaw, vendasRaw) {
-  const el = document.getElementById('bi-funil');
-  const fonte = document.getElementById('bi-funil-fonte');
-  if (!el) return;
-
-  // Etapa 1 — Leads (CRM)
-  const totalLeads = crmList.length;
-
-  // Etapa 2 — Aceite / Primeiro Contato (Matrix Analítico)
-  // Conta CPFs do CRM que aparecem no Matrix com status de atendimento
-  let aceites = 0;
-  const cpfsCRM = new Set(crmList.map(l => l.cpf).filter(Boolean));
-  const mxContatos = new Set();
-  (matrixRaw||[]).forEach(r => {
-    const cpf = biNormCPF(r['CPF/CNPJ informado']||r['CPF/CNPJ']||r['CPF']||'');
-    const st  = String(r['Status']||r['status']||'').toLowerCase();
-    // Considera aceite: atendimentos concluídos/resolvidos no Matrix
-    if (cpf && cpfsCRM.has(cpf) && (st.includes('resolv') || st.includes('conclu') || st.includes('encerr') || !st || st === '')) {
-      mxContatos.add(cpf);
-    }
-  });
-  // Se Matrix não tem CPF, usar count de leads convertidos no CRM como proxy
-  aceites = mxContatos.size || crmList.filter(l => l.convertido).length;
-
-  // Etapa 3 — OS Abertas (instalação efetiva)
-  let instalados = 0;
-  const cpfsOsab = new Set();
-  (osabRaw||[]).forEach(r => {
-    const cpf = biNormCPF(r['prospecto_cpf_cnpj']||r['cpf_cnpj']||r['CPF']||r['cpf_cliente']||'');
-    const tipo = String(r['tipo_ordem_servico']||r['tipo']||'').toUpperCase();
-    // Conta OS de ativação (instalação nova)
-    if (cpf && cpfsCRM.has(cpf) && (tipo.includes('ATIVAC') || tipo.includes('INSTAL'))) {
-      cpfsOsab.add(cpf);
-    }
-  });
-  instalados = cpfsOsab.size || crmList.filter(l => l.instalados > 0).length;
-
-  // Etapa 4 — Vendas auditadas (Hubsoft Serviços)
-  let vendasConf = 0;
-  (vendasRaw||[]).forEach(r => {
-    const cpf = biNormCPF(r['cpf_cnpj']||r['CPF']||r['cpf']||'');
-    const st  = String(r['servico_status']||r['status']||'').toLowerCase();
-    if (cpf && cpfsCRM.has(cpf) && (st.includes('habilitado') || st.includes('ativo'))) {
-      vendasConf++;
-    }
-  });
-
-  // Calcular taxas de conversão
-  const pct = (a, b) => b > 0 ? Math.round(a/b*100) : 0;
-
-  const etapas = [
-    { label:'Leads',           n: totalLeads, cor:'#8B5CF6', icon:'💬',
-      desc: 'Total de prospectos no CRM', fonte: 'CRM Hubsoft' },
-    { label:'Aceite / Contato', n: aceites,   cor:'#F59E0B', icon:'🤝',
-      desc: mxContatos.size ? 'CPFs encontrados no Atendimento Analítico' : 'Leads Convertidos (proxy — carregue Matrix para exactidão)',
-      fonte: matrixRaw ? 'Matrix Chat' : 'CRM (proxy)' },
-    { label:'OS Abertas',      n: instalados, cor:'#3B82F6', icon:'🔧',
-      desc: cpfsOsab.size ? 'Leads com OS de ativação' : 'Estimativa — carregue OS Abertas',
-      fonte: osabRaw ? 'OS Abertas' : 'estimativa' },
-    { label:'Vendas Conf.',    n: vendasConf || instalados, cor:'#10B981', icon:'✅',
-      desc: vendasConf ? 'Serviços habilitados no Hubsoft com CPF cruzado' : 'Igual a OS Abertas — carregue Vendas Hubsoft',
-      fonte: vendasRaw ? 'Vendas Hubsoft' : 'OS Abertas' },
-  ];
-
-  // Renderizar funil
-  el.innerHTML = etapas.map((e, i) => {
-    const prev  = i > 0 ? etapas[i-1].n : e.n;
-    const conv  = pct(e.n, prev);
-    const width = totalLeads > 0 ? Math.max(20, Math.round(e.n / totalLeads * 100)) : 100;
-    const isProxy = e.fonte.includes('estimativa') || e.fonte.includes('proxy');
-    return `
-      <div style="flex:1;min-width:140px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 8px;position:relative">
-        ${i > 0 ? `<div style="position:absolute;left:-4px;top:28px;font-size:16px;color:var(--muted)">→</div>` : ''}
-        <div style="font-size:11px;font-weight:700;color:${e.cor};text-transform:uppercase;letter-spacing:.05em;text-align:center">${e.icon} ${e.label}</div>
-        <div style="background:${e.cor}22;border:2px solid ${e.cor}66;border-radius:10px;padding:12px 16px;width:100%;text-align:center;position:relative">
-          <div style="font-size:28px;font-weight:900;color:${e.cor};font-family:monospace;line-height:1">${e.n.toLocaleString('pt-BR')}</div>
-          ${i > 0 ? `<div style="font-size:10px;color:${conv>=50?'#10B981':conv>=20?'#F59E0B':'#EF4444'};font-weight:700;margin-top:2px">${conv}% da etapa anterior</div>` : `<div style="font-size:10px;color:var(--muted);margin-top:2px">100%</div>`}
-          <div style="background:var(--border);border-radius:3px;height:4px;margin-top:8px;overflow:hidden">
-            <div style="height:100%;background:${e.cor};border-radius:3px;width:${width}%;transition:width .6s"></div>
-          </div>
-        </div>
-        <div style="font-size:9px;color:var(--muted);text-align:center;line-height:1.4;max-width:130px">${e.desc}</div>
-        <div style="font-size:9px;background:${isProxy?'#F59E0B22':'var(--panel)'};color:${isProxy?'#F59E0B':'var(--muted)'};border-radius:4px;padding:1px 6px;border:1px solid ${isProxy?'#F59E0B44':'var(--border)'}">${isProxy?'⚠ ':''} ${e.fonte}</div>
-      </div>`;
-  }).join('');
-
-  // Fonte das fontes
-  const fontes = [];
-  if (crmList.length) fontes.push('CRM');
-  if (matrixRaw)      fontes.push('Matrix');
-  if (osabRaw)        fontes.push('OS Abertas');
-  if (vendasRaw)      fontes.push('Vendas Hubsoft');
-  if (fonte) fonte.textContent = 'Fontes activas: ' + (fontes.join(' · ') || '—');
-}
-
-/** renderBIComercial: ponto de entrada — chama quando CRM ou Vendas carregam */
-function renderBIComercial() {
-  const crmRaw    = STATE.rawCRM;
-  const vendasRaw = STATE.rawVendas;
-  const matrixRaw = STATE.relatorioAnalitico;
-  const osabRaw   = STATE.rawOSAb || STATE.rawOSAbertas;
-
-  console.log('[BI] renderBIComercial — CRM:', crmRaw ? crmRaw.length + ' rows' : 'null',
-              '| Vendas:', vendasRaw ? vendasRaw.length + ' rows' : 'null',
-              '| Matrix:', matrixRaw ? matrixRaw.length + ' rows' : 'null',
-              '| OS Abertas:', osabRaw ? osabRaw.length + ' rows' : 'null');
-
-  // Sincronizar ícones dos slots
-  biSyncSlots();
-
-  if (!crmRaw && !vendasRaw) {
-    const up   = document.getElementById('bi-upload-screen');
-    const dash = document.getElementById('bi-dashboard');
-    if (up)   { up.style.display   = 'flex'; }
-    if (dash) { dash.style.display = 'none'; }
-    return;
-  }
-
-  // Garantir que os elementos existem
-  const up   = document.getElementById('bi-upload-screen');
-  const dash = document.getElementById('bi-dashboard');
-
-  if (!dash) {
-    console.warn('[BI] bi-dashboard não encontrado — retry em 500ms');
-    setTimeout(renderBIComercial, 500);
-    return;
-  }
-
-  // Mostrar dashboard
-  if (up)   up.style.display   = 'none';
-  dash.style.display = 'block';
-
-  // ── Processar CRM ──────────────────────────────────────────────────────
-  const crmList = (crmRaw||[]).map(r => {
-    // IDENTIDADE: nome em cascata
-    // 1. nome_prospecto → 2. nome_cartao → 3. 'Cliente sem Nome'
-    // Conforme spec: "Se o nome no faturamento for vazio, use lead.nome_cartao"
-    const nomeProsp  = String(r['nome_prospecto']||r['Nome']||'').trim();
-    const nomeCartao = String(r['nome_cartao']  ||'').trim();
-    const nomeDisplay= nomeProsp || nomeCartao || 'Cliente sem Nome';
-    const cpfN = biNormCPF(r['prospecto_cpf_cnpj']||r['cpf_cnpj']||r['CPF']||'');
-    const usuBruto = String(r['usuario']||r['vendedora']||'');
-    // Resolve nome real via FILIAL_MAP e superClean
-    const usuResolvido = resolveVendedoraBI(usuBruto);
-    return {
-      nome       : nomeDisplay,
-      cpf        : cpfN,
-      usuario    : usuResolvido || usuBruto,     // nome real ou original
-      usuSC      : superClean(usuResolvido || usuBruto),  // chave de agrupamento
-      status     : String(r['status_prospecto']||r['status']||'').trim(),
-      etapa      : String(r['crm_etapa']||r['etapa']||''),
-      tag        : String(r['tag']||''),
-      convertido : (String(r['status_prospecto']||r['status']||'').trim()) === 'Convertido',
+    // Cabeçalho do grupo (clicável para expandir/colapsar)
+    var header = document.createElement('div');
+    header.className = 'sidebar-group-header';
+    header.innerHTML =
+      '<span class="sidebar-group-icon">' + (grupo.icon || '▸') + '</span>' +
+      '<span class="sidebar-group-label">' + grupo.label + '</span>' +
+      '<span class="sidebar-group-arrow">▾</span>';
+    header.onclick = function() {
+      grpDiv.classList.toggle('collapsed');
     };
-  });
 
-  // ── Índice Hubsoft Vendas — CPF → row ──────────────────────────────────
-  const VendasAuditadas = new Map(); // cpf → row Hubsoft
-  const vendVendMap     = new Map(); // superClean(vendedor) → count instalados
-  (vendasRaw||[]).forEach(r => {
-    const cpfN = biNormCPF(r['cpf_cnpj']||r['CPF']||r['cpf']||'');
-    const st   = String(r['servico_status']||r['status']||'').toLowerCase();
-    const isAt = st.includes('habilitado') || st.includes('aguardando instala');
-    const vendBruto = String(r['vendedor']||r['vendedora']||'');
-    const vendRes   = resolveVendedoraBI(vendBruto) || vendBruto;
-    const vendSC    = superClean(vendRes);
-    if (cpfN && isAt) VendasAuditadas.set(cpfN, { ...r, vendSC });
-    if (vendSC) vendVendMap.set(vendSC, (vendVendMap.get(vendSC)||0) + (isAt?1:0));
-  });
+    // Sub-itens
+    var subDiv = document.createElement('div');
+    subDiv.className = 'sidebar-sub';
 
-  // ── Índice Matrix por CPF (agilidade WhatsApp) ─────────────────────────
-  const mxByCpf = new Map();
-  (matrixRaw||[]).forEach(r => {
-    const cpfRaw = biNormCPF(r['CPF/CNPJ informado']||r['CPF/CNPJ']||r['CPF']||'');
-    if (cpfRaw) mxByCpf.set(cpfRaw, r);
-  });
-
-  // ── Agrupamento por vendedora (TODAS do CRM) ───────────────────────────
-  // REGRA: percorre todos os registros → nenhuma vendedora zerada é omitida
-  const vendMap = new Map(); // usuSC → { usuario, leads:[], instalados:0, gap:0 }
-
-  crmList.forEach(lead => {
-    const sc = lead.usuSC || '__SEM_VENDEDORA__';
-    if (!vendMap.has(sc))
-      vendMap.set(sc, { usuario: lead.usuario, sc, leads:[], instalados:0 });
-    vendMap.get(sc).leads.push(lead);
-  });
-
-  // Cruzar instalados Hubsoft por CPF dos leads de cada vendedora
-  vendMap.forEach((v, sc) => {
-    v.leads.forEach(lead => {
-      if (lead.cpf && VendasAuditadas.has(lead.cpf)) v.instalados++;
+    abasDoGrupo.forEach(function(abaId) {
+      var aba = ABAS.find(function(a) { return a.id === abaId; });
+      if (!aba) return;
+      var item = document.createElement('div');
+      item.className = 'sidebar-sub-item';
+      item.id = 'nav-' + abaId;
+      item.textContent = aba.label;
+      item.onclick = function() { window.showTab(abaId); };
+      subDiv.appendChild(item);
     });
-    // Também somar instalados Hubsoft atribuídos diretamente ao vendedor
-    const hubInstVend = vendVendMap.get(sc) || 0;
-    // Usar o maior entre CPF-matched e atribuição direta no Hubsoft
-    v.instalados = Math.max(v.instalados, hubInstVend);
+
+    // Links externos do grupo (ex: BI Comercial)
+    (grupo.links || []).forEach(function(link) {
+      var item = document.createElement('div');
+      item.className = 'sidebar-sub-item';
+      item.style.cssText += ';opacity:.85';
+      item.textContent = link.label;
+      item.title = 'Abrir em nova aba';
+      item.onclick = function() { window.open(link.href,'_blank'); };
+      subDiv.appendChild(item);
+    });
+
+    grpDiv.appendChild(header);
+    grpDiv.appendChild(subDiv);
+    nav.appendChild(grpDiv);
   });
-
-  // Construir linhas do ranking
-  const rows = [];
-  vendMap.forEach((v, sc) => {
-    if (sc === '__SEM_VENDEDORA__') return; // REGRA 3: omite só se nome vazio
-    const totalCRM   = v.leads.length;
-    const convCRM    = v.leads.filter(l => l.convertido).length;
-    const instalados = v.instalados;
-    const gap        = Math.max(0, convCRM - instalados);
-    const taxaReal   = totalCRM ? +(instalados/totalCRM*100).toFixed(1) : 0;
-    const taxaCRM    = totalCRM ? +(convCRM/totalCRM*100).toFixed(1) : 0;
-    // Enrolação: em Negociação > 7 dias (aproximação sem data_cadastro)
-    const enrolados  = v.leads.filter(l => /NEGOC|CONTATO|CAPTAC/i.test(l.etapa)).length;
-    rows.push({ usuario:v.usuario, sc, totalCRM, convCRM, instalados, gap, taxaReal, taxaCRM, enrolados });
-  });
-
-  rows.sort((a,b) => b.instalados - a.instalados || b.convCRM - a.convCRM);
-  _BI.vendRows = rows;
-  _BI.allLeads = crmList;
-
-  // Renderizar funil com todas as fontes disponíveis
-  renderBIFunil(crmList, osabRaw, matrixRaw, vendasRaw);
-
-  biRenderKPIs(rows, crmList, VendasAuditadas);
-  biRenderRanking(rows);
-  biRenderPareto(crmList);
-  biRenderTags(crmList);
 }
 
-function biFiltrarEnroladas() {
-  _BI.filtroEnroladas = !_BI.filtroEnroladas;
-  const btn = document.getElementById('bi-btn-enrol');
-  if (btn) {
-    btn.style.background = _BI.filtroEnroladas ? 'rgba(245,158,11,.4)' : 'rgba(245,158,11,.15)';
-    btn.textContent = _BI.filtroEnroladas ? '⏰ Enroladas ✓' : '⏰ Enroladas';
+function sidebarActivate(id) {
+  // Remover active de todos os sub-itens
+  document.querySelectorAll('.sidebar-sub-item').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  // Activar o item correcto
+  var item = document.getElementById('nav-' + id);
+  if (item) {
+    item.classList.add('active');
+    // Expandir o grupo pai se estiver colapsado
+    var group = item.closest('.sidebar-group');
+    if (group) group.classList.remove('collapsed');
   }
-  const filtradas = _BI.filtroEnroladas
-    ? _BI.vendRows.filter(r => r.enrolados > 0)
-    : _BI.vendRows;
-  biRenderRanking(filtradas);
 }
 
-function biRenderKPIs(rows, leads, VA) {
-  const el = document.getElementById('bi-kpis');
-  if (!el) return;
-  const totalLeads  = leads.length;
-  const totalConvCRM= rows.reduce((s,r)=>s+r.convCRM,0);
-  const totalInst   = rows.reduce((s,r)=>s+r.instalados,0);
-  const totalGap    = rows.reduce((s,r)=>s+r.gap,0);
-  const taxa        = totalLeads ? (totalInst/totalLeads*100).toFixed(1) : '0.0';
-  const vendCount   = rows.length;
-  const enroladasCt = rows.filter(r=>r.taxaReal<10&&r.totalCRM>=3).length;
+// ═══════════════════════════════════════════════════════════════════════════
+// injectarDadosIA() — detecta variáveis globais carregadas pela IA
+// e injeta no STATE do dashboard automaticamente.
+//
+// Como usar no console do browser:
+//   injectarDadosIA()          → detecta e injeta tudo automaticamente
+//   injectarDadosIA({debug:true}) → mostra o que encontrou
+//
+// Ou mapeie manualmente:
+//   injectarDadosIA({ os: window.meuArray, sac: window.outroArray })
+// ═══════════════════════════════════════════════════════════════════════════
+function injectarDadosIA(opts) {
+  opts = opts || {};
+  var debug = opts.debug || false;
+  var found = {};
 
-  const kpis = [
-    { l:'Total Leads (CRM)',      v:totalLeads,   c:'var(--blue)',   i:'💬' },
-    { l:'Convertidos (CRM)',      v:totalConvCRM, c:'var(--purple)', i:'📝' },
-    { l:'Vendas Instaladas ✓',    v:totalInst,    c:'var(--green)',  i:'✅', s:'CPF no Hubsoft + status ativo' },
-    { l:'Taxa de Conversão Real', v:taxa+'%',     c:'var(--accent)', i:'📈' },
-    { l:'Gap (CRM s/ Hubsoft)',   v:totalGap,     c:'var(--red)',    i:'⚠️', s:'Inconsistências' },
-    { l:'Vendedoras',             v:vendCount,    c:'var(--yellow)', i:'👩', s:`${enroladasCt} com <10% real` },
-  ];
-
-  el.innerHTML = kpis.map(k=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${k.c};opacity:.6"></div>
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px">${k.i} ${k.l}</div>
-      <div style="font-size:26px;font-weight:800;color:${k.c};font-family:var(--font-head,monospace);line-height:1">${k.v}</div>
-      ${k.s?`<div style="font-size:10px;color:var(--muted);margin-top:3px">${k.s}</div>`:''}
-    </div>`).join('');
-}
-
-function biRenderRanking(rows) {
-  const thead = document.getElementById('bi-ranking-head');
-  const tbody = document.getElementById('bi-ranking-tbody');
-  const sub   = document.getElementById('bi-ranking-sub');
-  const badge = document.getElementById('bi-inconsist-badge');
-  if (!thead||!tbody) return;
-
-  const totalInconsist = rows.reduce((s,r)=>s+r.gap,0);
-  if (sub)   sub.textContent  = `${rows.length} vendedoras · dados ao vivo`;
-  if (badge) badge.innerHTML  = totalInconsist > 0
-    ? `<span style="background:rgba(239,68,68,.2);color:#EF4444;border:1px solid rgba(239,68,68,.4);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;animation:pulse-border 2s infinite">⚠️ ${totalInconsist} inconsistências</span>`
-    : `<span style="background:rgba(16,185,129,.15);color:#10B981;border:1px solid rgba(16,185,129,.3);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700">✅ Auditoria OK</span>`;
-
-  const cols = ['#','Vendedora (Nome Real)','Leads CRM','Convertidos CRM','Instalados Hubsoft ✓','Taxa Real %','Gap','Enrolação','Status'];
-  thead.innerHTML = cols.map(c=>`<th style="padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--border)">${c}</th>`).join('');
-
-  tbody.innerHTML = rows.map((r,i) => {
-    const posC  = i===0?'background:rgba(245,158,11,.2);color:#F59E0B':i===1?'background:rgba(156,163,175,.15);color:#9CA3AF':i===2?'background:rgba(249,115,22,.15);color:#F97316':'background:rgba(31,41,55,.6);color:#6B7280';
-    const isAlert = r.taxaReal<10 && r.totalCRM>=3;
-    const hasGap  = r.gap > 0;
-    const tC = r.taxaReal>=30?'#10B981':r.taxaReal>=10?'#F59E0B':'#EF4444';
-    const gapB = hasGap
-      ? `<span style="background:rgba(239,68,68,.2);color:#EF4444;border:1px solid rgba(239,68,68,.4);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">+${r.gap}</span>`
-      : `<span style="background:rgba(16,185,129,.15);color:#10B981;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">OK</span>`;
-    const enrB = r.enrolados>0
-      ? `<span style="background:rgba(245,158,11,.2);color:#F59E0B;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${r.enrolados}</span>`
-      : `<span style="color:var(--muted)">—</span>`;
-    const statB = hasGap
-      ? `<span style="background:rgba(239,68,68,.15);color:#EF4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">Inconsistência</span>`
-      : isAlert ? `<span style="background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">Baixo Desempenho</span>`
-                : `<span style="background:rgba(16,185,129,.1);color:#10B981;border:1px solid rgba(16,185,129,.25);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">Auditada ✓</span>`;
-    const rowBg = (isAlert||hasGap) ? 'background:rgba(239,68,68,.04)' : '';
-    return `<tr style="${rowBg}">
-      <td style="padding:9px 12px"><div style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;${posC}">${i+1}</div></td>
-      <td style="padding:9px 12px;font-weight:700;color:${isAlert?'#EF4444':'var(--text)'}">${r.usuario}</td>
-      <td style="padding:9px 12px;color:var(--muted2)">${r.totalCRM}</td>
-      <td style="padding:9px 12px;color:#3B82F6">${r.convCRM}</td>
-      <td style="padding:9px 12px;color:#10B981;font-weight:800">${r.instalados}</td>
-      <td style="padding:9px 12px"><span style="background:${tC}22;color:${tC};border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">${r.taxaReal}%</span></td>
-      <td style="padding:9px 12px">${gapB}</td>
-      <td style="padding:9px 12px">${enrB}</td>
-      <td style="padding:9px 12px">${statB}</td>
-    </tr>`;
-  }).join('');
-}
-
-function biRenderPareto(leads) {
-  const perdidos = leads.filter(l => l.status==='Lead Perdido'||(!l.convertido&&l.status!=='Convertido'&&l.etapa));
-  if (!perdidos.length) return;
-  const byM = {};
-  perdidos.forEach(l => { const m=categorizaMotivoBI(l.etapa); byM[m]=(byM[m]||0)+1; });
-  const sorted = Object.entries(byM).sort((a,b)=>b[1]-a[1]);
-  const total  = sorted.reduce((s,[,v])=>s+v,0);
-  let acum=0;
-  const data = sorted.map(([m,v])=>{ acum+=v; return { m, v, pct:+(acum/total*100).toFixed(1) }; });
-  const limite80 = data.findIndex(d=>d.pct>=80);
-
-  const ctx = document.getElementById('bi-chart-pareto');
-  if (!ctx) return;
-  if (_BI.chartPareto) { _BI.chartPareto.destroy(); _BI.chartPareto=null; }
-  _BI.chartPareto = new Chart(ctx.getContext('2d'),{
-    type:'bar',
-    data:{
-      labels:data.map(d=>d.m.length>18?d.m.slice(0,16)+'…':d.m),
-      datasets:[
-        { type:'bar',  label:'Perdidos', data:data.map(d=>d.v),
-          backgroundColor:data.map((_,i)=>i<=limite80?'rgba(239,68,68,.7)':'rgba(107,114,128,.35)'),
-          borderColor:data.map((_,i)=>i<=limite80?'#EF4444':'#6B7280'), borderWidth:1, borderRadius:4, yAxisID:'y' },
-        { type:'line', label:'% Acum.',  data:data.map(d=>d.pct),
-          borderColor:'#F59E0B', backgroundColor:'transparent', pointBackgroundColor:'#F59E0B', pointRadius:3, tension:.2, yAxisID:'y2' }
-      ]
-    },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}},
-        tooltip:{ backgroundColor:'#111827', titleColor:'#F1F5F9', bodyColor:'#9CA3AF', padding:8 }},
-      scales:{ x:{ticks:{color:'#6B7280',font:{size:9},maxRotation:40},grid:{color:'rgba(31,41,55,.4)'}},
-        y:{ticks:{color:'#EF4444',font:{size:9}},grid:{color:'rgba(31,41,55,.3)'}},
-        y2:{position:'right',min:0,max:100,ticks:{color:'#F59E0B',font:{size:9},callback:v=>v+'%'},grid:{display:false}} } }
-  });
-}
-
-function biRenderTags(leads) {
-  const byTag = {};
-  leads.forEach(l => {
-    const t = l.tag||'Sem Tag';
-    if (!byTag[t]) byTag[t]={leads:0,conv:0};
-    byTag[t].leads++;
-    if (l.convertido) byTag[t].conv++;
-  });
-  const data = Object.entries(byTag).sort((a,b)=>b[1].conv-a[1].conv).slice(0,10);
-  const ctx  = document.getElementById('bi-chart-tags');
-  if (!ctx) return;
-  if (_BI.chartTags) { _BI.chartTags.destroy(); _BI.chartTags=null; }
-  _BI.chartTags = new Chart(ctx.getContext('2d'),{
-    type:'bar',
-    data:{
-      labels:data.map(([t])=>t.length>16?t.slice(0,14)+'…':t),
-      datasets:[
-        { label:'Leads',       data:data.map(([,v])=>v.leads), backgroundColor:'rgba(59,130,246,.25)', borderColor:'#3B82F6', borderWidth:1, borderRadius:4 },
-        { label:'Convertidos', data:data.map(([,v])=>v.conv),  backgroundColor:'rgba(0,229,195,.7)',   borderColor:'#00E5C3', borderWidth:1, borderRadius:4 },
-      ]
-    },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{labels:{color:'#9CA3AF',font:{size:10}}},
-        tooltip:{ backgroundColor:'#111827', titleColor:'#F1F5F9', bodyColor:'#9CA3AF', padding:8 }},
-      scales:{ x:{ticks:{color:'#6B7280',font:{size:9},maxRotation:40},grid:{color:'rgba(31,41,55,.3)'}},
-               y:{ticks:{color:'#6B7280',font:{size:9}},grid:{color:'rgba(31,41,55,.3)'}} } }
-  });
-}
-
-function biExportarCSV() {
-  const rows = _BI.filtroEnroladas
-    ? _BI.vendRows.filter(r=>r.enrolados>0)
-    : _BI.vendRows;
-  if (!rows.length) return;
-  const hdrs = ['Vendedora','Leads CRM','Convertidos CRM','Instalados Hubsoft','Taxa Real %','Gap','Enrolação'];
-  const lines = [hdrs.join(',')];
-  rows.forEach(r => lines.push([r.usuario,r.totalCRM,r.convCRM,r.instalados,r.taxaReal,r.gap,r.enrolados].join(',')));
-  const blob = new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
-  const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'),{href:url,download:'bi_ranking_verdade.csv'});
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-
-// ── buildGroupedTabbar (Tarefa 4) — gera tabbar com grupos dropdown ────────
-function buildGroupedTabbar() {
-  const tabbar = document.getElementById('tabbar');
-  if (!tabbar) return;
-  if (typeof ABA_GRUPOS === 'undefined') return;
-
-  // Descobrir aba atualmente ativa (mantém contexto)
-  const activeBtn = tabbar.querySelector('.tab-btn.active');
-  const currentTab = activeBtn ? (activeBtn.id||'').replace('tab-','') : 'gestao';
-
-  // Limpar tabbar mantendo o botão de logout
-  const logoff = document.getElementById('tab-logoff');
-
-  // Reconstruir com grupos
-  let html = '';
-  ABA_GRUPOS.forEach(grupo => {
-    const abas = grupo.abas;
-    // Verificar RBAC — só mostrar se usuário tem acesso a pelo menos uma aba do grupo
-    const abasAcessiveis = (typeof _USERS_CACHE !== 'undefined' && _SESSION)
-      ? abas.filter(id => {
-          const user = _USERS_CACHE.find(u => u.user === _SESSION.user);
-          return !user || !user.abas || user.abas.includes(id);
-        })
-      : abas;
-    if (!abasAcessiveis.length) return;
-
-    const isGroupActive = abas.includes(currentTab);
-    const firstAba = abasAcessiveis[0];
-
-    html += `<div class="tabgroup-wrap">
-      <button class="tabgroup-btn${isGroupActive?' active':''}" onclick="showTab('${firstAba}')"
-              id="tabgroup-${grupo.id}">
-        ${grupo.label} <span style="font-size:9px;opacity:.6">▾</span>
-      </button>
-      <div class="tabgroup-dropdown">
-        ${abasAcessiveis.map(id => {
-          const aba = ABAS.find(a=>a.id===id);
-          if (!aba) return '';
-          return `<button class="tabgroup-item${id===currentTab?' active':''}"
-                    onclick="showTab('${id}')" id="tab-${id}">${aba.label}</button>`;
-        }).join('')}
-      </div>
-    </div>`;
+  // ── Mapeamento manual se fornecido ──────────────────────────────────────
+  var slotNames = ['os','at','sac','nps','osab','sinais','agentes','matrix','npsTelefonia','kml'];
+  slotNames.forEach(function(slot) {
+    if (opts[slot]) { found[slot] = opts[slot]; }
   });
 
-  // Reconstruir tabbar
-  tabbar.innerHTML = html;
-  if (logoff) tabbar.appendChild(logoff);
-}
+  // ── Auto-detecção: varrer variáveis globais ──────────────────────────────
+  if (!Object.keys(found).length) {
+    var candidates = Object.keys(window).filter(function(k) {
+      // Ignorar vars nativas e do dashboard
+      if (/^(on|webkit|moz|ms|__|\$|jQuery|Chart|XLSX|Papa|Quill)/.test(k)) return false;
+      if (k === k.toUpperCase() && k.length < 3) return false;
+      var v = window[k];
+      return Array.isArray(v) && v.length > 0 && typeof v[0] === 'object';
+    });
 
-// Chamar buildGroupedTabbar após applySession
-const _origApplySession = typeof applySession === 'function' ? applySession : null;
+    if (debug) console.log('[IA] Candidatos encontrados:', candidates);
 
-// ── Scroll top button
+    candidates.forEach(function(k) {
+      var arr = window[k];
+      var cols = arr[0] ? Object.keys(arr[0]).map(function(c){ return c.toLowerCase(); }) : [];
+      var colStr = cols.join(',');
 
-// ── Configurações GitHub (aba config) ─────────────────────────────────────
-function cfgSaveGitHub() {
-  const owner = document.getElementById('cfg-gh-owner')?.value.trim();
-  const repo  = document.getElementById('cfg-gh-repo')?.value.trim();
-  const token = document.getElementById('cfg-gh-token')?.value.trim();
-  const msg   = document.getElementById('cfg-gh-msg');
-  if (!owner || !repo || !token) {
-    if (msg) { msg.textContent = '❌ Preencha todos os campos'; msg.style.color='var(--red)'; }
+      // Detectar tipo pelo nome da variável e/ou colunas
+      var slot = null;
+      var kl = k.toLowerCase();
+
+      if (!slot && (kl.includes('os') || kl.includes('ordem')) && !kl.includes('ab'))
+        if (cols.some(function(c){ return c.includes('tecnico') || c.includes('tipo_ordem'); })) slot = 'os';
+
+      if (!slot && (kl.includes('ab') || kl.includes('aber')))
+        if (cols.some(function(c){ return c.includes('ordem') || c.includes('abertura'); })) slot = 'osab';
+
+      if (!slot && (kl.includes('sac') || kl.includes('atend') || kl.includes('chat')))
+        if (cols.some(function(c){ return c.includes('agente') || c.includes('protocolo'); })) slot = 'sac';
+
+      if (!slot && kl.includes('nps'))
+        if (cols.some(function(c){ return c.includes('nota') || c.includes('resposta') || c.includes('avalia'); })) slot = 'nps';
+
+      if (!slot && (kl.includes('matrix') || kl.includes('analitico')))
+        if (cols.some(function(c){ return c.includes('agente') || c.includes('protocolo'); })) slot = 'matrix';
+
+      if (!slot && kl.includes('sinal'))
+        slot = 'sinais';
+
+      if (!slot && kl.includes('agente'))
+        if (cols.some(function(c){ return c === 'agente' || c === 'cod' || c === 'cod.'; })) slot = 'agentes';
+
+      if (!slot && (kl.includes('at') || kl.includes('atendimento')) && !slot)
+        if (cols.some(function(c){ return c.includes('protocolo') || c.includes('atend'); })) slot = 'at';
+
+      // Fallback por colunas
+      if (!slot) {
+        if (colStr.includes('tipo_ordem_servico') && !colStr.includes('abertura')) slot = 'os';
+        else if (colStr.includes('tipo_ordem') && colStr.includes('abertura')) slot = 'osab';
+        else if (colStr.includes('protocolo') && colStr.includes('agente') && colStr.includes('status')) slot = 'matrix';
+        else if (colStr.includes('protocolo') && colStr.includes('agente')) slot = 'sac';
+        else if (colStr.includes('nota') || colStr.includes('resposta')) slot = 'nps';
+        else if (colStr.includes('cod.') || (colStr.includes('cod') && colStr.includes('agente'))) slot = 'agentes';
+      }
+
+      if (slot && !found[slot]) found[slot] = arr;
+    });
+  }
+
+  if (!Object.keys(found).length) {
+    console.warn('[IA] Nenhum dado detectado. Use injectarDadosIA({debug:true}) para ver candidatos, ou forneça manualmente: injectarDadosIA({os: window.SUA_VARIAVEL})');
     return;
   }
-  ghSetConfig({ owner, repo, token });
-  if (msg) { msg.textContent = '✅ Configuração salva!'; msg.style.color='var(--green)'; }
-  // Testar conexão imediatamente
-  ghLoadAll(true).then(n => {
-    if (msg) msg.textContent = n > 0
-      ? `✅ Conectado! ${n} arquivo(s) encontrados no repo.`
-      : '✅ Conectado! Sem arquivos ainda — serão criados no próximo upload.';
-  }).catch(() => {
-    if (msg) { msg.textContent = '⚠️ Token salvo mas falha ao conectar. Verifique permissões.'; msg.style.color='var(--yellow)'; }
+
+  // ── Injetar no STATE ─────────────────────────────────────────────────────
+  var injetados = [];
+  var stateMap = {
+    os:            function(d){ STATE.rawOS=d; STATE.loaded.os=true; pendingFiles.os=d; },
+    at:            function(d){ STATE.rawAT=d; STATE.loaded.at=true; pendingFiles.at=d; },
+    sac:           function(d){ STATE.rawSAC=d; STATE.loaded.sac=true; pendingFiles.sac=d; },
+    nps:           function(d){ STATE.rawNPS=d; STATE.loaded.nps=true; pendingFiles.nps=d; },
+    osab:          function(d){ STATE.rawOSAb=d; STATE.rawOSAbertas=d; STATE.loaded.osab=true; pendingFiles.osab=d; },
+    sinais:        function(d){ STATE.rawSinais=d; STATE.loaded.sinais=true; pendingFiles.sinais=d; },
+    agentes:       function(d){ STATE.rawAgentes=d; STATE.loaded.agentes=true; pendingFiles.agentes=d; },
+    matrix:        function(d){ STATE.relatorioAnalitico=d; STATE.loaded.matrix=true; pendingFiles.matrix=d; },
+    npsTelefonia:  function(d){ STATE.rawNpsTelefonia=d; STATE.loaded.npsTelefonia=true; pendingFiles.npsTelefonia=d; },
+  };
+
+  Object.keys(found).forEach(function(slot) {
+    if (stateMap[slot]) {
+      stateMap[slot](found[slot]);
+      injetados.push(slot + ' (' + found[slot].length + ' rows)');
+    }
   });
+
+  console.log('[IA] ✅ Injetado:', injetados.join(', '));
+
+  // ── Processar e renderizar ───────────────────────────────────────────────
+  setTimeout(function() {
+    if (typeof aplicarDados === 'function') {
+      aplicarDados();
+    } else {
+      if (typeof renderAll === 'function') renderAll();
+    }
+  }, 100);
+
+  return found;
 }
 
-function cfgClearGitHub() {
-  ghClearConfig();
-  ['cfg-gh-owner','cfg-gh-repo','cfg-gh-token'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const msg = document.getElementById('cfg-gh-msg');
-  if (msg) { msg.textContent = 'Configuração removida.'; msg.style.color='var(--muted)'; }
+// Atalho global
+window.injectarDadosIA = injectarDadosIA;
+
+
+
+function toggleSidebar() {
+  var sb  = document.getElementById('sidebar');
+  var btn = document.getElementById('sidebar-toggle');
+  if (!sb) return;
+  sb.classList.toggle('collapsed');
+  var collapsed = sb.classList.contains('collapsed');
+  if (btn) {
+    btn.textContent = collapsed ? '▶' : '◀';
+    btn.style.left  = collapsed ? '0' : '220px';
+  }
+  // Salvar preferência
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(_) {}
 }
 
-// Preencher campos de config quando a aba é aberta
-function _initConfigTab() {
-  const cfg = ghGetConfig();
-  if (!cfg) return;
-  const o = document.getElementById('cfg-gh-owner');
-  const r = document.getElementById('cfg-gh-repo');
-  if (o) o.value = cfg.owner  || '';
-  if (r) r.value = cfg.repo   || '';
-  // Token não é exibido por segurança (só indica que existe)
-  const t = document.getElementById('cfg-gh-token');
-  if (t && cfg.token) t.placeholder = '••••••••••••••••••• (configurado)';
+// Restaurar preferência ao carregar
+(function() {
+  try {
+    if (localStorage.getItem('sidebar_collapsed') === '1') {
+      var sb  = document.getElementById('sidebar');
+      var btn = document.getElementById('sidebar-toggle');
+      if (sb)  { sb.classList.add('collapsed'); }
+      if (btn) { btn.textContent = '▶'; btn.style.left = '0'; }
+    }
+  } catch(_) {}
+})();
+
+// ── Converter sessão Supabase → SESSION do dashboard ──────────────────────
+function _supaSessionToSession(supaSession) {
+  if (!supaSession) return null;
+  const user  = supaSession.user;
+  const meta  = user.user_metadata || {};
+  const email = user.email || '';
+  return {
+    user  : meta.name || email.split('@')[0],
+    email : email,
+    role  : meta.role || 'master',
+    abas  : meta.abas || ABAS.map(a => a.id),
+    criado: user.created_at || new Date().toISOString(),
+    _supa : supaSession,
+  };
 }
 
+// ── Chat IA flutuante ────────────────────────────────────────────────────
+function iaToggleChat() {
+  var panel = document.getElementById('ia-chat-panel');
+  var fab   = document.getElementById('ia-fab');
+  if (!panel) return;
+  var open = panel.style.display === 'flex';
+  panel.style.display = open ? 'none' : 'flex';
+  if (fab) fab.classList.toggle('active', !open);
+}
+
+function _iaAddMsg(html, type) {
+  var msgs = document.getElementById('ia-msgs');
+  if (!msgs) return;
+  // Remover mensagem de boas-vindas se existir
+  var welcome = msgs.querySelector('div[style*="text-align:center"]');
+  if (welcome) welcome.remove();
+  var div = document.createElement('div');
+  div.className = type === 'user' ? 'ia-msg-user' : 'ia-msg-ai';
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _iaSetStatus(msg) {
+  var el = document.getElementById('ia-chat-status');
+  if (el) el.textContent = msg;
+}
+
+async function _iaChamarChat(prompt, labelUser) {
+  // Mostrar pergunta do utilizador
+  _iaAddMsg(labelUser || prompt.slice(0, 100), 'user');
+  _iaSetStatus('⏳ Analisando...');
+
+  // Abrir painel se fechado
+  var panel = document.getElementById('ia-chat-panel');
+  if (panel && panel.style.display !== 'flex') iaToggleChat();
+
+  // Mensagem de loading
+  var loadDiv = document.createElement('div');
+  loadDiv.className = 'ia-msg-ai';
+  loadDiv.innerHTML = '<span style="color:var(--muted)">●●●</span>';
+  var msgs = document.getElementById('ia-msgs');
+  if (msgs) { msgs.appendChild(loadDiv); msgs.scrollTop = msgs.scrollHeight; }
+
+  try {
+    const resp = await fetch(IA_WORKER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1200,
+        temperature: 0.4,
+      })
+    });
+    if (!resp.ok) throw new Error('Worker ' + resp.status);
+    const data = await resp.json();
+    const texto = data.choices?.[0]?.message?.content || data.content || data.text || '';
+
+    // Formatar markdown → HTML compacto
+    const html = texto
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^## (.+)$/gm,  '<h4>$1</h4>')
+      .replace(/^- (.+)$/gm,   '<li>$1</li>')
+      .replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+
+    if (loadDiv.parentNode) loadDiv.remove();
+    _iaAddMsg(html, 'ai');
+    _iaSetStatus('');
+  } catch(e) {
+    if (loadDiv.parentNode) loadDiv.remove();
+    _iaAddMsg('<span style="color:var(--red)">❌ ' + e.message + '</span>', 'ai');
+    _iaSetStatus('');
+  }
+}
+
+function iaAnalisar(tipo) {
+  var labels = {
+    boletim_tecnicos:   '🔧 Boletim de Técnicos',
+    clientes_risco:     '⚠️ Clientes em Risco',
+    sac_performance:    '🎧 Performance SAC',
+    resumo_geral:       '📊 Resumo Geral',
+    acoes_prioritarias: '🎯 Ações Prioritárias',
+  };
+  var ctx = _iaBuildContexto();
+  if (!ctx.trim()) {
+    if (document.getElementById('ia-chat-panel').style.display !== 'flex') iaToggleChat();
+    _iaAddMsg('⚠️ Carregue os dados primeiro (OS, SAC ou NPS).', 'ai');
+    return;
+  }
+  _iaChamarChat(_iaGetPrompt(tipo, ctx), labels[tipo] || tipo);
+}
+
+function iaPerguntar() {
+  var input = document.getElementById('ia-chat-input');
+  var q = input ? input.value.trim() : '';
+  if (!q) return;
+  var ctx = _iaBuildContexto();
+  var prompt = ctx
+    ? 'Você é analista do ISP Nuvyon. Dados:\n' + ctx + '\n\nPergunta: ' + q + '\n\nResponda em português de forma clara e objetiva.'
+    : 'Você é analista do ISP Nuvyon. Responda em português: ' + q;
+  _iaChamarChat(prompt, q);
+  if (input) input.value = '';
+}
 </script>
 
 <!-- ═══════════════ MODAL CLIENTE ═══════════════ -->
@@ -11635,40 +10587,5 @@ function _initConfigTab() {
   </div>
 </div>
 
-<!-- GITHUB CONFIG MODAL -->
-<div id="gh-config-modal" style="position:fixed;inset:0;background:#000000cc;z-index:10000;display:none;align-items:center;justify-content:center">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:480px;max-width:96vw;max-height:90vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <h3 style="font-size:15px;font-weight:800;color:var(--accent)">☁ Configurar GitHub como banco de dados</h3>
-      <button onclick="closeGhConfig()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px">✕</button>
-    </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6">
-      Os usuários serão salvos no arquivo <code style="background:var(--panel);padding:1px 5px;border-radius:3px">nuvyon_banco.json</code> no seu repositório privado do GitHub.
-      Qualquer pessoa que abrir o dashboard vai ler do mesmo lugar. Configure <strong>apenas na sua máquina</strong> (admin).
-    </p>
-    <div style="background:var(--panel);border-radius:9px;padding:14px;margin-bottom:16px;font-size:11px;color:var(--muted);line-height:1.7">
-      <strong style="color:var(--text)">Como obter o token:</strong><br>
-      1. Acesse <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>
-      2. Dê um nome (ex: <em>nuvyon-banco</em>)<br>
-      3. Marque apenas <strong>repo</strong> (acesso a repositórios privados)<br>
-      4. Clique <strong>Generate token</strong> e copie o token gerado
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-      <div>
-        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">USUÁRIO DO GITHUB (owner) <span style="color:var(--accent);font-weight:400;text-transform:none">— só o nome, ex: erjinfo</span></div>
-        <input id="gh-owner" placeholder="ex: erjinfo" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none"
-          oninput="this.value=this.value.replace(/https?:\/\/(www\.)?(github\.com|github\.io)\/?/gi,'').replace(/\/.*/,'').trim()">
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">❌ Não coloque a URL completa — só o nome do usuário</div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">NOME DO REPOSITÓRIO</div>
-        <input id="gh-repo" placeholder="ex: nuvyon-dados (deve ser privado)" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">PERSONAL ACCESS TOKEN</div>
-        <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace">
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button onclick="ghTestAndSave()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:13px;cursor:pointer">✅ Testar e Salvar</button>
-      <button onclick="ghClearConfig();closeGhConfig();showLoginStatus('Configuração removida — modo local ativado','ok')" style="background:transparent;border:1px solid #
+</body>
+</html>
