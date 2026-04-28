@@ -892,13 +892,6 @@ function renderizarFunc() {
     const evs = dbEv[t.nome]?.[data] || [];
     const atvVal = dbAtv[t.nome]?.[data] || "";
     const fotos = t.foto ? `<img src="${t.foto}" class="av-foto" alt="">` : "";
-    const thumbs = evs.map((src,i)=>`
-      <div class="relative inline-block">
-        <img src="${src}" class="thumb-ev" onclick="abrirImagem('${src}')">
-        <button onclick="removerEvidencia('${t.nome}','${data}',${i})"
-          class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-500">×</button>
-      </div>`).join("");
-
     const idSanitizado = t.nome.replace(/[^a-z0-9]/gi,'_');
 
     return `
@@ -911,11 +904,18 @@ function renderizarFunc() {
         </div>
       </div>
 
-      <!-- SEÇÃO DE LANÇAMENTO DE PRODUÇÃO (NOVO) -->
+      <!-- SEÇÃO DE LANÇAMENTO DE PRODUÇÃO (COM ENDEREÇO) -->
       <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700 space-y-2">
         <p class="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">⚡ Lançar Produção/OS</p>
+        
+        <!-- Campo OS -->
         <input type="text" id="prod_os_${idSanitizado}" placeholder="Ex: OS 1234 - Cliente Silva" 
                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-500">
+        
+        <!-- NOVO: Campo Endereço -->
+        <input type="text" id="prod_end_${idSanitizado}" placeholder="Endereço / Ponto específico (Ex: Rua X, n 10)" 
+               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500">
+
         <div class="grid grid-cols-2 gap-2">
           <div class="flex items-center gap-1">
             <span class="text-[10px] text-slate-500">Início:</span>
@@ -926,8 +926,10 @@ function renderizarFunc() {
             <input type="time" id="prod_fim_${idSanitizado}" class="bg-slate-900 border border-slate-700 rounded-md p-1 text-[10px] text-white">
           </div>
         </div>
+        
         <textarea id="prod_obs_${idSanitizado}" placeholder="Observações extras da OS..." 
                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-500" rows="1"></textarea>
+        
         <button onclick="adicionarProducaoAoTexto('${t.nome}', '${idSanitizado}')" 
                 class="w-full bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold py-1.5 rounded-lg transition uppercase">
           + Adicionar à Atividade do Dia
@@ -950,11 +952,16 @@ function renderizarFunc() {
             + Foto <input type="file" accept="image/*" class="hidden" onchange="adicionarEvidencia('${t.nome}','${data}',this)">
           </label>` : ''}
         </div>
-        ${evs.length > 0 ? `<div class="flex gap-2 flex-wrap">${thumbs}</div>` : ''}
+        ${evs.length > 0 ? `<div class="flex gap-2 flex-wrap">${evs.map((src,i)=>`
+          <div class="relative inline-block">
+            <img src="${src}" class="thumb-ev" onclick="abrirImagem('${src}')">
+            <button onclick="removerEvidencia('${t.nome}','${data}',${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-xs flex items-center justify-center">×</button>
+          </div>`).join("")}</div>` : ''}
       </div>
     </div>`;
   }).join("");
 }
+
 
 function salvarAtv(nome, val) {
   const data = document.getElementById("dataFunc").value;
@@ -1148,6 +1155,7 @@ function liberarMemoriaForca() {
 
 function adicionarProducaoAoTexto(nomeTecnico, idSanitizado) {
   const os = document.getElementById(`prod_os_${idSanitizado}`).value.trim();
+  const endereco = document.getElementById(`prod_end_${idSanitizado}`).value.trim(); // Coleta Endereço
   const ini = document.getElementById(`prod_ini_${idSanitizado}`).value;
   const fim = document.getElementById(`prod_fim_${idSanitizado}`).value;
   const obs = document.getElementById(`prod_obs_${idSanitizado}`).value.trim();
@@ -1158,10 +1166,12 @@ function adicionarProducaoAoTexto(nomeTecnico, idSanitizado) {
     return;
   }
 
-  // Formata a linha da produção
+  // Formatação: [08:00 - 09:00] OS 123 - Cliente (Rua Tal, n 10) | Obs: ...
   const horario = (ini && fim) ? `[${ini} - ${fim}] ` : "";
+  const local = endereco ? ` (${endereco})` : "";
   const observacao = obs ? ` | Obs: ${obs}` : "";
-  const novaLinha = `${horario}${os}${observacao}\n`;
+  
+  const novaLinha = `${horario}${os}${local}${observacao}\n`;
 
   // Adiciona ao campo de texto principal
   areaTexto.value += novaLinha;
@@ -1169,14 +1179,16 @@ function adicionarProducaoAoTexto(nomeTecnico, idSanitizado) {
   // Salva automaticamente no banco
   salvarAtv(nomeTecnico, areaTexto.value);
 
-  // Limpa os campos de produção para o próximo lançamento
+  // Limpa os campos de produção
   document.getElementById(`prod_os_${idSanitizado}`).value = "";
+  document.getElementById(`prod_end_${idSanitizado}`).value = ""; // Limpa endereço
   document.getElementById(`prod_ini_${idSanitizado}`).value = "";
   document.getElementById(`prod_fim_${idSanitizado}`).value = "";
   document.getElementById(`prod_obs_${idSanitizado}`).value = "";
 
-  showToast("Produção adicionada ao relatório!", "ok");
+  showToast("Produção e Endereço adicionados!", "ok");
 }
+
 
 // ══════════════════════════════════════════════════
 //  GESTÃO DE EQUIPE
