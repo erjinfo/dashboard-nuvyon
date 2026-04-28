@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nuvyon Frota Manager | Dashboard Executivo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .tab-active { border-bottom: 2px solid #2dd4bf; color: #2dd4bf; background-color: #0f172a; }
+    .card-exec { background: linear-gradient(160deg, #1a2540 0%, #0d1929 100%); border: 1px solid rgba(51,65,85,.6); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #2dd4bf; border-radius: 10px; }
+
+    #toast { position:fixed; bottom:24px; right:24px; padding:12px 20px; border-radius:12px;
+      font-weight:600; font-size:14px; opacity:0; pointer-events:none; transition:opacity .3s; z-index:9999; }
+    #toast.show { opacity:1; }
+    #toast.ok   { background:#059669; color:white; }
+    #toast.err  { background:#dc2626; color:white; }
+    #toast.info { background:#0284c7; color:white; }
+
+    #syncBadge { display:inline-flex; align-items:center; gap:6px; font-size:12px;
+      padding:4px 12px; border-radius:999px; font-weight:600; transition:all .3s; }
+    #syncBadge.idle    { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+    #syncBadge.syncing { background:#0c4a6e; color:#38bdf8; border:1px solid #0284c7; }
+    #syncBadge.ok      { background:#052e16; color:#4ade80; border:1px solid #16a34a; }
+    #syncBadge.err     { background:#450a0a; color:#f87171; border:1px solid #dc2626; }
+
+    .spinner { display:inline-block; width:10px; height:10px; border:2px solid currentColor;
+      border-top-color:transparent; border-radius:50%; animation:spin .6s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    #setupModal { position:fixed; inset:0; background:rgba(0,0,0,.85);
+      display:flex; align-items:center; justify-content:center; z-index:9998; }
+    #setupModal.hidden { display:none; }
+
+    /* Modais genéricos */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.80);
+      display:flex; align-items:center; justify-content:center; z-index:9990; }
+    .modal-overlay.hidden { display:none; }
+
+    /* Preview de imagem ampliada */
+    #imgPreviewModal { position:fixed; inset:0; background:rgba(0,0,0,.92);
+      display:flex; align-items:center; justify-content:center; z-index:9995; cursor:zoom-out; }
+    #imgPreviewModal.hidden { display:none; }
+    #imgPreviewModal img { max-width:90vw; max-height:90vh; border-radius:12px; box-shadow:0 0 60px #000; }
+
+    /* Thumb evidências — pequenas (usadas no formulário de atividades) */
+    .thumb-ev { width:64px; height:64px; object-fit:cover; border-radius:8px;
+      cursor:zoom-in; border:2px solid #334155; transition:border-color .2s; }
+    .thumb-ev:hover { border-color:#2dd4bf; }
+
+    /* Evidências GRANDES no relatório executivo */
+    .ev-report-wrap {
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .ev-report-grid {
+      display:flex; gap:6px; flex-wrap:wrap;
+    }
+    .ev-report-img {
+      width:120px; height:90px; object-fit:cover;
+      border-radius:10px; cursor:zoom-in;
+      border:2px solid #0e7490;
+      box-shadow:0 0 0 3px rgba(6,182,212,.18), 0 4px 16px rgba(0,0,0,.5);
+      transition:transform .18s, box-shadow .18s, border-color .18s;
+    }
+    .ev-report-img:hover {
+      transform:scale(1.07); border-color:#2dd4bf;
+      box-shadow:0 0 0 4px rgba(45,212,191,.35), 0 8px 24px rgba(0,0,0,.6);
+    }
+    .ev-report-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      background:rgba(6,182,212,.15); border:1px solid rgba(6,182,212,.4);
+      color:#22d3ee; font-size:11px; font-weight:700;
+      padding:2px 10px; border-radius:999px; width:fit-content;
+    }
+    /* Mov. Extra foto ampliada */
+    .ev-mov-img {
+      width:90px; height:70px; object-fit:cover;
+      border-radius:8px; cursor:zoom-in;
+      border:2px solid #78350f;
+      box-shadow:0 0 0 2px rgba(245,158,11,.25), 0 4px 12px rgba(0,0,0,.4);
+      transition:transform .18s, box-shadow .18s;
+    }
+    .ev-mov-img:hover {
+      transform:scale(1.08);
+      box-shadow:0 0 0 3px rgba(245,158,11,.5), 0 8px 20px rgba(0,0,0,.5);
+    }
+
+    /* Avatar técnico com foto */
+    .av-foto { width:36px; height:36px; border-radius:10px; object-fit:cover; border:1.5px solid #334155; }
+  
+    /* ── CLEAN VISUAL REFINEMENTS ── */
+    body { letter-spacing: -0.01em; }
+    
+    /* Tabs — cleaner */
+    .tab-active { 
+      border-bottom: 2px solid #22d3ee; 
+      color: #22d3ee; 
+      background: transparent !important; 
+    }
+    button[id^="tab"] { 
+      color: #64748b; 
+      font-size: 13px;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+    }
+    button[id^="tab"]:hover { color: #94a3b8; }
+
+    /* Table rows */
+    #corpoTabelaExec tr:hover { background: rgba(255,255,255,.03) !important; }
+    #corpoTabelaExec td { border-bottom: 1px solid rgba(51,65,85,.4); }
+    
+    /* KPI cards hover */
+    .card-exec { transition: border-color .2s; }
+    .card-exec:hover { border-color: rgba(6,182,212,.35); }
+
+    /* Scrollbar even cleaner */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(45,212,191,.3); border-radius: 10px; }
+
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+</head>
+<body class="bg-[#080f1f] text-slate-100 min-h-screen">
+
+<!-- ═══ MODAL FIREBASE ═══ -->
+<div id="setupModal">
+  <div class="bg-slate-800 border border-slate-600 rounded-3xl p-8 max-w-xl w-full mx-4 shadow-2xl">
+    <h2 class="text-2xl font-extrabold text-cyan-400 mb-2">☁️ Configurar Nuvem</h2>
+    <p class="text-slate-400 text-sm mb-5">Use o <strong class="text-white">Firebase Realtime Database</strong> — gratuito, sem cartão e sem servidor.</p>
+    <div class="space-y-3 mb-6 text-sm">
+      <div class="flex gap-3 items-start bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+        <span class="bg-cyan-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shrink-0 text-xs">1</span>
+        <span class="text-slate-300">Acesse <a href="https://console.firebase.google.com" target="_blank" class="text-cyan-400 underline font-semibold">console.firebase.google.com</a> e crie um projeto</span>
+      </div>
+      <div class="flex gap-3 items-start bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+        <span class="bg-cyan-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shrink-0 text-xs">2</span>
+        <span class="text-slate-300"><strong class="text-white">Build → Realtime Database → Criar banco de dados</strong> → modo de teste</span>
+      </div>
+      <div class="flex gap-3 items-start bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+        <span class="bg-cyan-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shrink-0 text-xs">3</span>
+        <span class="text-slate-300">Copie a URL (<code class="text-amber-300">https://...firebaseio.com</code>) e cole abaixo</span>
+      </div>
+    </div>
+    <label class="text-slate-300 text-sm font-semibold">URL do Realtime Database</label>
+    <input id="inputFirebaseUrl" type="text" placeholder="https://meu-projeto-default-rtdb.firebaseio.com"
+      class="w-full mt-2 bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none">
+    <div class="flex gap-3 mt-5">
+      <button onclick="salvarConfiguracaoNuvem()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 py-3 rounded-xl font-bold transition">✅ Conectar</button>
+      <button onclick="usarSomenteLocal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-semibold transition text-slate-300">📴 Só Local</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CADASTRO DE TÉCNICO ═══ -->
+<div id="modalTecnico" class="modal-overlay hidden">
+  <div class="bg-slate-800 border border-slate-600 rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <h2 class="text-xl font-extrabold text-cyan-400 mb-6" id="tituloModalTec">👤 Novo Técnico</h2>
+    <input type="hidden" id="tecEditIndex" value="">
+    <div class="space-y-4">
+      <div>
+        <label class="text-slate-300 text-sm font-semibold">Nome Completo *</label>
+        <input id="tecNome" type="text" placeholder="Ex: DANIEL MOC"
+          class="w-full mt-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-slate-300 text-sm font-semibold">Cidade / Base</label>
+          <input id="tecCidade" type="text" placeholder="Ex: Mococa"
+            class="w-full mt-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 outline-none">
+        </div>
+        <div>
+          <label class="text-slate-300 text-sm font-semibold">Placa do Veículo</label>
+          <input id="tecPlaca" type="text" placeholder="Ex: ABC-1234"
+            class="w-full mt-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="text-slate-300 text-sm font-semibold">Cargo / Função</label>
+        <input id="tecCargo" type="text" placeholder="Ex: Técnico de Campo, Supervisor, Infra"
+          class="w-full mt-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 outline-none">
+      </div>
+      <div>
+        <label class="text-slate-300 text-sm font-semibold">Foto do Técnico</label>
+        <div class="mt-1 flex items-center gap-4">
+          <img id="tecFotoPreview" src="" alt="" class="w-16 h-16 rounded-xl object-cover border border-slate-600 hidden">
+          <div id="tecFotoPlaceholder" class="w-16 h-16 rounded-xl bg-slate-900 border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-500 text-2xl">👤</div>
+          <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-semibold transition">
+            📷 Selecionar
+            <input type="file" id="tecFotoInput" accept="image/*" class="hidden" onchange="previewFotoTec(this)">
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+      <button onclick="salvarTecnico()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 py-3 rounded-xl font-bold transition">✅ Salvar</button>
+      <button onclick="fecharModalTecnico()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-semibold transition text-slate-300">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PREVIEW IMAGEM ═══ -->
+<div id="imgPreviewModal" class="hidden" onclick="this.classList.add('hidden')">
+  <img id="imgPreviewSrc" src="" alt="evidência">
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast"></div>
+
+<div class="max-w-[1600px] mx-auto p-4 md:p-8">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8">
+    <div class="flex items-center gap-4">
+      <div class="shrink-0 bg-black rounded-2xl p-2 border border-slate-700/50 shadow-xl">
+        <img id="headerLogo" src="" alt="Nuvyon" height="44" class="h-[44px] w-auto object-contain block">
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white">
+            Nuvyon <span class="text-cyan-400">Frota</span>
+          </h1>
+          <span class="hidden md:inline text-xs bg-cyan-900/40 text-cyan-400 border border-cyan-800/50 px-2 py-0.5 rounded-full font-medium">Manager</span>
+        </div>
+        <p class="text-slate-500 text-xs mt-0.5">Consolidado de Atividades · Movimentação Extra</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-3 items-center">
+      <span id="syncBadge" class="idle">⬤ Offline</span>
+      <button onclick="sincronizarManual()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-semibold transition">🔄 Sincronizar</button>
+      <button onclick="exportarPDFDiretoria()" class="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 px-6 py-3 rounded-xl font-bold shadow-xl transition">🏆 Exportar PDF</button>
+      <button onclick="liberarMemoriaForca()" title="Liberar memória removendo evidências antigas" class="bg-amber-700 hover:bg-amber-600 px-4 py-2 rounded-xl text-sm font-semibold transition">🧹 Memória</button>
+      <button onclick="abrirConfiguracoes()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-semibold transition">⚙️</button>
+      <button onclick="resetarDados()" class="text-slate-500 hover:text-slate-300 text-sm">Resetar</button>
+    </div>
+  </div>
+
+  <!-- ═══ ABAS ═══ -->
+  <div class="flex gap-1 border-b border-slate-700 mb-8 overflow-x-auto pb-1">
+    <button id="tabExec"   onclick="mudarAba('exec')"   class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">📈 Relatório</button>
+    <button id="tabAgenda" onclick="mudarAba('agenda')" class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">📆 Cronograma</button>
+    <button id="tabFunc"   onclick="mudarAba('func')"   class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">👥 Atividades</button>
+    <button id="tabMov"    onclick="mudarAba('mov')"    class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">⚠️ Movimentação</button>
+    <button id="tabKml"    onclick="mudarAba('kml')"    class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">🔍 Análise de Deslocamento</button>
+    <button id="tabEquipe" onclick="mudarAba('equipe')" class="px-6 py-4 font-semibold transition-all whitespace-nowrap text-sm">👤 Gestão de Equipe</button>
+  </div>
+
+  <!-- ═══ ABA: RELATÓRIO ═══ -->
+  <div id="contExec" class="space-y-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="card-exec p-6 rounded-2xl">
+        <p class="text-slate-400 text-sm uppercase font-bold tracking-wider">Total de Técnicos</p>
+        <h2 id="statsTotalTec" class="text-4xl font-black text-cyan-400 mt-2">0</h2>
+      </div>
+      <div class="card-exec p-6 rounded-2xl">
+        <p class="text-slate-400 text-sm uppercase font-bold tracking-wider">Atividades Registradas</p>
+        <h2 id="statsTotalAtv" class="text-4xl font-black text-emerald-400 mt-2">0</h2>
+      </div>
+      <div class="card-exec p-6 rounded-2xl">
+        <p class="text-slate-400 text-sm uppercase font-bold tracking-wider">Alertas Fora de Horário</p>
+        <h2 id="statsTotalAlertas" class="text-4xl font-black text-amber-400 mt-2">0</h2>
+      </div>
+    </div>
+    <div class="bg-slate-800/50 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl">
+      <div class="p-6 border-b border-slate-700 bg-slate-800/80 flex justify-between items-center">
+        <h3 class="text-xl font-bold text-white">📋 Visão Geral por Técnico</h3>
+        <input type="date" id="filtroDataExec" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm" onchange="renderizarExecutivo()">
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-900/50 text-slate-400 text-xs uppercase font-bold">
+            <tr>
+              <th class="p-4">Técnico / Base</th>
+              <th class="p-4">Atividade Diária</th>
+              <th class="p-4">Evidências</th>
+              <th class="p-4">Movimentação Extra</th>
+              <th class="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody id="corpoTabelaExec" class="divide-y divide-slate-700"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ABA: CRONOGRAMA ═══ -->
+  <div id="contAgenda" class="hidden space-y-6">
+    <div class="bg-slate-800/40 rounded-2xl border border-slate-700 overflow-hidden">
+      <div class="p-5 bg-slate-900/60 border-b border-slate-700">
+        <h2 class="text-xl font-bold text-cyan-300">📆 Cronograma de Estágio</h2>
+        <p class="text-slate-400 text-sm mt-1">Rotina de atividades esperadas durante o período de estágio operacional</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-900/80 text-slate-300 border-b border-slate-700">
+            <tr>
+              <th class="p-4 w-1/5">Atividade</th>
+              <th class="p-4 w-1/4">Descrição</th>
+              <th class="p-4 w-1/5">Objetivo</th>
+              <th class="p-4 w-1/6">Frequência</th>
+              <th class="p-4 w-1/6">Responsável</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/60" id="cronogramaBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ABA: ATIVIDADES DIÁRIAS ═══ -->
+  <div id="contFunc" class="hidden space-y-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold text-cyan-300">👥 Atividades Diárias</h2>
+      <input type="date" id="dataFunc" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2" onchange="renderizarFunc()">
+    </div>
+    <div id="containerFunc" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+
+ <!-- ═══ ABA: MOVIMENTAÇÃO EXTRA (REFORMULADA) ═══ -->
+<div id="contMov" class="hidden space-y-6">
+  <div class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700 mb-6">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-lg font-bold text-amber-400">➕ Novo Registro de Deslocamento</h3>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 text-xs font-bold uppercase">Filtrar por dia:</span>
+        <input type="date" id="filtroDataMov" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm" onchange="renderizarMov()">
+      </div>
+    </div>
+
+    <!-- Grid do Formulário Estruturado -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Colaborador Responsável</label>
+        <select id="movNome" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm"></select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Data do Ocorrido</label>
+        <input type="date" id="movData" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase">Hora Início</label>
+          <input type="time" id="movInicio" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase">Hora Fim</label>
+          <input type="time" id="movFim" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Veículo (Modelo)</label>
+        <input type="text" id="fVeiculo" placeholder="Ex: Fiat Fiorino" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Placa Completa</label>
+        <input type="text" id="fPlaca" placeholder="Ex: ABC-1234" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Local de Origem</label>
+        <input type="text" id="fOrigem" placeholder="Ex: Base Mococa" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Local de Destino</label>
+        <input type="text" id="fDestino" placeholder="Ex: Cliente João Silva - Centro" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Breve Relato (O que ocorreu?)</label>
+        <textarea id="fRelato" rows="2" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm"></textarea>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase">Ciência ao Gestor (Sim/Não + Nome)</label>
+          <input type="text" id="fCiencia" placeholder="Ex: Sim, ciente Supervisor Tiago" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase">Justificativa do Deslocamento</label>
+          <input type="text" id="fJustificativa" placeholder="Ex: Atendimento emergencial de rompimento" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+        </div>
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-xs font-bold text-slate-400 uppercase">Outras Informações</label>
+        <input type="text" id="fOutros" placeholder="Condições da via, ocorrências extras..." class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm">
+      </div>
+    </div>
+
+    <!-- Evidência da movimentação -->
+    <div class="mt-6 p-4 bg-slate-900/40 rounded-xl border border-dashed border-slate-600">
+      <label class="text-slate-400 text-sm font-semibold mb-2 block">📸 Evidência Fotográfica (Opcional)</label>
+      <div class="flex items-center gap-3 flex-wrap">
+        <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+          📎 Anexar Foto
+          <input type="file" id="movFotoInput" accept="image/*" class="hidden" onchange="previewMovFoto(this)">
+        </label>
+        <div id="movFotoThumbsContainer" class="flex gap-2 flex-wrap"></div>
+      </div>
+    </div>
+    
+    <button onclick="salvarMov()" class="mt-6 w-full md:w-auto bg-amber-600 hover:bg-amber-500 px-12 py-3 rounded-xl font-bold shadow-lg transition transform active:scale-95">
+      🚀 Registrar Movimentação
+    </button>
+  </div>
+
+  <div class="bg-slate-800/40 rounded-2xl border border-slate-700 overflow-hidden">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-slate-900/80 text-slate-400">
+        <tr>
+          <th class="p-3">Técnico</th><th class="p-3">Data</th>
+          <th class="p-3">Início</th><th class="p-3">Fim</th>
+          <th class="p-3">Motivo Consolidado</th><th class="p-3">Evidência</th><th class="p-3">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaMov" class="divide-y divide-slate-700"></tbody>
+    </table>
+  </div>
+</div>
+
+      <!-- Evidência da movimentação -->
+      <div class="mt-4">
+        <label class="text-slate-400 text-sm font-semibold mb-2 block">📸 Evidência (foto do motivo — opcional)</label>
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+            📎 Anexar Foto
+            <input type="file" id="movFotoInput" accept="image/*" class="hidden" onchange="previewMovFoto(this)">
+          </label>
+          <div id="movFotoThumbsContainer" class="flex gap-2 flex-wrap"></div>
+        </div>
+      </div>
+      <button onclick="salvarMov()" class="mt-4 bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-bold transition">Registrar</button>
+    </div>
+    <div class="bg-slate-800/40 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-slate-900/80 text-slate-400">
+          <tr>
+            <th class="p-3">Técnico</th><th class="p-3">Data</th>
+            <th class="p-3">Início</th><th class="p-3">Fim</th>
+            <th class="p-3">Motivo</th><th class="p-3">Evidência</th><th class="p-3">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaMov" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  
+  <!-- ═══ ABA: ANÁLISE DE DESLOCAMENTO ═══ -->
+  <div id="contKml" class="hidden space-y-6">
+    <div class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700 mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-cyan-400">🔍 Auditoria de Deslocamento (PDF / Excel)</h3>
+        <div class="flex gap-2">
+           <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">Modelo: VehicleEventDetail</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <label class="text-slate-400 text-sm font-semibold block">Importar Arquivo (PDF ou Excel)</label>
+          <input type="file" id="inputAuditFile" accept=".pdf,.xlsx,.xls" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-sm text-slate-300 file:bg-cyan-600 file:border-none file:text-white file:px-3 file:py-1 file:rounded file:mr-3 file:cursor-pointer">
+          <p class="text-[10px] text-slate-500 italic">Suporta PDF de Detalhamento de Eventos e planilhas de rastreamento.</p>
+        </div>
+        <div class="flex items-end gap-3">
+          <button onclick="processarAuditoria()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 px-6 py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2">
+            ⚙️ Analisar Arquivo
+          </button>
+          <button onclick="limparAuditoria()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-lg font-bold transition">
+            🗑️
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resKml" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="card-exec p-4 rounded-xl border border-slate-700">
+          <p class="text-slate-500 text-[10px] uppercase font-bold">Veículo / Placa</p>
+          <h2 id="auditStatsVeiculo" class="text-lg font-black text-white mt-1">—</h2>
+        </div>
+        <div class="card-exec p-4 rounded-xl border border-slate-700">
+          <p class="text-slate-500 text-[10px] uppercase font-bold">Data da Viagem</p>
+          <h2 id="auditStatsData" class="text-lg font-black text-cyan-400 mt-1">—</h2>
+        </div>
+        <div class="card-exec p-4 rounded-xl border border-slate-700">
+          <p class="text-slate-500 text-[10px] uppercase font-bold">Técnico Provável</p>
+          <h2 id="auditStatsTecnico" class="text-lg font-black text-emerald-400 mt-1">—</h2>
+        </div>
+        <div class="card-exec p-4 rounded-xl border border-slate-700">
+          <p class="text-slate-500 text-[10px] uppercase font-bold">Alertas Críticos</p>
+          <h2 id="auditStatsAlertas" class="text-lg font-black text-amber-400 mt-1">0</h2>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/40 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="p-4 bg-slate-900/60 border-b border-slate-700 flex justify-between items-center">
+          <h4 class="font-bold text-white flex items-center gap-2">🚩 Linha do Tempo de Eventos <span id="auditBadgeTipo" class="text-[10px] bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded-full">PDF</span></h4>
+          <div class="flex gap-2">
+            <button onclick="gerarRelatorioAuditoria()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-xs font-bold transition">
+              📝 Registrar Ocorrência
+            </button>
+            <button onclick="exportarAuditoriaPDF()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition">
+              📄 PDF Auditoria
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-slate-400 sticky top-0">
+              <tr>
+                <th class="p-3">Horário</th>
+                <th class="p-3">Evento</th>
+                <th class="p-3">Localização</th>
+                <th class="p-3">Info Extra</th>
+                <th class="p-3">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaKml" class="divide-y divide-slate-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ABA: GESTÃO DE EQUIPE ═══ -->
+  <div id="contEquipe" class="hidden space-y-6">
+    <div class="flex justify-between items-center mb-2">
+      <div>
+        <h2 class="text-2xl font-bold text-cyan-300">👤 Gestão de Equipe</h2>
+        <p class="text-slate-500 text-sm mt-1">Cadastre, edite e gerencie todos os técnicos da frota</p>
+      </div>
+      <button onclick="abrirModalTecnico()" class="bg-cyan-600 hover:bg-cyan-500 px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2 text-sm">
+        ➕ Novo Técnico
+      </button>
+    </div>
+    <div id="containerEquipe" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+  </div>
+
+</div><!-- /max-w container -->
+
+<script>
+// ══════════════════════════════════════════════════
+//  LOGO
+// ══════════════════════════════════════════════════
+const LOGO_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAEhAbwDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8rKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAop8MZmkVFVndmChVGSc9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i6T/AIWl4NGM+LtC9M/2lCP5vX8wu4+po3H1NAH7l/8ABQ39trQPhD8G77Q/CHiOz1Hxt4gja0tf7PnWU2cJ4lnZlJAIHAHXJ9q/DRjuYk8/XrRuJzk9eTRQAFi3JOTSUUUAFFFFABRRRQAe9ejfs+fGjV/2ffi14f8AHGjFmn06cGa3DYFzAeJIm9mH6gV5zS+vvQB/SH8I/wBq74X/ABj8IWWvaH4v0uMXCB5bG+vI4Lm2YgZSRGYcjp6V2/8AwtDwaM/8Vfoee/8AxMYv/i6/mFLFskkktyfel3N1yc/WgD+nr/haXg7/AKG7Qv8AwYRf/F0f8LS8Hf8AQ3aF/wCDCL/4uv5hNx9TRuPqaAP6e/8AhaXg7/obtC/8GEX/AMXR/wALS8Hf9DdoX/gwi/8Ai6/mE3H1NG4+poA/p7/4Wl4O/wChu0L/AMGEX/xdH/C0vB3/AEN2hf8Agwi/+Lr+YTcfU0bj6mgD+nv/AIWl4O/6G7Qv/BhF/wDF0f8AC0vB3/Q3aF/4MIv/AIuv5hNx9TRuPqaAP6ev+FpeDVI/4q7QiT/1EYR/7PXzV+1R/wAFHvht8CvDt1b+HtWs/GvjVlZLXTNNnEsUUnIDzSLwFB52jlscetfg1uPrR2x2oA3PHHjLVviF4u1fxNrl217q+rXL3d1OxOXdjk/h2HsKwqKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/Z";
+
+// ══════════════════════════════════════════════════
+//  DADOS ESTÁTICOS (técnicos padrão do sistema)
+// ══════════════════════════════════════════════════
+const TECNICOS_PADRAO = [
+  { nome:"DANIEL MOC",          cidade:"Mococa",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"ALEXANDRE MOC",       cidade:"Mococa",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"RODRIGO MOC",         cidade:"Mococa",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"BATISTA MOC",         cidade:"Mococa",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"FABIANO MOC - INFRA", cidade:"Mococa",       placa:"",          cargo:"Infraestrutura",   foto:"" },
+  { nome:"LUCAS MOC - INFRA",   cidade:"Mococa",       placa:"",          cargo:"Infraestrutura",   foto:"" },
+  { nome:"GUSTAVO MOC - INFRA", cidade:"Mococa",       placa:"",          cargo:"Infraestrutura",   foto:"" },
+  { nome:"LUCAS NAVES",         cidade:"Monte Santo",  placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"JESUS",               cidade:"Tapiratiba",   placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"MATHEUS HENRIQUE",    cidade:"Casa Branca",  placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"JONATHAN",            cidade:"Rio Pardo",    placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"KALBERT",             cidade:"Passos",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"JHONY MOGI",          cidade:"Mogi Mirim",   placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"ROBSON LUIZ",         cidade:"Sumaré",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"VINICIUS PEREIRA",    cidade:"Sumaré",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"THIAGO LEAL",         cidade:"Sumaré",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"JORDEL ALMEIDA",      cidade:"Sumaré",       placa:"",          cargo:"Técnico de Campo", foto:"" },
+  { nome:"ZE CARLOS",           cidade:"",             placa:"RUT-0H79",  cargo:"Motorista",        foto:"" },
+  { nome:"MATHEUS PONTES",      cidade:"",             placa:"RTB-4B99",  cargo:"Motorista",        foto:"" },
+  { nome:"CESAR",               cidade:"",             placa:"GKI-7529",  cargo:"Motorista",        foto:"" },
+  { nome:"FRANCISCO",           cidade:"",             placa:"QUN-6C16",  cargo:"Motorista",        foto:"" },
+  { nome:"JOSE ROBERTO",        cidade:"",             placa:"QUJ-4A16",  cargo:"Motorista",        foto:"" },
+  { nome:"THIAGO SOUZA",        cidade:"",             placa:"QUI-0B41",  cargo:"Motorista",        foto:"" },
+  { nome:"WILLIAN SANTOS",      cidade:"",             placa:"DRR-1G79",  cargo:"Motorista",        foto:"" },
+  { nome:"MARCOS/BRADLEY",      cidade:"",             placa:"RVC-5G49",  cargo:"Motorista",        foto:"" },
+  { nome:"JUAN",                cidade:"",             placa:"RNP-9E60",  cargo:"Motorista",        foto:"" },
+  { nome:"CONDUTOR SIJ-7B41",   cidade:"",             placa:"SIJ-7B41",  cargo:"Motorista",        foto:"" },
+  { nome:"TIAGO SUPERVISOR",    cidade:"",             placa:"UDR-0J71",  cargo:"Supervisor",       foto:"" },
+  { nome:"MOISES",              cidade:"",             placa:"UEA-1B56",  cargo:"Motorista",        foto:"" },
+];
+
+const cronogramaData = [
+  { atividade:"Monitoramento de Veículos",            descricao:"Acompanhamento em tempo real da posição e status de todos os veículos via rastreamento.",                              objetivo:"Controle de frota e eficiência operacional.",              frequencia:"Contínua / Diária",   responsavel:"Estagiário + Supervisor" },
+  { atividade:"Gestão de Ordens de Serviço",          descricao:"Organização, abertura e atualização de OS no sistema, acompanhando status de execução e fechamento.",                 objetivo:"Cumprimento de prazos e rastreabilidade.",                  frequencia:"Diária",              responsavel:"Estagiário" },
+  { atividade:"Registro de Abastecimento",            descricao:"Lançamento de comprovantes, conferência de quilometragem e consumo médio por veículo.",                               objetivo:"Controle de custos e detecção de desvios.",                 frequencia:"Diária",              responsavel:"Estagiário" },
+  { atividade:"Manutenção Preventiva",                descricao:"Acompanhamento do calendário de revisões, troca de óleo, pneus e itens preventivos conforme plano da frota.",         objetivo:"Reduzir paradas não programadas.",                          frequencia:"Semanal",             responsavel:"Estagiário + Técnico" },
+  { atividade:"Acompanhamento de Infratores",         descricao:"Consulta ao relatório de telemetria: excesso de velocidade, frenagens bruscas e uso fora de horário.",                objetivo:"Segurança e uso adequado do patrimônio.",                   frequencia:"Diária",              responsavel:"Estagiário" },
+  { atividade:"Movimentação Extra-Expediente",        descricao:"Documentação de saídas fora do horário comercial: motivo, responsável, início e fim.",                                objetivo:"Transparência e controle do patrimônio.",                   frequencia:"Conforme ocorrência", responsavel:"Supervisor" },
+  { atividade:"Relatório Diário de Operações",        descricao:"Preenchimento do relatório consolidado com resumo das atividades de cada técnico.",                                    objetivo:"Subsidiar decisões gerenciais.",                            frequencia:"Diária",              responsavel:"Estagiário" },
+  { atividade:"Atualização de Dados Cadastrais",      descricao:"Revisão de informações de veículos: placa, chassi, RENAVAM, seguro, vencimento de documentação.",                     objetivo:"Manter base de dados atualizada.",                          frequencia:"Mensal / Sob demanda",responsavel:"Estagiário" },
+  { atividade:"Controle de Documentação Veicular",    descricao:"Monitoramento de vencimentos: IPVA, licenciamento, CRLV e seguro obrigatório.",                                       objetivo:"Evitar multas e garantir regularidade.",                    frequencia:"Mensal",              responsavel:"Estagiário + Administrativo" },
+  { atividade:"Apoio a Sinistros e Acidentes",        descricao:"Registro de ocorrências, coleta de documentação, acionamento do seguro e acompanhamento do reparo.",                  objetivo:"Agilidade no retorno do veículo à operação.",               frequencia:"Sob demanda",         responsavel:"Estagiário + Supervisor" },
+  { atividade:"Análise de Indicadores de Frota",      descricao:"KPIs como custo/km, disponibilidade da frota, índice de manutenção corretiva vs preventiva.",                         objetivo:"Apoiar decisões estratégicas com dados.",                   frequencia:"Semanal / Mensal",    responsavel:"Estagiário" },
+  { atividade:"Reunião de Alinhamento Operacional",   descricao:"Reuniões com supervisores e técnicos para alinhamento de prioridades e dificuldades.",                                objetivo:"Comunicação e melhoria contínua.",                          frequencia:"Semanal",             responsavel:"Toda a equipe" },
+  { atividade:"Treinamento e Capacitação",            descricao:"Estudo de sistemas de gestão de frota, legislação de trânsito e boas práticas de logística.",                         objetivo:"Desenvolvimento técnico e profissional.",                   frequencia:"Contínua",            responsavel:"Estagiário + RH" },
+];
+
+// ══════════════════════════════════════════════════
+//  ESTADO DO APP
+// ══════════════════════════════════════════════════
+const FB_URL_PADRAO = "https://frota-manager---nuvyon-default-rtdb.firebaseio.com";
+let fbUrl     = (localStorage.getItem("fb_url") || FB_URL_PADRAO).replace(/\/$/, "");
+let modoLocal = localStorage.getItem("fb_modoLocal") === "true";
+
+// Técnicos: começa com padrão, pode ser sobrescrito pelo Firebase
+let tecnicos = JSON.parse(localStorage.getItem("dbTecnicos")) || TECNICOS_PADRAO.map(t=>({...t}));
+
+let dbAtv  = JSON.parse(localStorage.getItem("atividadesFuncionarios"))   || {};
+let dbMov  = JSON.parse(localStorage.getItem("ocorrenciasForaExpediente")) || [];
+// Evidências: { [nome]: { [data]: [base64, ...] } }
+let dbEv   = JSON.parse(localStorage.getItem("evidenciasAtividades"))      || {};
+// Evidências de movimentação: { [movId]: base64 }
+let dbEvMov= JSON.parse(localStorage.getItem("evidenciasMov"))             || {};
+
+let syncTimer = null;
+let movFotoPendente = ""; // base64 da foto da movimentação em preenchimento
+
+// ══════════════════════════════════════════════════
+//  UTILS UI
+// ══════════════════════════════════════════════════
+function setSyncBadge(estado, msg) {
+  const b = document.getElementById("syncBadge");
+  b.className = ""; b.classList.add(estado);
+  const icons = {idle:"⬤",syncing:"⬤",ok:"✓",err:"✗"};
+  b.innerHTML = estado==="syncing" ? `<span class="spinner"></span> ${msg}` : `${icons[estado]||"⬤"} ${msg}`;
+}
+function showToast(msg, tipo="ok", dur=3000) {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className=`show ${tipo}`;
+  setTimeout(()=>t.classList.remove("show"),dur);
+}
+function abrirImagem(src) {
+  document.getElementById("imgPreviewSrc").src = src;
+  document.getElementById("imgPreviewModal").classList.remove("hidden");
+}
+
+// ══════════════════════════════════════════════════
+//  FIREBASE
+// ══════════════════════════════════════════════════
+async function buscarNuvem() {
+  if (modoLocal || !fbUrl) return;
+  setSyncBadge("syncing","Sincronizando...");
+  try {
+    const res = await fetch(`${fbUrl}/frota.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data) {
+      dbAtv   = data.atv   || {};
+      dbMov   = data.mov   || [];
+      dbEv    = data.ev    || {};
+      dbEvMov = data.evMov || {};
+      if (data.tecnicos) tecnicos = data.tecnicos;
+      localStorage.setItem("atividadesFuncionarios",   JSON.stringify(dbAtv));
+      localStorage.setItem("ocorrenciasForaExpediente",JSON.stringify(dbMov));
+      localStorage.setItem("evidenciasAtividades",     JSON.stringify(dbEv));
+      localStorage.setItem("evidenciasMov",            JSON.stringify(dbEvMov));
+      localStorage.setItem("dbTecnicos",               JSON.stringify(tecnicos));
+    }
+    setSyncBadge("ok","Firebase ✓");
+    renderizarExecutivo(); renderizarMov(); renderizarEquipe();
+  } catch(e) {
+    setSyncBadge("err","Sem conexão");
+    console.warn("Firebase buscar:", e.message);
+  }
+}
+async function salvarNuvem() {
+  if (modoLocal || !fbUrl) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    setSyncBadge("syncing","Salvando...");
+    try {
+      const res = await fetch(`${fbUrl}/frota.json`, {
+        method:"PUT", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ atv:dbAtv, mov:dbMov, ev:dbEv, evMov:dbEvMov, tecnicos })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSyncBadge("ok","Firebase ✓");
+    } catch(e) {
+      setSyncBadge("err","Sem conexão");
+      console.warn("Firebase salvar:", e.message);
+    }
+  }, 1400);
+}
+
+function salvarConfiguracaoNuvem() {
+  let url = document.getElementById("inputFirebaseUrl").value.trim().replace(/\/$/, "");
+  if (!url) { showToast("Cole a URL do Firebase!", "err"); return; }
+  if (!url.includes("firebaseio.com")) { showToast("❌ URL inválida", "err"); return; }
+  if (url.endsWith("/frota")) url = url.slice(0,-6);
+  fbUrl = url;
+  localStorage.setItem("fb_url", fbUrl);
+  modoLocal = false;
+  localStorage.setItem("fb_modoLocal","false");
+  document.getElementById("setupModal").classList.add("hidden");
+  setSyncBadge("ok","URL salva ✓");
+  showToast("✅ Firebase configurado!", "ok", 4000);
+}
+function usarSomenteLocal() {
+  modoLocal = true;
+  localStorage.setItem("fb_modoLocal","true");
+  document.getElementById("setupModal").classList.add("hidden");
+  setSyncBadge("idle","Offline (local)");
+}
+function abrirConfiguracoes() {
+  document.getElementById("inputFirebaseUrl").value = fbUrl;
+  document.getElementById("setupModal").classList.remove("hidden");
+}
+async function sincronizarManual() {
+  if (modoLocal || !fbUrl) { showToast("Configure o Firebase (⚙️).","info"); return; }
+  await buscarNuvem();
+  showToast("🔄 Dados atualizados!","ok");
+}
+
+// ══════════════════════════════════════════════════
+//  RENDERIZAÇÃO — EXECUTIVO
+// ══════════════════════════════════════════════════
+function renderizarExecutivo() {
+  const data   = document.getElementById("filtroDataExec").value;
+  const tbody  = document.getElementById("corpoTabelaExec");
+  let totalAtv = 0, totalAlertas = 0;
+  const avatarColors = ["bg-cyan-900 text-cyan-300","bg-emerald-900 text-emerald-300","bg-violet-900 text-violet-300","bg-amber-900 text-amber-300","bg-rose-900 text-rose-300","bg-sky-900 text-sky-300","bg-teal-900 text-teal-300"];
+  const iconLoc = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`;
+  const iconCar = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1 2 1V6m0 10h10M9 16l4 1 4-1V8l-4-2-4 2v8z"/></svg>`;
+
+  tbody.innerHTML = tecnicos.map((t, idx) => {
+    const atvText  = dbAtv[t.nome]?.[data] || "";
+    const movs     = dbMov.filter(m => m.nome===t.nome && m.data===data);
+    const evs      = dbEv[t.nome]?.[data]  || [];
+    if (atvText) totalAtv++;
+    if (movs.length > 0) totalAlertas += movs.length;
+
+    const resumo   = atvText ? (atvText.length>75 ? atvText.slice(0,75)+"…" : atvText) : "—";
+    const isCidade = !!t.cidade;
+    const iniciais = t.nome.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+    const ac       = avatarColors[idx % avatarColors.length];
+
+    // Avatar: foto ou iniciais
+    const avatarHtml = t.foto
+      ? `<img src="${t.foto}" class="av-foto shrink-0" alt="${t.nome}">`
+      : `<div class="w-9 h-9 rounded-xl ${ac} flex items-center justify-center text-xs font-black shrink-0">${iniciais}</div>`;
+
+    // Movimentação
+    const movHtml = movs.length > 0
+      ? movs.map(m=>`<div class="text-amber-400 text-xs font-bold">⚠️ ${m.inicio}–${m.fim}</div>`).join("")
+      : `<span class="text-slate-600 text-xs">Normal</span>`;
+
+    // Evidências — imagens grandes e bem visíveis no relatório
+    const evHtml = evs.length > 0
+      ? `<div class="ev-report-wrap">
+           <div class="ev-report-badge">📸 ${evs.length} evidência${evs.length>1?'s':''}</div>
+           <div class="ev-report-grid">${evs.map(src=>`<img src="${src}" class="ev-report-img" onclick="abrirImagem('${src}')" title="Clique para ampliar">`).join('')}</div>
+         </div>`
+      : `<span class="text-slate-600 text-xs italic">—</span>`;
+
+    // Status
+    const status = atvText
+      ? `<span class="inline-flex items-center gap-1 bg-emerald-900/60 text-emerald-400 text-xs font-bold px-2 py-1 rounded-lg">✓ Registrado</span>`
+      : `<span class="text-slate-500 text-xs italic">Pendente</span>`;
+
+    // Cargo badge
+    const cargoBadge = t.cargo ? `<span class="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-medium">${t.cargo}</span>` : "";
+
+    return `
+    <tr class="hover:bg-slate-800/40 transition group border-b border-slate-700/50">
+      <td class="p-4">
+        <div class="flex items-center gap-3">
+          ${avatarHtml}
+          <div>
+            <div class="font-bold text-white text-sm group-hover:text-cyan-300 transition">${t.nome}</div>
+            <div class="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+              ${isCidade ? iconLoc : iconCar}
+              <span>${t.cidade || t.placa || "—"}</span>
+            </div>
+            ${cargoBadge}
+          </div>
+        </div>
+      </td>
+      <td class="p-4 text-sm text-slate-300 max-w-[200px]">${resumo}</td>
+      <td class="p-4">${evHtml}</td>
+      <td class="p-4">${movHtml}</td>
+      <td class="p-4">${status}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("statsTotalTec").innerText     = tecnicos.length;
+  document.getElementById("statsTotalAtv").innerText     = totalAtv;
+  document.getElementById("statsTotalAlertas").innerText = totalAlertas;
+}
+
+// ══════════════════════════════════════════════════
+//  CRONOGRAMA
+// ══════════════════════════════════════════════════
+function renderizarCronograma() {
+  const cores = ["text-cyan-300","text-emerald-300","text-violet-300","text-amber-300","text-rose-300","text-sky-300","text-teal-300"];
+  document.getElementById("cronogramaBody").innerHTML = cronogramaData.map((row,i)=>`
+    <tr class="hover:bg-slate-800/20 transition">
+      <td class="p-4 font-bold ${cores[i%cores.length]}">${row.atividade}</td>
+      <td class="p-4 text-sm text-slate-300">${row.descricao}</td>
+      <td class="p-4 text-sm text-slate-400">${row.objetivo}</td>
+      <td class="p-4 text-xs font-semibold text-slate-300">${row.frequencia}</td>
+      <td class="p-4 text-xs text-slate-400">${row.responsavel}</td>
+    </tr>`).join("");
+}
+
+
+// ══════════════════════════════════════════════════
+//  OTIMIZAÇÃO DE ARMAZENAMENTO E COMPRESSÃO
+// ══════════════════════════════════════════════════
+
+/**
+ * Comprime uma imagem Base64 para reduzir o uso do LocalStorage.
+ */
+function comprimirImagem(base64, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+  });
+}
+
+/**
+ * Wrapper seguro para localStorage.setItem com tratamento de erro de cota.
+ */
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      // Tenta liberar espaço removendo evidências de atividades (maiores) e tentando de novo
+      try {
+        localStorage.removeItem("evidenciasAtividades");
+        dbEv = {};
+        localStorage.setItem(key, value);
+        showToast("⚠️ Memória cheia: evidências de atividades foram removidas para liberar espaço.", "err", 5000);
+        return true;
+      } catch(e2) {
+        showToast("⚠️ Memória cheia! Use o botão 🧹 Liberar Memória ou conecte ao Firebase.", "err", 6000);
+      }
+    }
+    return false;
+  }
+}
+
+/**
+ * Limpa registros antigos para liberar espaço se necessário.
+ */
+function liberarEspacoAutomatico() {
+  const chaves = ["evidenciasAtividades", "evidenciasMov", "atividadesFuncionarios", "ocorrenciasForaExpediente"];
+  // Lógica simples: se estiver muito cheio, poderíamos remover os registros mais antigos aqui.
+  // Por enquanto, apenas avisamos o usuário via safeSetItem.
+}
+
+// ══════════════════════════════════════════════════
+//  ATIVIDADES DIÁRIAS + EVIDÊNCIAS
+// ══════════════════════════════════════════════════
+function renderizarFunc() {
+  const data = document.getElementById("dataFunc").value;
+  document.getElementById("containerFunc").innerHTML = tecnicos.map(t => {
+    const evs = dbEv[t.nome]?.[data] || [];
+    const atvVal = dbAtv[t.nome]?.[data] || "";
+    const fotos = t.foto ? `<img src="${t.foto}" class="av-foto" alt="">` : "";
+    const thumbs = evs.map((src,i)=>`
+      <div class="relative inline-block">
+        <img src="${src}" class="thumb-ev" onclick="abrirImagem('${src}')">
+        <button onclick="removerEvidencia('${t.nome}','${data}',${i})"
+          class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-500">×</button>
+      </div>`).join("");
+
+    const idSanitizado = t.nome.replace(/[^a-z0-9]/gi,'_');
+
+    return `
+    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex items-center gap-3">
+        ${fotos}
+        <div>
+          <h4 class="font-bold text-cyan-300 text-sm">${t.nome}</h4>
+          <p class="text-xs text-slate-500">${t.cidade || t.placa || "—"}</p>
+        </div>
+      </div>
+
+      <!-- SEÇÃO DE LANÇAMENTO DE PRODUÇÃO (NOVO) -->
+      <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700 space-y-2">
+        <p class="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">⚡ Lançar Produção/OS</p>
+        <input type="text" id="prod_os_${idSanitizado}" placeholder="Ex: OS 1234 - Cliente Silva" 
+               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-500">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] text-slate-500">Início:</span>
+            <input type="time" id="prod_ini_${idSanitizado}" class="bg-slate-900 border border-slate-700 rounded-md p-1 text-[10px] text-white">
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] text-slate-500">Fim:</span>
+            <input type="time" id="prod_fim_${idSanitizado}" class="bg-slate-900 border border-slate-700 rounded-md p-1 text-[10px] text-white">
+          </div>
+        </div>
+        <textarea id="prod_obs_${idSanitizado}" placeholder="Observações extras da OS..." 
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-500" rows="1"></textarea>
+        <button onclick="adicionarProducaoAoTexto('${t.nome}', '${idSanitizado}')" 
+                class="w-full bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold py-1.5 rounded-lg transition uppercase">
+          + Adicionar à Atividade do Dia
+        </button>
+      </div>
+
+      <!-- TEXTAREA PRINCIPAL -->
+      <div>
+        <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Relatório Consolidado do Dia</label>
+        <textarea id="atv_${idSanitizado}" onblur="salvarAtv('${t.nome}',this.value)"
+          class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:border-cyan-500 outline-none resize-none"
+          rows="4" placeholder="O texto da produção aparecerá aqui...">${atvVal}</textarea>
+      </div>
+
+      <!-- EVIDÊNCIAS -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 font-semibold">📸 Evidências (${evs.length}/3)</span>
+          ${evs.length < 3 ? `<label class="cursor-pointer text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-lg font-semibold transition">
+            + Foto <input type="file" accept="image/*" class="hidden" onchange="adicionarEvidencia('${t.nome}','${data}',this)">
+          </label>` : ''}
+        </div>
+        ${evs.length > 0 ? `<div class="flex gap-2 flex-wrap">${thumbs}</div>` : ''}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function salvarAtv(nome, val) {
+  const data = document.getElementById("dataFunc").value;
+  if (!dbAtv[nome]) dbAtv[nome] = {};
+  dbAtv[nome][data] = val;
+  safeSetItem("atividadesFuncionarios", JSON.stringify(dbAtv));
+  salvarNuvem();
+  renderizarExecutivo();
+}
+
+async function adicionarEvidencia(nome, data, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const evs = dbEv[nome]?.[data] || [];
+  if (evs.length >= 3) { showToast("Máximo de 3 fotos por técnico por dia.","err"); return; }
+  
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const compressed = await comprimirImagem(e.target.result);
+    if (!dbEv[nome]) dbEv[nome] = {};
+    if (!dbEv[nome][data]) dbEv[nome][data] = [];
+    
+    // Backup para caso falhe o salvamento
+    const backup = JSON.stringify(dbEv);
+    dbEv[nome][data].push(compressed);
+    
+    if (safeSetItem("evidenciasAtividades", JSON.stringify(dbEv))) {
+      salvarNuvem();
+      renderizarFunc();
+      renderizarExecutivo();
+      showToast("📸 Evidência adicionada!","ok");
+    } else {
+      // Reverte se falhar
+      dbEv = JSON.parse(backup);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerEvidencia(nome, data, idx) {
+  if (!confirm("Remover esta evidência?")) return;
+  dbEv[nome][data].splice(idx, 1);
+  localStorage.setItem("evidenciasAtividades", JSON.stringify(dbEv));
+  salvarNuvem();
+  renderizarFunc();
+  renderizarExecutivo();
+}
+
+// ══════════════════════════════════════════════════
+//  MOVIMENTAÇÃO EXTRA
+// ══════════════════════════════════════════════════
+async function previewMovFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    movFotoPendente = await comprimirImagem(e.target.result, 1000, 0.6);
+    const c = document.getElementById("movFotoThumbsContainer");
+    c.innerHTML = `<div class="relative inline-block">
+      <img src="${movFotoPendente}" class="thumb-ev" onclick="abrirImagem('${movFotoPendente}')">
+      <button onclick="removerMovFotoPendente()" class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-xs flex items-center justify-center">×</button>
+    </div>`;
+  };
+  reader.readAsDataURL(file);
+}
+function removerMovFotoPendente() {
+  movFotoPendente = "";
+  document.getElementById("movFotoThumbsContainer").innerHTML = "";
+  document.getElementById("movFotoInput").value = "";
+}
+
+function salvarMov() {
+  const nome = document.getElementById("movNome").value;
+  const data = document.getElementById("movData").value;
+  const inicio = document.getElementById("movInicio").value;
+  const fim = document.getElementById("movFim").value;
+
+  // Coleta campos individuais
+  const vVeiculo = document.getElementById("fVeiculo").value.trim();
+  const vPlaca = document.getElementById("fPlaca").value.trim();
+  const vOrigem = document.getElementById("fOrigem").value.trim();
+  const vDestino = document.getElementById("fDestino").value.trim();
+  const vRelato = document.getElementById("fRelato").value.trim();
+  const vCiencia = document.getElementById("fCiencia").value.trim();
+  const vJustificativa = document.getElementById("fJustificativa").value.trim();
+  const vOutros = document.getElementById("fOutros").value.trim();
+
+  if (!nome || !data || !inicio || !vVeiculo || !vPlaca || !vJustificativa) {
+    showToast("⚠️ Preencha os campos obrigatórios (Veículo, Placa, Justificativa).", "err");
+    return;
+  }
+
+  // GERA O RELATÓRIO CONSOLIDADO PADRONIZADO
+  const motivoConsolidado = `VEÍCULO: ${vVeiculo} | PLACA: ${vPlaca}
+ORIGEM: ${vOrigem} às ${inicio}
+DESTINO: ${vDestino} às ${fim}
+RELATO: ${vRelato}
+CIÊNCIA GESTOR: ${vCiencia}
+JUSTIFICATIVA: ${vJustificativa}
+OUTROS: ${vOutros}`;
+
+  const id = Date.now();
+  dbMov.push({
+    id,
+    nome,
+    data,
+    inicio,
+    fim,
+    motivo: motivoConsolidado // Salva o texto formatado para manter compatibilidade com o PDF
+  });
+
+  if (movFotoPendente) {
+    dbEvMov[id] = movFotoPendente;
+  }
+
+  safeSetItem("ocorrenciasForaExpediente", JSON.stringify(dbMov));
+  safeSetItem("evidenciasMov", JSON.stringify(dbEvMov));
+  salvarNuvem();
+
+  // Resetar campos
+  document.getElementById("filtroDataMov").value = data;
+  ["fVeiculo", "fPlaca", "fOrigem", "fDestino", "fRelato", "fCiencia", "fJustificativa", "fOutros"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  removerMovFotoPendente();
+
+  renderizarMov();
+  renderizarExecutivo();
+  showToast("✅ Movimentação registrada com sucesso!", "ok");
+}
+
+function renderizarMov() {
+  const dataFiltro = document.getElementById("filtroDataMov").value;
+  const filtrados = dataFiltro ? dbMov.filter(m => m.data === dataFiltro) : dbMov;
+  
+  document.getElementById("tabelaMov").innerHTML = filtrados.length === 0
+    ? `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Nenhum registro encontrado para este dia.</td></tr>`
+    : filtrados.map(m => {
+        const foto = dbEvMov[m.id];
+        const fotoHtml = foto
+          ? `<img src="${foto}" class="ev-mov-img" onclick="abrirImagem('${foto}')" title="Clique para ampliar">`
+          : `<span class="text-slate-600 text-xs">—</span>`;
+        return `
+        <tr class="hover:bg-slate-800/20 transition">
+          <td class="p-3 font-semibold text-white text-sm">${m.nome}</td>
+          <td class="p-3 text-xs">${m.data}</td>
+          <td class="p-3 text-xs">${m.inicio}</td>
+          <td class="p-3 text-xs">${m.fim}</td>
+          <td class="p-3 text-slate-300 text-xs">${m.motivo}</td>
+          <td class="p-3">${fotoHtml}</td>
+          <td class="p-3"><button onclick="delMov(${m.id})" class="text-red-500 hover:text-red-400">🗑️</button></td>
+        </tr>`;
+      }).join("");
+}
+
+function delMov(id) {
+  if (!confirm("Remover este registro?")) return;
+  dbMov = dbMov.filter(m => m.id !== id);
+  delete dbEvMov[id];
+  // ── CORREÇÃO MEMÓRIA: remove a chave antes de reescrever para liberar espaço ──
+  try { localStorage.removeItem("ocorrenciasForaExpediente"); } catch(e){}
+  try { localStorage.removeItem("evidenciasMov"); } catch(e){}
+  try { localStorage.setItem("ocorrenciasForaExpediente", JSON.stringify(dbMov)); } catch(e){}
+  try { localStorage.setItem("evidenciasMov", JSON.stringify(dbEvMov)); } catch(e){}
+  salvarNuvem();
+  renderizarMov();
+  renderizarExecutivo();
+  showToast("🗑️ Registro removido.", "info");
+}
+
+function liberarMemoriaForca() {
+  // Remove evidências mais antigas para liberar espaço
+  const datas = Object.keys(dbEv).flatMap(nome =>
+    Object.keys(dbEv[nome] || {}).map(data => ({ nome, data }))
+  ).sort((a, b) => a.data.localeCompare(b.data));
+
+  let liberou = false;
+  // Remove evidências das 5 datas mais antigas
+  for (let i = 0; i < Math.min(5, datas.length); i++) {
+    const { nome, data } = datas[i];
+    delete dbEv[nome][data];
+    liberou = true;
+  }
+  if (liberou) {
+    try { localStorage.removeItem("evidenciasAtividades"); localStorage.setItem("evidenciasAtividades", JSON.stringify(dbEv)); } catch(e){}
+    showToast("🧹 Memória liberada! Evidências antigas removidas.", "info", 4000);
+  } else {
+    showToast("⚠️ Não há evidências antigas para remover. Use Resetar para limpar tudo.", "err", 5000);
+  }
+}
+
+function adicionarProducaoAoTexto(nomeTecnico, idSanitizado) {
+  const os = document.getElementById(`prod_os_${idSanitizado}`).value.trim();
+  const ini = document.getElementById(`prod_ini_${idSanitizado}`).value;
+  const fim = document.getElementById(`prod_fim_${idSanitizado}`).value;
+  const obs = document.getElementById(`prod_obs_${idSanitizado}`).value.trim();
+  const areaTexto = document.getElementById(`atv_${idSanitizado}`);
+
+  if (!os) {
+    showToast("Informe pelo menos o número da OS ou Cliente", "err");
+    return;
+  }
+
+  // Formata a linha da produção
+  const horario = (ini && fim) ? `[${ini} - ${fim}] ` : "";
+  const observacao = obs ? ` | Obs: ${obs}` : "";
+  const novaLinha = `${horario}${os}${observacao}\n`;
+
+  // Adiciona ao campo de texto principal
+  areaTexto.value += novaLinha;
+
+  // Salva automaticamente no banco
+  salvarAtv(nomeTecnico, areaTexto.value);
+
+  // Limpa os campos de produção para o próximo lançamento
+  document.getElementById(`prod_os_${idSanitizado}`).value = "";
+  document.getElementById(`prod_ini_${idSanitizado}`).value = "";
+  document.getElementById(`prod_fim_${idSanitizado}`).value = "";
+  document.getElementById(`prod_obs_${idSanitizado}`).value = "";
+
+  showToast("Produção adicionada ao relatório!", "ok");
+}
+
+// ══════════════════════════════════════════════════
+//  GESTÃO DE EQUIPE
+// ══════════════════════════════════════════════════
+function renderizarEquipe() {
+  const avatarColors = ["from-cyan-600 to-cyan-800","from-emerald-600 to-emerald-800","from-violet-600 to-violet-800","from-amber-600 to-amber-800","from-rose-600 to-rose-800","from-sky-600 to-sky-800","from-teal-600 to-teal-800"];
+  document.getElementById("containerEquipe").innerHTML = tecnicos.map((t, idx) => {
+    const iniciais = t.nome.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+    const ac = avatarColors[idx % avatarColors.length];
+    const avatarHtml = t.foto
+      ? `<img src="${t.foto}" alt="${t.nome}" class="w-20 h-20 rounded-2xl object-cover border-2 border-slate-600 shadow-lg">`
+      : `<div class="w-20 h-20 rounded-2xl bg-gradient-to-br ${ac} flex items-center justify-center text-2xl font-black text-white shadow-lg">${iniciais}</div>`;
+    const base = t.cidade || t.placa || "—";
+    const tipoIcon = t.cidade ? "📍" : "🚗";
+    return `
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 flex flex-col items-center text-center gap-3 hover:border-slate-600 transition group">
+      ${avatarHtml}
+      <div class="w-full">
+        <div class="font-bold text-white text-sm leading-tight group-hover:text-cyan-300 transition">${t.nome}</div>
+        <div class="text-xs text-slate-500 mt-1">${tipoIcon} ${base}</div>
+        ${t.cargo ? `<span class="inline-block mt-1.5 text-xs bg-slate-700/80 text-cyan-400 px-2 py-0.5 rounded-full font-semibold">${t.cargo}</span>` : ""}
+      </div>
+      <div class="flex gap-2 w-full mt-1">
+        <button onclick="editarTecnico(${idx})" class="flex-1 bg-slate-700 hover:bg-slate-600 text-xs py-1.5 rounded-lg font-semibold transition">✏️ Editar</button>
+        <button onclick="excluirTecnico(${idx})" class="flex-1 bg-red-900/40 hover:bg-red-800/60 text-red-400 text-xs py-1.5 rounded-lg font-semibold transition">🗑️ Excluir</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function abrirModalTecnico(idx=null) {
+  document.getElementById("tecEditIndex").value = idx !== null ? idx : "";
+  document.getElementById("tituloModalTec").textContent = idx !== null ? "✏️ Editar Técnico" : "👤 Novo Técnico";
+  if (idx !== null) {
+    const t = tecnicos[idx];
+    document.getElementById("tecNome").value   = t.nome   || "";
+    document.getElementById("tecCidade").value = t.cidade || "";
+    document.getElementById("tecPlaca").value  = t.placa  || "";
+    document.getElementById("tecCargo").value  = t.cargo  || "";
+    if (t.foto) {
+      document.getElementById("tecFotoPreview").src = t.foto;
+      document.getElementById("tecFotoPreview").classList.remove("hidden");
+      document.getElementById("tecFotoPlaceholder").classList.add("hidden");
+    } else {
+      document.getElementById("tecFotoPreview").classList.add("hidden");
+      document.getElementById("tecFotoPlaceholder").classList.remove("hidden");
+    }
+  } else {
+    document.getElementById("tecNome").value = document.getElementById("tecCidade").value =
+    document.getElementById("tecPlaca").value = document.getElementById("tecCargo").value = "";
+    document.getElementById("tecFotoPreview").classList.add("hidden");
+    document.getElementById("tecFotoPlaceholder").classList.remove("hidden");
+    document.getElementById("tecFotoInput").value = "";
+  }
+  document.getElementById("modalTecnico").classList.remove("hidden");
+}
+
+function fecharModalTecnico() {
+  document.getElementById("modalTecnico").classList.add("hidden");
+}
+
+function previewFotoTec(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById("tecFotoPreview");
+    prev.src = e.target.result;
+    prev.classList.remove("hidden");
+    document.getElementById("tecFotoPlaceholder").classList.add("hidden");
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarTecnico() {
+  const nome   = document.getElementById("tecNome").value.trim().toUpperCase();
+  const cidade = document.getElementById("tecCidade").value.trim();
+  const placa  = document.getElementById("tecPlaca").value.trim().toUpperCase();
+  const cargo  = document.getElementById("tecCargo").value.trim();
+  const fotoEl = document.getElementById("tecFotoPreview");
+  const foto   = fotoEl.classList.contains("hidden") ? "" : fotoEl.src;
+  const idxStr = document.getElementById("tecEditIndex").value;
+
+  if (!nome) { showToast("Nome obrigatório!","err"); return; }
+
+  const obj = { nome, cidade, placa, cargo, foto };
+  if (idxStr === "") {
+    tecnicos.push(obj);
+  } else {
+    tecnicos[parseInt(idxStr)] = obj;
+  }
+  safeSetItem("dbTecnicos", JSON.stringify(tecnicos));
+  salvarNuvem();
+  fecharModalTecnico();
+  renderizarEquipe();
+  renderizarExecutivo();
+  // Atualiza select de movimentação
+  atualizarSelectNomes();
+  showToast("✅ Técnico salvo!","ok");
+}
+
+function excluirTecnico(idx) {
+  if (!confirm(`Excluir ${tecnicos[idx].nome}? Esta ação não pode ser desfeita.`)) return;
+  tecnicos.splice(idx,1);
+  safeSetItem("dbTecnicos", JSON.stringify(tecnicos));
+  salvarNuvem();
+  renderizarEquipe();
+  renderizarExecutivo();
+  atualizarSelectNomes();
+  showToast("🗑️ Técnico removido.","info");
+}
+
+function editarTecnico(idx) { abrirModalTecnico(idx); }
+
+function atualizarSelectNomes() {
+  document.getElementById("movNome").innerHTML = tecnicos.map(t=>`<option value="${t.nome}">${t.nome}</option>`).join("");
+}
+
+// ══════════════════════════════════════════════════
+//  ABAS
+// ══════════════════════════════════════════════════
+function mudarAba(aba) {
+  ["contExec","contAgenda","contFunc","contMov","contEquipe","contKml"].forEach(c=>document.getElementById(c).classList.add("hidden"));
+  ["tabExec","tabAgenda","tabFunc","tabMov","tabEquipe","tabKml"].forEach(t=>document.getElementById(t).classList.remove("tab-active"));
+  const mapa    = {exec:"contExec",agenda:"contAgenda",func:"contFunc",mov:"contMov",equipe:"contEquipe",kml:"contKml"};
+  const tabMapa = {exec:"tabExec",agenda:"tabAgenda",func:"tabFunc",mov:"tabMov",equipe:"tabEquipe",kml:"tabKml"};
+  document.getElementById(mapa[aba]).classList.remove("hidden");
+  document.getElementById(tabMapa[aba]).classList.add("tab-active");
+  if (aba==="exec")   renderizarExecutivo();
+  if (aba==="agenda") renderizarCronograma();
+  if (aba==="func")   renderizarFunc();
+  if (aba==="mov")    renderizarMov();
+  if (aba==="equipe") renderizarEquipe();
+  if (aba==="kml")    document.getElementById("resKml").classList.add("hidden");
+}
+
+// ══════════════════════════════════════════════════
+//  EXPORTAR PDF — EXECUTIVO VISUAL
+// ══════════════════════════════════════════════════
+function exportarPDFDiretoria() {
+  const { jsPDF } = window.jspdf;
+  const data = document.getElementById("filtroDataExec").value;
+  const agora = new Date().toLocaleString("pt-BR");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W = 210, ML = 14, MR = 14, CW = W - ML - MR;
+
+  // Paleta de Cores Executiva
+  const C = {
+    azulEsc: [15, 23, 42], ciano: [6, 182, 212], amber: [245, 158, 11],
+    verde: [16, 185, 129], vermelho: [153, 27, 27], branco: [255, 255, 255],
+    cinzaCl: [248, 250, 252], cinzaLn: [226, 232, 240]
+  };
+
+  function fillRect(x, y, w, h, cor) { doc.setFillColor(...cor); doc.rect(x, y, w, h, "F"); }
+  function setFont(bold, size, cor) { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(...cor); }
+
+  let Y = 0;
+
+  // --- CABEÇALHO ---
+  fillRect(0, 0, W, 40, C.azulEsc);
+  fillRect(0, 0, W, 2, C.ciano);
+  try { doc.addImage(LOGO_B64, "JPEG", ML, 8, 25, 15); } catch (e) {}
+  setFont(true, 16, C.branco);
+  doc.text("RELATÓRIO OPERACIONAL INTEGRADO", 45, 18);
+  setFont(false, 9, [148, 163, 184]);
+  doc.text(`Nuvyon Frota Manager | Produção e Frota | Data: ${data}`, 45, 25);
+  Y = 48;
+
+  // --- SEÇÃO 1: PRODUÇÃO TÉCNICA (O que foi feito no dia) ---
+  setFont(true, 11, C.azulEsc);
+  doc.text("1. PRODUÇÃO DIÁRIA E ORDENS DE SERVIÇO", ML, Y);
+  Y += 4;
+  doc.setDrawColor(...C.ciano); doc.setLineWidth(0.5); doc.line(ML, Y, ML + CW, Y);
+  Y += 8;
+
+  let temProducao = false;
+  tecnicos.forEach(t => {
+    const prod = dbAtv[t.nome]?.[data];
+    if (prod && prod.trim() !== "") {
+      temProducao = true;
+      if (Y > 260) { doc.addPage(); Y = 20; }
+      
+      // Cabeçalho do Técnico dentro da lista
+      fillRect(ML, Y, CW, 7, [240, 249, 255]);
+      setFont(true, 8, C.azulEsc);
+      doc.text(`TÉCNICO: ${t.nome} (${t.cidade || t.placa || "Base"})`, ML + 2, Y + 4.5);
+      Y += 8;
+      
+      setFont(false, 8, [40, 40, 40]);
+      // Divide o texto das OSs para caber na largura da página
+      const splitProd = doc.splitTextToSize(prod, CW - 10);
+      doc.text(splitProd, ML + 4, Y);
+      Y += (splitProd.length * 4) + 6;
+    }
+  });
+
+  if (!temProducao) {
+    setFont(false, 8, C.cinza);
+    doc.text("Nenhuma produção registrada para esta data.", ML, Y);
+    Y += 10;
+  }
+
+  // --- SEÇÃO 2: MOVIMENTAÇÃO EXTRA (Onde o veículo andou fora de hora) ---
+  const movs = dbMov.filter(m => m.data === data);
+  if (movs.length > 0) {
+    if (Y > 230) { doc.addPage(); Y = 20; }
+    Y += 10;
+    setFont(true, 11, C.vermelho);
+    doc.text("2. ALERTAS DE MOVIMENTAÇÃO EXTRA-EXPEDIENTE", ML, Y);
+    Y += 4;
+    doc.setDrawColor(...C.vermelho); doc.line(ML, Y, ML + CW, Y);
+    Y += 8;
+
+    movs.forEach(m => {
+      const splitMotivo = doc.splitTextToSize(m.motivo, CW - 10);
+      const hBox = (splitMotivo.length * 4) + 12;
+
+      if (Y + hBox > 280) { doc.addPage(); Y = 20; }
+
+      // Caixa de Alerta (Fundo Rosado)
+      fillRect(ML, Y, CW, hBox, [254, 242, 242]);
+      doc.setDrawColor(252, 165, 165); doc.rect(ML, Y, CW, hBox);
+      
+      setFont(true, 8, C.vermelho);
+      doc.text(`CONDUTOR: ${m.nome} | HORÁRIO: ${m.inicio} - ${m.fim}`, ML + 4, Y + 6);
+      setFont(false, 7.5, [30, 30, 30]);
+      doc.text(splitMotivo, ML + 4, Y + 12);
+      Y += hBox + 5;
+    });
+  }
+
+  // --- SEÇÃO 3: EVIDÊNCIAS FOTOGRÁFICAS (Galeria) ---
+  const tecsComEv = tecnicos.filter(t => (dbEv[t.nome]?.[data] || []).length > 0);
+  const movsComEv = movs.filter(m => dbEvMov[m.id]);
+
+  if (tecsComEv.length > 0 || movsComEv.length > 0) {
+    doc.addPage();
+    Y = 20;
+    setFont(true, 11, C.azulEsc);
+    doc.text("3. EVIDÊNCIAS FOTOGRÁFICAS DO DIA", ML, Y);
+    Y += 10;
+
+    let posX = ML, posY = Y, imgW = 60, imgH = 45;
+    
+    // Fotos de Produção (OSs)
+    tecsComEv.forEach(t => {
+      const fotos = dbEv[t.nome][data];
+      fotos.forEach(src => {
+        if (posY > 240) { doc.addPage(); posY = 20; }
+        try {
+          doc.addImage(src, "JPEG", posX, posY, imgW, imgH);
+          setFont(true, 6, C.ciano);
+          doc.text(`PROD: ${t.nome.split(' ')[0]}`, posX, posY + imgH + 3);
+          
+          posX += imgW + 5;
+          if (posX > 160) { posX = ML; posY += imgH + 12; }
+        } catch(e){}
+      });
+    });
+
+    // Fotos de Movimentação (Extra)
+    movsComEv.forEach(m => {
+      const src = dbEvMov[m.id];
+      if (src) {
+        if (posY > 240) { doc.addPage(); posY = 20; }
+        try {
+          doc.addImage(src, "JPEG", posX, posY, imgW, imgH);
+          setFont(true, 6, C.amber);
+          doc.text(`MOV: ${m.nome.split(' ')[0]}`, posX, posY + imgH + 3);
+          
+          posX += imgW + 5;
+          if (posX > 160) { posX = ML; posY += imgH + 12; }
+        } catch(e){}
+      }
+    });
+  }
+
+  // Rodapé em todas as páginas seria complexo, vamos salvar o arquivo
+  doc.save(`Relatorio_Operacional_${data}.pdf`);
+  showToast("📄 PDF Geral Gerado!", "ok");
+}
+
+
+function resetarDados() {
+  if (!confirm("⚠️ Apagar TODOS os dados? Esta ação não pode ser desfeita.")) return;
+  dbAtv={}; dbMov=[]; dbEv={}; dbEvMov={};
+  tecnicos = TECNICOS_PADRAO.map(t=>({...t}));
+  ["atividadesFuncionarios","ocorrenciasForaExpediente","evidenciasAtividades","evidenciasMov","dbTecnicos"].forEach(k=>localStorage.removeItem(k));
+  salvarNuvem();
+  renderizarExecutivo(); renderizarMov(); renderizarEquipe();
+  atualizarSelectNomes();
+  showToast("🗑️ Dados resetados.","info");
+}
+
+
+// ══════════════════════════════════════════════════
+//  AUDITORIA DE DESLOCAMENTO (PDF / EXCEL)
+// ══════════════════════════════════════════════════
+let auditDadosAtuais = null;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+async function processarAuditoria() {
+  const file = document.getElementById("inputAuditFile").files[0];
+  if (!file) { showToast("Selecione um arquivo PDF ou Excel", "err"); return; }
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  showToast("⏳ Processando arquivo...", "info");
+
+  if (ext === 'pdf') {
+    await lerPDF(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    await lerExcel(file);
+  } else {
+    showToast("Formato não suportado!", "err");
+  }
+}
+
+async function lerPDF(file) {
+  const reader = new FileReader();
+  reader.onload = async function() {
+    const typedarray = new Uint8Array(this.result);
+    try {
+      const pdf = await pdfjsLib.getDocument(typedarray).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(s => s.str).join(" ") + "\n";
+      }
+      parsearTextoPDF(fullText);
+    } catch (err) {
+      showToast("Erro ao ler PDF: " + err.message, "err");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function normalizarPlaca(p) {
+  // Remove espaços, hífens e converte para maiúsculas para comparação uniforme
+  return (p || "").replace(/[\s\-]/g, "").toUpperCase();
+}
+
+function parsearTextoPDF(text) {
+  // ── CORREÇÃO 1: Regex ampliada para capturar placa em múltiplos formatos ──
+  // Suporta formato antigo (ABC-1234), Mercosul (ABC1D23), com ou sem hífen/espaço,
+  // labels "Placa:", "Veículo:", "Veiculo Placa:", "Veic.:", etc.
+  const placaPatterns = [
+    /[Vv]e[íi]c(?:ulo)?[.\s]*[Pp]laca[:\s]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
+    /[Pp]laca[:\s]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
+    /[Vv]e[íi]c(?:ulo)?[.\s:]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
+    /\b([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})\b/
+  ];
+  let placa = "—";
+  for (const pat of placaPatterns) {
+    const m = text.match(pat);
+    if (m) { placa = m[1].replace(/[\s]/g, "").toUpperCase(); break; }
+  }
+
+  // ── BUG FIX 1b: Regex ampliada para capturar data em múltiplos formatos ──
+  // Suporta: "2026-04-08", "08/04/2026", "04 Apr 2026", "08-04-2026"
+  const dataPatterns = [
+    { re: /(\d{4}-\d{2}-\d{2})/, fn: m => m[1] },
+    { re: /(\d{2})\/(\d{2})\/(\d{4})/, fn: m => `${m[3]}-${m[2]}-${m[1]}` },
+    { re: /(\d{2})-(\d{2})-(\d{4})/, fn: m => `${m[3]}-${m[2]}-${m[1]}` },
+    { re: /(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/, fn: m => { const d = new Date(`${m[2]} ${m[1]} ${m[3]}`); return isNaN(d) ? null : d.toISOString().slice(0,10); } }
+  ];
+  let dataISO = "";
+  for (const { re, fn } of dataPatterns) {
+    const m = text.match(re);
+    if (m) { const r = fn(m); if (r) { dataISO = r; break; } }
+  }
+
+  const eventosEncontrados = [];
+  const eventRegex = /(\d{2}:\d{2}:\d{2})\s+(Posição \(parado\)|Ignição ligada|Ignição desligada|Posição regular|Dados de tacógrafo)/g;
+  let match;
+  const matches = [];
+  while ((match = eventRegex.exec(text)) !== null) {
+    matches.push({ hora: match[1], tipo: match[2], index: match.index });
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i];
+    const nextIndex = matches[i+1] ? matches[i+1].index : text.length;
+    const trecho = text.substring(current.index, nextIndex);
+    
+    let local = "Localização não identificada";
+    const localMatch = trecho.match(new RegExp(current.tipo.replace(/[()]/g, "\\$&") + "\\s+(.*?)\\s+(\\d{4,}|RPM|Odômetro)", "i"));
+    if (localMatch) local = localMatch[1].trim();
+
+    const odoMatch = trecho.match(/Odômetro.*?(\d+)/i);
+    const rpmMatch = trecho.match(/RPM.*?(\d+)/i);
+    
+    eventosEncontrados.push({
+      hora: current.hora,
+      evento: current.tipo,
+      local: local,
+      info: (odoMatch ? "Odo: " + odoMatch[1] : "") + (rpmMatch ? " | RPM: " + rpmMatch[1] : ""),
+      status: current.tipo.includes("Ignição") ? "ALERTA" : "OK"
+    });
+  }
+
+  if (eventosEncontrados.length === 0) {
+    showToast("Nenhum evento reconhecido no PDF.", "err");
+    return;
+  }
+
+  // ── CORREÇÃO 2: Identificar motorista com prioridade e precisão ──
+  // ESTRATÉGIA:
+  // 1) Busca por labels explícitos no cabeçalho: "Motorista:", "Condutor:", "Usuário:", "Operador:", "Driver:"
+  // 2) Cruza o valor encontrado com a lista de técnicos cadastrados
+  // 3) Só como último recurso: busca nome de técnico no cabeçalho (primeiros 800 chars), nunca no texto inteiro
+  // 4) Fallback: placa
+
+  let motoristaNome = null;
+
+  // Cabeçalho = primeiros 800 caracteres (antes dos eventos de telemetria)
+  const primeiroEvento = matches.length > 0 ? matches[0].index : 800;
+  const cabecalho = text.substring(0, Math.min(primeiroEvento, 800));
+  const cabecalhoUpper = cabecalho.toUpperCase();
+
+  // Passo 1: labels explícitos de motorista/condutor
+  const labelPatterns = [
+    /[Mm]otorista[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+    /[Cc]ondutor[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+    /[Uu]su[aá]rio[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+    /[Oo]perador[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+    /[Dd]river[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+    /[Rr]espons[aá]vel[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
+  ];
+
+  for (const pat of labelPatterns) {
+    const m = cabecalho.match(pat);
+    if (m) {
+      const nomeExtraido = m[1].trim().toUpperCase();
+      // Tenta cruzar com técnico cadastrado (match parcial: nome extraído contém parte do nome cadastrado ou vice-versa)
+      const tecEncontrado = tecnicos.find(t =>
+        t.nome && (
+          t.nome.toUpperCase().includes(nomeExtraido) ||
+          nomeExtraido.includes(t.nome.toUpperCase()) ||
+          // match por primeiro nome + sobrenome
+          t.nome.toUpperCase().split(" ").some(parte => parte.length > 3 && nomeExtraido.includes(parte))
+        )
+      );
+      if (tecEncontrado) { motoristaNome = tecEncontrado.nome; break; }
+      // Se não cruzou mas o label é explícito, usa o nome extraído mesmo assim
+      if (nomeExtraido.length > 3) { motoristaNome = m[1].trim(); break; }
+    }
+  }
+
+  // Passo 2: busca nome de técnico APENAS no cabeçalho (não no texto inteiro)
+  if (!motoristaNome) {
+    for (const t of tecnicos) {
+      if (t.nome && t.nome.length > 4 && cabecalhoUpper.includes(t.nome.toUpperCase())) {
+        motoristaNome = t.nome;
+        break;
+      }
+    }
+  }
+
+  // Passo 3: fallback pela placa
+  if (!motoristaNome && placa !== "—") {
+    const placaN = placa.replace(/[\s\-]/g, "").toUpperCase();
+    const tecPl = tecnicos.find(t => t.placa && t.placa.replace(/[\s\-]/g, "").toUpperCase() === placaN);
+    if (tecPl) motoristaNome = tecPl.nome;
+  }
+
+  finalizarAnalise(placa, dataISO, eventosEncontrados, "PDF", motoristaNome);
+}
+
+async function lerExcel(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, {type: 'array'});
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(firstSheet);
+    const eventos = json.map(row => ({
+      hora: row.Hora || row.Horário || row.time || "—",
+      evento: row.Evento || row.Tipo || "Evento",
+      local: row.Localização || row.Local || row.Address || "—",
+      info: row.Odômetro ? "Odo: " + row.Odômetro : "",
+      status: "OK"
+    }));
+    finalizarAnalise("Excel", "", eventos, "Excel");
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function finalizarAnalise(veiculo, data, eventos, tipo, motoristaNomePreResolvido) {
+  // ── CORREÇÃO 2b: Prioriza nome pré-resolvido; fallback por placa/data normalizada ──
+  const placaNorm = normalizarPlaca(veiculo);
+  let tec = null;
+  if (motoristaNomePreResolvido) {
+    tec = tecnicos.find(t => t.nome === motoristaNomePreResolvido);
+  }
+  if (!tec && placaNorm !== "" && placaNorm !== "—") {
+    tec = tecnicos.find(t => normalizarPlaca(t.placa) === placaNorm);
+  }
+  if (!tec && data) {
+    tec = tecnicos.find(t => dbAtv[t.nome] && dbAtv[t.nome][data]);
+  }
+  let alertas = eventos.filter(e => e.evento.includes("Ignição") || e.status === "ALERTA").length;
+  auditDadosAtuais = { veiculo, data, eventos, tecnico: tec, tipo };
+
+  document.getElementById("resKml").classList.remove("hidden");
+  document.getElementById("auditStatsVeiculo").innerText = veiculo;
+  document.getElementById("auditStatsData").innerText = data || "—";
+  document.getElementById("auditStatsTecnico").innerText = tec ? tec.nome : "Não identificado";
+  document.getElementById("auditStatsAlertas").innerText = alertas;
+  document.getElementById("auditBadgeTipo").innerText = tipo;
+
+  const tbody = document.getElementById("tabelaKml");
+  tbody.innerHTML = eventos.map(e => {
+    const isAlerta = e.evento.includes("Ignição") || e.status === "ALERTA";
+    const corStatus = isAlerta ? "bg-amber-900/40 text-amber-400" : "bg-emerald-900/40 text-emerald-400";
+    return `
+      <tr class="hover:bg-slate-800/40 transition border-b border-slate-700/50">
+        <td class="p-3 font-mono text-cyan-400 text-xs">${e.hora}</td>
+        <td class="p-3 font-bold text-white text-xs">${e.evento}</td>
+        <td class="p-3 text-slate-400 text-[10px] max-w-[300px]">${e.local}</td>
+        <td class="p-3 text-slate-500 text-[10px]">${e.info}</td>
+        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase ${corStatus}">${isAlerta ? 'Evento' : 'OK'}</span></td>
+      </tr>
+    `;
+  }).join("");
+  showToast("✅ Análise concluída!", "ok");
+}
+
+function gerarRelatorioAuditoria() {
+  if (!auditDadosAtuais) return;
+  const d = auditDadosAtuais;
+  const tec = d.tecnico || { nome: "NÃO IDENTIFICADO", placa: d.veiculo };
+  const inicio = d.eventos[0];
+  const fim = d.eventos[d.eventos.length - 1];
+
+  mudarAba('mov');
+  
+  // Preenche os novos campos individuais automaticamente
+  document.getElementById("movNome").value = tec.nome;
+  document.getElementById("movData").value = d.data || new Date().toISOString().slice(0, 10);
+  document.getElementById("movInicio").value = inicio.hora.substring(0, 5);
+  document.getElementById("movFim").value = fim.hora.substring(0, 5);
+  
+  document.getElementById("fVeiculo").value = d.veiculo;
+  document.getElementById("fPlaca").value = tec.placa || d.veiculo;
+  document.getElementById("fOrigem").value = inicio.local;
+  document.getElementById("fDestino").value = fim.local;
+  document.getElementById("fRelato").value = `Auditoria automática via arquivo ${d.tipo}. Foram analisados ${d.eventos.length} eventos de telemetria.`;
+  document.getElementById("fJustificativa").value = "Análise de auditoria de deslocamento";
+
+  showToast("📋 Dados da auditoria carregados no formulário!", "ok");
+}
+
+function exportarAuditoriaPDF() {
+  if (!auditDadosAtuais) return;
+  const { jsPDF } = window.jspdf;
+  const d = auditDadosAtuais;
+  const doc = new jsPDF();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 30, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.text("AUDITORIA DE TELEMETRIA", 105, 15, { align: "center" });
+  doc.setFontSize(10);
+  doc.text(`Arquivo: ${d.tipo} | Veículo: ${d.veiculo} | Data: ${d.data || "—"}`, 105, 25, { align: "center" });
+  doc.setTextColor(0, 0, 0);
+  const body = d.eventos.map(e => [e.hora, e.evento, e.local, e.info]);
+  doc.autoTable({ startY: 40, head: [['Hora', 'Evento', 'Localização', 'Informação']], body: body, theme: 'striped', styles: { fontSize: 7 }, headStyles: { fillColor: [6, 182, 212] } });
+  doc.save(`Auditoria_${d.veiculo}_${d.data}.pdf`);
+}
+
+function limparAuditoria() {
+  auditDadosAtuais = null;
+  document.getElementById("resKml").classList.add("hidden");
+  document.getElementById("inputAuditFile").value = "";
+}
+
+window.onload = () => {
+  // Set logo from LOGO_B64 constant
+  const hLogo = document.getElementById('headerLogo');
+  if (hLogo) hLogo.src = LOGO_B64;
+
+  const hoje = new Date().toISOString().slice(0,10);
+  document.getElementById("filtroDataExec").value = hoje;
+  document.getElementById("dataFunc").value        = hoje;
+  document.getElementById("movData").value         = hoje;
+  document.getElementById("filtroDataMov").value   = hoje;
+  atualizarSelectNomes();
+
+  document.getElementById("setupModal").classList.add("hidden");
+  if (modoLocal) { setSyncBadge("idle","Offline (local)"); }
+  else           { buscarNuvem(); }
+
+  mudarAba("exec");
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ChurnScope — Análise de Cancelamento</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6fa;--surface:#fff;--surface2:#f9fafb;--border:#e2e4ea;
+  --text:#1a1c23;--muted:#6b7280;--accent:#4f46e5;--accent-h:#4338ca;
+  --green:#16a34a;--green-bg:#dcfce7;
+  --yellow:#ca8a04;--yellow-bg:#fef9c3;
+  --red:#dc2626;--red-bg:#fee2e2;
+  --blue:#1d6cb5;--blue-bg:#dbeafe;
+  --purple:#7c3aed;--purple-bg:#f3e8ff;
+  --orange:#ea580c;--orange-bg:#ffedd5;
+  --r:10px;--sh:0 1px 4px rgba(0,0,0,.08);
+}
+[data-theme="dark"]{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3347;
+  --text:#e8eaf0;--muted:#8b93a8;--accent:#6366f1;--accent-h:#818cf8;
+  --green:#4ade80;--green-bg:#052e16;
+  --yellow:#fbbf24;--yellow-bg:#1c1300;
+  --red:#f87171;--red-bg:#2d0a0a;
+  --blue:#60a5fa;--blue-bg:#0a1e3d;
+  --purple:#c084fc;--purple-bg:#1e0a38;
+  --orange:#fb923c;--orange-bg:#431407;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;transition:background .25s,color .25s;}
+.app{display:flex;flex-direction:column;min-height:100vh;}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+header h1{font-size:16px;font-weight:700;white-space:nowrap;}
+.tag{font-size:10px;background:var(--blue-bg);color:var(--blue);padding:2px 8px;border-radius:20px;font-weight:700;}
+.dark-toggle{width:38px;height:20px;border-radius:20px;cursor:pointer;background:var(--border);border:none;position:relative;transition:background .25s;flex-shrink:0;}
+.dark-toggle.on{background:var(--accent);}
+.dark-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.dark-toggle.on::after{left:20px;}
+
+/* LAYOUT */
+.main{display:flex;flex:1;min-height:0;}
+.sidebar{width:270px;min-width:270px;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.content{flex:1;padding:18px;overflow-x:auto;}
+.sidebar-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+
+/* UPLOAD CARDS — FIXOS, SEM DROPDOWN */
+.upload-card{border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;background:var(--surface2);transition:border-color .15s;}
+.upload-card:hover{border-color:var(--accent);}
+.upload-card.done{border-color:var(--green);background:var(--green-bg);}
+.upload-card.done .uc-status{color:var(--green);}
+.uc-icon{font-size:20px;flex-shrink:0;}
+.uc-info{flex:1;min-width:0;}
+.uc-label{font-size:12px;font-weight:600;color:var(--text);}
+.uc-status{font-size:10px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.uc-btn{flex-shrink:0;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-family:inherit;transition:all .15s;white-space:nowrap;}
+.uc-btn:hover{background:var(--accent);color:#fff;}
+.upload-card.done .uc-btn{border-color:var(--green);color:var(--green);}
+.upload-card.done .uc-btn:hover{background:var(--green);color:#fff;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--surface2);}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:var(--accent-h);}
+.btn-sm{padding:4px 9px;font-size:11px;}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green);}
+.btn-green:hover{filter:brightness(1.1);}
+select,input[type=text],input[type=date]{font-family:inherit;font-size:13px;border:1px solid var(--border);border-radius:7px;padding:6px 9px;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;}
+select:focus,input:focus{border-color:var(--accent);}
+
+/* TABS */
+.tabs{display:flex;gap:3px;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:4px;width:fit-content;flex-wrap:wrap;}
+.tab{padding:6px 13px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:none;font-family:inherit;transition:all .15s;}
+.tab.active{background:var(--accent);color:#fff;font-weight:500;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--sh);}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+
+/* RISK */
+.risk-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.risk-low{background:var(--green-bg);color:var(--green);}
+.risk-med{background:var(--yellow-bg);color:var(--yellow);}
+.risk-high{background:var(--red-bg);color:var(--red);}
+.risk-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+/* THERM */
+.therm-bar{width:100%;height:18px;border-radius:20px;background:linear-gradient(90deg,#16a34a 0%,#ca8a04 50%,#dc2626 100%);position:relative;border:1px solid var(--border);}
+.therm-needle{position:absolute;top:-7px;width:3px;height:32px;background:var(--text);border-radius:2px;transform:translateX(-50%);transition:left .6s cubic-bezier(.4,0,.2,1);}
+.therm-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px;}
+
+/* SCORE BAR */
+.score-bar{height:6px;border-radius:4px;background:var(--border);overflow:hidden;}
+.score-fill{height:100%;border-radius:4px;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead{background:var(--surface2);}
+th{padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+
+/* CHIPS */
+.chip{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.chip-fin{background:var(--red-bg);color:var(--red);}
+.chip-tec{background:var(--blue-bg);color:var(--blue);}
+.chip-atd{background:var(--yellow-bg);color:var(--yellow);}
+.chip-log{background:var(--purple-bg);color:var(--purple);}
+.chip-gen{background:var(--surface2);color:var(--muted);}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;}
+
+/* FUNIL */
+.funnel-step{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:7px;background:var(--surface);}
+.funnel-bar-wrap{flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden;}
+.funnel-bar{height:100%;border-radius:5px;transition:width .6s;}
+.funnel-label{font-size:12px;font-weight:600;min-width:160px;}
+.funnel-count{font-size:14px;font-weight:700;min-width:36px;text-align:right;}
+
+/* CRUZAMENTO */
+.cross-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px;}
+.cross-search-bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+
+/* DIAGNOSIS CARD */
+.diag-card{border-radius:10px;padding:14px 16px;margin-bottom:10px;border:1.5px solid;}
+.diag-cansou{background:var(--red-bg);border-color:var(--red);}
+.diag-financeiro{background:var(--orange-bg);border-color:var(--orange);}
+.diag-misto{background:var(--purple-bg);border-color:var(--purple);}
+.diag-ok{background:var(--green-bg);border-color:var(--green);}
+
+/* PRESENCE */
+.presence-pills{display:flex;gap:4px;flex-wrap:wrap;}
+.pill{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;}
+.pill-on{background:var(--green-bg);color:var(--green);}
+.pill-off{background:var(--surface2);color:var(--muted);}
+
+/* TIMELINE */
+.timeline{list-style:none;position:relative;padding-left:16px;}
+.timeline::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:2px;background:var(--border);}
+.timeline li{position:relative;padding:0 0 11px 12px;}
+.timeline li::before{content:'';position:absolute;left:-13px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);}
+.tl-date{font-size:10px;color:var(--muted);}
+.tl-event{font-size:13px;margin-top:1px;}
+.tl-fin::before{background:var(--red)!important;}
+.tl-tec::before{background:var(--blue)!important;}
+.tl-log::before{background:var(--purple)!important;}
+
+/* EMPTY */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:8px;color:var(--muted);text-align:center;}
+
+/* QUICK SEARCH */
+.qs-result{font-size:12px;padding:8px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);margin-top:6px;}
+
+/* WORD CLOUD */
+#word-cloud{min-height:180px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:5px;padding:10px;}
+
+@media(max-width:1000px){.kpi-grid{grid-template-columns:repeat(3,1fr);}.chart-grid{grid-template-columns:1fr;}.sidebar{display:none;}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <svg width="24" height="24" viewBox="0 0 26 26" fill="none">
+    <rect width="26" height="26" rx="7" fill="#4f46e5"/>
+    <path d="M8 18 L13 8 L18 18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="13" cy="18" r="1.8" fill="#fff"/>
+  </svg>
+  <h1>ChurnScope</h1>
+  <span class="tag">BETA</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;color:var(--muted)" id="theme-label">☀ Claro</span>
+    <button class="dark-toggle" id="dark-toggle" title="Modo escuro"></button>
+    <div style="width:1px;height:20px;background:var(--border)"></div>
+    <button class="btn btn-sm" id="btn-export">⬇ Exportar</button>
+    <button class="btn btn-sm btn-primary" id="btn-demo">▶ Demo</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+  <!-- UPLOAD FIXO — sem dropdown, botão direto por linha -->
+  <div>
+    <div class="sidebar-title">📁 Carregar arquivos</div>
+    <div style="display:flex;flex-direction:column;gap:6px" id="upload-list">
+      <!-- gerado por JS -->
+    </div>
+    <button class="btn btn-primary" id="btn-process"
+      style="width:100%;margin-top:10px;justify-content:center;font-size:13px">
+      ⚙ Processar e cruzar dados
+    </button>
+  </div>
+
+  <!-- BUSCA RÁPIDA -->
+  <div>
+    <div class="sidebar-title">🔍 Busca rápida</div>
+    <input type="text" id="quick-search" placeholder="Nome ou código…" style="width:100%"/>
+    <div id="quick-result" style="font-size:12px;color:var(--muted);margin-top:5px">
+      Digite para ver resumo do cliente.
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div>
+    <div class="sidebar-title">Visão geral</div>
+    <div id="sidebar-stats" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+  <!-- CLUSTERS -->
+  <div>
+    <div class="sidebar-title">Clusters semânticos</div>
+    <div id="cluster-legend" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+  </div>
+
+</aside>
+
+<!-- CONTENT -->
+<main class="content">
+  <div class="tabs">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="funil">Funil de Churn</button>
+    <button class="tab" data-tab="clientes">Todos os Clientes</button>
+    <button class="tab" data-tab="cruzamento">Cruzamento</button>
+    <button class="tab" data-tab="timeline">Linha do Tempo</button>
+    <button class="tab" data-tab="palavras">Palavras-Chave</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="card" style="border-top:3px solid var(--accent);grid-column:span 5">
+        <div style="text-align:center;color:var(--muted);padding:20px">
+          Carregue os arquivos na sidebar e clique em <strong>⚙ Processar e cruzar dados</strong>
+          ou clique em <strong>▶ Demo</strong> para ver um exemplo.
+        </div>
+      </div>
+    </div>
+    <div class="chart-grid" id="predictive-summary"></div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Termômetro médio de risco da base</div>
+      <div style="padding:5px 0">
+        <div class="therm-bar"><div class="therm-needle" id="therm-needle" style="left:5%"></div></div>
+        <div class="therm-labels"><span>Baixo risco</span><span id="therm-pct" style="font-weight:600">—</span><span>Alto risco</span></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><div class="card-title">Distribuição de risco</div><div style="position:relative;height:210px"><canvas id="chart-risk"></canvas></div></div>
+      <div class="card"><div class="card-title">Top 10 motivos</div><div style="position:relative;height:210px"><canvas id="chart-motivos"></canvas></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><div class="card-title">Volume de chamados por cliente (top 10)</div><div style="position:relative;height:210px"><canvas id="chart-chamados"></canvas></div></div>
+      <div class="card"><div class="card-title">Correlação OS × Score de risco</div><div style="position:relative;height:210px"><canvas id="chart-corr"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- FUNIL -->
+  <div id="tab-funil" class="tab-content">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div class="card">
+        <div class="card-title">Funil — presença nas bases</div>
+        <div id="funil-steps" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Perfil de churn — financeiro vs. serviço</div>
+        <div style="position:relative;height:220px"><canvas id="chart-perfil"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><div class="card-title">Inadimplentes por seção/vencimento</div><div style="position:relative;height:200px"><canvas id="chart-fin"></canvas></div></div>
+      <div class="card"><div class="card-title">Clientes Hubsoft por faixa de score</div><div style="position:relative;height:200px"><canvas id="chart-serv"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠ Clientes cruzados — inadimplentes COM histórico de atendimento/OS</div>
+      <div class="tbl-wrap" style="margin-top:8px">
+        <table><thead><tr>
+          <th>Cód.</th><th>Nome</th><th>Cidade</th><th>Vencimento</th>
+          <th>Seção</th><th>Chamados</th><th>OS ab.</th><th>Score</th><th>Diagnóstico</th><th></th>
+        </tr></thead>
+        <tbody id="funil-cross-tbody"></tbody></table>
+      </div>
+      <div id="funil-cross-empty" class="empty" style="display:none">
+        <div style="font-size:28px">🎉</div>
+        <div>Nenhum cliente inadimplente cruzado com histórico de serviço.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TODOS OS CLIENTES -->
+  <div id="tab-clientes" class="tab-content">
+    <div class="filter-bar">
+      <input type="text" id="filter-nome" placeholder="Buscar nome ou código…" style="width:200px"/>
+      <select id="filter-status">
+        <option value="">Todos os status</option>
+        <option value="alto_risco">Alto risco</option>
+        <option value="atencao">Atenção</option>
+        <option value="baixo_risco">Baixo risco</option>
+        <option value="cancelado">Cancelado</option>
+        <option value="logistica">Log. reversa</option>
+      </select>
+      <select id="filter-cluster">
+        <option value="">Todos os clusters</option>
+        <option value="financeiro">Financeiro</option>
+        <option value="tecnico">Técnico</option>
+        <option value="atendimento">Atendimento</option>
+        <option value="logistica">Logística</option>
+      </select>
+      <select id="filter-base">
+        <option value="">Todas as bases</option>
+        <option value="matrix">Na Matrix</option>
+        <option value="hubsoft">No Hubsoft</option>
+        <option value="ambos">Em ambas</option>
+        <option value="so_matrix">Só na Matrix</option>
+        <option value="so_hubsoft">Só no Hubsoft</option>
+      </select>
+      <button class="btn btn-sm" id="btn-clear-filters">✕ Limpar</button>
+      <span id="filter-count" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>Cód.</th><th>Nome</th><th>Cidade</th><th>Bases</th>
+        <th>Atend. reais</th><th>OS ab.</th><th>Último motivo</th>
+        <th>Cluster</th><th>Score</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="client-tbody"></tbody></table>
+    </div>
+    <div id="table-empty" class="empty" style="display:none">
+      <div style="font-size:28px">🔍</div><div>Nenhum cliente encontrado.</div>
+    </div>
+  </div>
+
+  <!-- CRUZAMENTO -->
+  <div id="tab-cruzamento" class="tab-content">
+    <div class="cross-search-bar">
+      <span style="font-size:13px;font-weight:600;white-space:nowrap">🔗 Cruzar cliente:</span>
+      <input type="text" id="cross-input"
+        placeholder="Nome, código ou protocolo… (ex: JOÃO SILVA ou 48203)"
+        style="flex:1;min-width:200px"/>
+      <button class="btn btn-primary" id="btn-cross">🔍 Cruzar em todas as bases</button>
+    </div>
+    <div id="cross-result-area">
+      <div class="empty">
+        <div style="font-size:36px">🔗</div>
+        <div style="font-weight:600">Motor de cruzamento</div>
+        <div style="font-size:13px;max-width:400px">
+          Digite nome, código ou protocolo de um cliente para ver a presença em todas as bases
+          e descobrir se o churn foi por <strong>cansaço com o serviço</strong>
+          ou <strong>situação financeira particular</strong>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div id="tab-timeline" class="tab-content">
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="tl-select" style="width:300px">
+        <option value="">— Selecione um cliente —</option>
+      </select>
+      <span style="font-size:12px;color:var(--muted)">ordenado por maior score de risco</span>
+    </div>
+    <div id="timeline-content" class="card">
+      <div class="empty"><div style="font-size:28px">📅</div><div>Selecione um cliente.</div></div>
+    </div>
+  </div>
+
+  <!-- PALAVRAS-CHAVE -->
+  <div id="tab-palavras" class="tab-content">
+    <div class="chart-grid">
+      <div class="card"><div class="card-title">Nuvem de palavras</div><div id="word-cloud"></div></div>
+      <div class="card"><div class="card-title">Frequência por cluster</div><div style="position:relative;height:210px"><canvas id="chart-clusters"></canvas></div></div>
+    </div>
+    <div class="card"><div class="card-title">Top 30 palavras-chave</div><div id="keyword-table" style="margin-top:8px"></div></div>
+  </div>
+
+</main>
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- INPUT DE ARQUIVO OCULTOS — fora do DOM normal para não serem afetados por eventos -->
+<div id="file-inputs" style="display:none"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+// ============================================================
+// ESTADO
+// ============================================================
+const S = { raw:{}, clients:[], charts:{}, loaded:false };
+
+const FILE_TYPES = [
+  { 
+    key: 'matrix',       
+    label: 'Matrix (WhatsApp)', 
+    icon: '💬', 
+    hint: 'Entradas e conversas via WhatsApp' 
+  },
+  { 
+    key: 'atendimentos', 
+    label: 'Atendimentos Hubsoft', 
+    icon: '🎧', 
+    hint: 'Histórico de atendimentos fechados' 
+  },
+  { 
+    key: 'os_abertas',   
+    label: 'OS Abertas', 
+    icon: '🛠️', 
+    hint: 'Ordens de serviço aguardando execução' 
+  },
+  { 
+    key: 'os_fechadas',  
+    label: 'OS Fechadas', 
+    icon: '✅', 
+    hint: 'Relatório de ordens encerradas' 
+  },
+  { 
+    key: 'telefonia',    
+    label: 'Inadimplentes', 
+    icon: '📉', 
+    hint: 'Lista de devedores e pendências financeiras' 
+  },
+];
+
+const CLUSTERS = {
+  financeiro:  ['pagamento','inadimplência','inadimplente','débito','cobrança','fatura','boleto','atraso','multa','cancelar','financeiro','dívida','cheque','devolver','devolutiva','vencimento'],
+  tecnico:     ['falha','erro','bug','lentidão','queda','interrupção','instabilidade','técnico','manutenção','defeito','problema','reparo','oscilação','equipamento','dispositivo','sinal','fibra','conexão'],
+  atendimento: ['demora','espera','mal','ruim','péssimo','reclamação','atendimento','descaso','insatisfação','nps','insatisfeito','callcenter','prazo','sem resposta'],
+  logistica:   ['devolução','logística','reversa','troca','envio','entrega','produto','embalagem','frete','retorno','avaria','extravio']
+};
+const CL_COLORS = { financeiro:'#dc2626', tecnico:'#1d6cb5', atendimento:'#ca8a04', logistica:'#7c3aed', outro:'#6b7280' };
+const CL_LABELS = { financeiro:'Financeiro', tecnico:'Técnico', atendimento:'Atendimento', logistica:'Logística', outro:'Outros' };
+
+// ============================================================
+// DARK MODE
+// ============================================================
+const DT = document.getElementById('dark-toggle');
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  DT.classList.toggle('on',t==='dark');
+  document.getElementById('theme-label').textContent = t==='dark'?'🌙 Escuro':'☀ Claro';
+}
+applyTheme(localStorage.getItem('cs-theme')||'light');
+DT.addEventListener('click',function(){
+  const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  applyTheme(n); localStorage.setItem('cs-theme',n);
+  if(S.loaded){renderCharts();renderFunilCharts();}
+});
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('.tab').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    const name=btn.getAttribute('data-tab');
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+name).classList.add('active');
+    if(name==='palavras'&&S.loaded) renderKeywords();
+    if(name==='funil'   &&S.loaded) renderFunil();
+    if(name==='clientes'&&S.loaded) renderTable();
+    if(name==='timeline') renderTimeline();
+  });
+});
+
+// ============================================================
+// UPLOAD — CARDS FIXOS NA SIDEBAR
+// Cada card tem seu próprio <label> que abre o file picker.
+// Não usa dropdown. Não tem evento de fechar.
+// ============================================================
+function buildUploadList(){
+  const list = document.getElementById('upload-list');
+  const inp  = document.getElementById('file-inputs');
+  list.innerHTML = '';
+  inp.innerHTML  = '';
+
+  FILE_TYPES.forEach(function(f){
+    const ok   = !!S.raw[f.key];
+    const rows = ok ? S.raw[f.key].length : 0;
+    const inputId = 'inp-' + f.key;
+
+    // Input fora do fluxo visual
+    const input = document.createElement('input');
+    input.type   = 'file';
+    input.id     = inputId;
+    input.accept = '.csv,.xlsx,.xls';
+    input.style.display = 'none';
+    inp.appendChild(input);
+
+    // Card visível
+    const card = document.createElement('div');
+    card.id        = 'uc-' + f.key;
+    card.className = 'upload-card' + (ok?' done':'');
+    card.innerHTML =
+      '<div class="uc-icon">'+f.icon+'</div>'+
+      '<div class="uc-info">'+
+        '<div class="uc-label">'+f.label+'</div>'+
+        '<div class="uc-status" id="uc-status-'+f.key+'">'+
+          (ok ? '✓ '+rows+' registros carregados' : f.hint)+
+        '</div>'+
+      '</div>'+
+      '<button class="uc-btn" id="uc-btn-'+f.key+'">'+
+        (ok?'↺ Trocar':'📂 Selecionar')+
+      '</button>';
+    list.appendChild(card);
+
+    // Bind: botão → abre file picker
+    document.getElementById('uc-btn-'+f.key).addEventListener('click',function(e){
+      e.stopPropagation();
+      input.click();
+    });
+
+    // Bind: arquivo selecionado
+    input.addEventListener('change',function(e){
+      handleUpload(e, f.key);
+    });
+  });
+}
+
+async function handleUpload(evt, key){
+  const file = evt.target.files[0]; if(!file) return;
+  const statusEl = document.getElementById('uc-status-'+key);
+  const card     = document.getElementById('uc-'+key);
+  const btnEl    = document.getElementById('uc-btn-'+key);
+  statusEl.textContent = '⏳ Carregando…';
+  statusEl.style.color = 'var(--yellow)';
+  try {
+    if(key==='matrix'){
+      S.raw[key] = await readMatrixFile(file);
+    } else {
+      S.raw[key] = await readFile(file);
+    }
+    const n = S.raw[key].length;
+    statusEl.textContent = '✓ '+file.name+' — '+n+' registro'+(n!==1?'s':'');
+    statusEl.style.color = 'var(--green)';
+    card.classList.add('done');
+    btnEl.textContent = '↺ Trocar';
+  } catch(e) {
+    statusEl.textContent = '✕ Erro: '+e.message;
+    statusEl.style.color = 'var(--red)';
+    card.classList.remove('done');
+  }
+  // Reset input para permitir re-upload do mesmo arquivo
+  evt.target.value = '';
+}
+
+// ============================================================
+// BOTÕES PRINCIPAIS
+// ============================================================
+document.getElementById('btn-process').addEventListener('click', processAll);
+document.getElementById('btn-export').addEventListener('click', exportReport);
+document.getElementById('btn-demo').addEventListener('click', loadDemo);
+document.getElementById('btn-cross').addEventListener('click', runCross);
+document.getElementById('cross-input').addEventListener('keydown',function(e){if(e.key==='Enter')runCross();});
+['filter-nome','filter-status','filter-cluster','filter-base'].forEach(function(id){
+  const el=document.getElementById(id);
+  el.addEventListener('input',function(){if(S.loaded)renderTable();});
+  el.addEventListener('change',function(){if(S.loaded)renderTable();});
+});
+document.getElementById('btn-clear-filters').addEventListener('click',function(){
+  ['filter-nome','filter-status','filter-cluster','filter-base'].forEach(id=>{ document.getElementById(id).value=''; });
+  if(S.loaded)renderTable();
+});
+document.getElementById('tl-select').addEventListener('change', renderTimeline);
+document.getElementById('quick-search').addEventListener('input', renderQuickSearch);
+
+// ============================================================
+// NORMALIZAÇÃO DE COLUNAS
+// ============================================================
+const COL_MAP = {
+  cliente:  ['cliente','nome','name','razaosocial','nomerazaosocial','clientenome','nmcliente','nomecliente','nomefantasia'],
+  id:       ['id','codigo','codigocliente','codcliente','customerid','idcliente','idcontrato','codigoos','cod'],
+  cpf:      ['cpf','cnpj','cpfcnpj','documento'],
+  protocolo:['protocolo','nprotocolo','numeroprotocolo','ticket','chamado','numerochamado','numeroos','ordemservico','nos'],
+  data:     ['data','date','dt','dataabertura','datafechamento','dataatendimento','datavencimento','dtabertura','createdat','abertura','fechamento'],
+  status:   ['status','situacao','estado','tipo','situação'],
+  motivo:   ['motivo','motivofechamento','motivocancelamento','causa','reason','motivoatendimento'],
+  descricao:['descricao','description','texto','observacao','obs','detalhe','nota','notas','descricaoatendimento'],
+  cidade:   ['cidade','city','municipio','município'],
+};
+function normKey(col){
+  const c=String(col||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  for(const[k,vs]of Object.entries(COL_MAP))
+    if(vs.some(v=>c===v||c.startsWith(v)||c.includes(v)))return k;
+  return c;
+}
+function normRow(row){
+  const o={};
+  for(const[k,v]of Object.entries(row)) o[normKey(k)]=(v===null||v===undefined)?'':String(v).trim();
+  return o;
+}
+// Normaliza nome para comparação fuzzy
+function normName(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
+}
+// Verifica se dois nomes são similares (substring bilateral)
+function nameMatch(a,b){
+  const na=normName(a), nb=normName(b);
+  if(!na||!nb) return false;
+  // Match exato ou substring (ex: "JOAO SILVA" bate com "JOAO CARLOS SILVA")
+  if(na===nb) return true;
+  const wa=na.split(' '), wb=nb.split(' ');
+  // Pelo menos 2 palavras em comum (sobrenome)
+  const common=wa.filter(w=>w.length>2&&wb.includes(w));
+  return common.length>=2;
+}
+function normProt(p){return String(p||'').toLowerCase().replace(/[^a-z0-9]/g,'').trim();}
+function protocolValue(r){return normProt(r.protocolo||r.ticket||r.numerochamado||r.numeroos||r.os||r.chamado||r.numero||'');}
+
+// ============================================================
+// LEITURA — XLSX/CSV GENÉRICO (Hubsoft, OS, Telefonia)
+// ============================================================
+function readFile(file){
+  return new Promise(function(resolve,reject){
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(ext==='csv'){
+      Papa.parse(file,{header:true,skipEmptyLines:'greedy',encoding:'UTF-8',dynamicTyping:false,
+        complete:function(r){resolve(r.data.map(normRow));},error:reject});
+    } else if(['xlsx','xls'].includes(ext)){
+      const reader=new FileReader();
+      reader.onload=function(e){
+        try{
+          const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+          const sheet=wb.Sheets[wb.SheetNames[0]];
+          const raw=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',blankrows:false,raw:false});
+          if(!raw||!raw.length){resolve([]);return;}
+          // Detecta linha de header
+          let hr=0;
+          for(let i=0;i<Math.min(15,raw.length);i++){
+            const tc=raw[i].filter(v=>{const s=String(v||'').trim();return s.length>1&&isNaN(Number(s.replace(/[.,'\-/]/g,'')));});
+            if(tc.length>=2){hr=i;break;}
+          }
+          const headers=(raw[hr]||[]).map((h,i)=>String(h||'').trim()||'col'+i);
+          const data=[];
+          for(let i=hr+1;i<raw.length;i++){
+            const row=raw[i];
+            if(!row||row.every(v=>String(v||'').trim()===''))continue;
+            const obj={};
+            headers.forEach((h,hi)=>{obj[normKey(h)]=String(row[hi]!==undefined?row[hi]:'').trim();});
+            data.push(obj);
+          }
+          resolve(data);
+        }catch(err){reject(err);}
+      };
+      reader.onerror=reject;
+      reader.readAsArrayBuffer(file);
+    } else {
+      reject(new Error('Formato não suportado: '+ext));
+    }
+  });
+}
+
+// ============================================================
+// LEITURA — MATRIX / CONTROLE DE INADIMPLÊNCIA
+// Estrutura: codigo_cliente | nome_razaosocial | cidade | data_vencimento
+// ============================================================
+function readMatrixFile(file){
+  return new Promise(function(resolve,reject){
+    const ext=file.name.split('.').pop().toLowerCase();
+
+    function parse2d(rows2d){
+      const result=[];
+      let section='Pendente';
+      for(let i=0;i<rows2d.length;i++){
+        const row=rows2d[i]||[];
+        // Converte cada celula para string limpa, tratando null/undefined
+        const c0=String(row[0]==null?'':row[0]).trim();
+        const c1=String(row[1]==null?'':row[1]).trim();
+        const c2=String(row[2]==null?'':row[2]).trim();
+        const c3=String(row[3]==null?'':row[3]).trim();
+
+        // Pula linha de header (codigo_cliente / nome_razaosocial)
+        const c0n=c0.toLowerCase().replace(/[^a-z]/g,'');
+        const c1n=c1.toLowerCase().replace(/[^a-z]/g,'');
+        if(c0n.includes('codigocliente')||c0n==='codigo'||c1n.includes('nomerazao'))continue;
+
+        // Linha totalmente vazia
+        if(!c0&&!c1&&!c2&&!c3)continue;
+
+        // Linha de secao separadora: col0 vazio, col1 tem texto de grupo
+        if(!c0&&c1){
+          const c1norm=c1.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+          if(/(pendente|vencimento|vcmto|secao|grupo|lote)/.test(c1norm)){
+            section=c1.trim();continue;
+          }
+        }
+
+        // Linha de dado valida: col0 numerico OU col1 com nome
+        const codRaw=c0.replace(/[.\-\s]/g,'');
+        const isNum=/^\d+$/.test(codRaw)&&codRaw.length>0;
+        if(!isNum&&!c1)continue;
+
+        result.push({
+          id:      isNum?codRaw:(c1?normName(c1):''),
+          cliente: c1.toUpperCase(),
+          cidade:  c2,
+          data:    c3,
+          secao:   section,
+          _from_matrix:true
+        });
+      }
+      return result;
+    }
+
+    if(ext==='csv'){
+      Papa.parse(file,{header:false,skipEmptyLines:false,encoding:'UTF-8',
+        complete:function(r){resolve(parse2d(r.data));},error:reject});
+    } else if(['xlsx','xls'].includes(ext)){
+      const reader=new FileReader();
+      reader.onload=function(e){
+        try{
+          const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+          const sheet=wb.Sheets[wb.SheetNames[0]];
+          const rows2d=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',blankrows:false,raw:false});
+          resolve(parse2d(rows2d));
+        }catch(err){reject(err);}
+      };
+      reader.onerror=reject;
+      reader.readAsArrayBuffer(file);
+    } else {
+      reject(new Error('Formato não suportado: '+ext));
+    }
+  });
+}
+
+// ============================================================
+// PROCESSAMENTO — ENGINE DE CRUZAMENTO
+// Cruza Matrix × Hubsoft por: 1) codigo_cliente, 2) nome similar
+// ============================================================
+function processAll(){
+  if(Object.keys(S.raw).length===0){alert('Carregue ao menos um arquivo primeiro.');return;}
+  S.clients=buildProfiles();
+  S.loaded=true;
+  renderAll();
+}
+
+function buildProfiles(){
+  const map={};
+  const protocolIndex={};
+
+  function registerProtocol(client, prot){
+    if(!client||!prot) return;
+    if(!client.protocolos) client.protocolos=[];
+    if(!client.protocolos.includes(prot)) client.protocolos.push(prot);
+    protocolIndex[prot]=client;
+  }
+
+  function getClientId(r){
+    return String(r.id||r.codigo_cliente||r.codigocliente||r.cpf||'').trim().replace(/\.0$/,'');
+  }
+
+  function contactKey(r){
+    const id=getClientId(r);
+    const prot=protocolValue(r);
+    const name=normName(r.cliente||r.nome||'');
+    return [id||'',prot||'',name||''].filter(Boolean).join('|');
+  }
+
+  function ensure(id,name,cidade,prot){
+    const rawId=String(id||'').trim().replace(/\.0$/,'');
+    let key=rawId.replace(/[\.\-\s]/g,'');
+    if(!key) key=normName(name);
+    if(!key && prot && protocolIndex[prot]) return protocolIndex[prot];
+    if(!key) return null;
+    if(!map[key] && prot && protocolIndex[prot]) return protocolIndex[prot];
+    if(!map[key]) map[key]={
+      id:key,nome:name||key,cidade:cidade||'',
+      chamados:[],os_abertas:[],os_fechadas:[],telefonia:[],
+      matrix_data:null,_in_matrix:false,_in_hubsoft:false,eventos:[],protocolos:[],real_attendances:0
+    };
+    if(name&&name.length>map[key].nome.length) map[key].nome=name;
+    if(cidade&&!map[key].cidade) map[key].cidade=cidade;
+    if(prot) registerProtocol(map[key], prot);
+    return map[key];
+  }
+
+  // Índice de busca da Matrix por nome normalizado e protocolo
+  const mxByNorm={};
+  const mxByCode={};
+  const mxByProt={};
+  (S.raw.matrix||[]).forEach(function(r){
+    // Indexa por codigo (pode vir como "48203" ou "48203.0")
+    const id=String(r.id||'').trim().replace(/\.0$/,'').replace(/[.\-\s]/g,'');
+    if(id)mxByCode[id]=r;
+    const prot=protocolValue(r);
+    if(prot)mxByProt[prot]=r;
+    // Indexa por nome normalizado (sem acentos, maiusculas, espacos extras)
+    const nn=normName(r.cliente||r.nome||'');
+    if(nn)mxByNorm[nn]=r;
+    // Indexa tambem cada palavra do nome com >= 4 chars para busca parcial
+    nn.split(' ').filter(w=>w.length>=4).forEach(function(w){
+      if(!mxByNorm['_w_'+w])mxByNorm['_w_'+w]=r;
+    });
+  });
+
+  // Função que tenta cruzar um cliente com a Matrix
+  function tryMatrix(c){
+    if(c._in_matrix)return;
+    // 1. Por código exato
+    if(mxByCode[c.id]){c._in_matrix=true;c.matrix_data=mxByCode[c.id];if(!c.cidade&&c.matrix_data.cidade)c.cidade=c.matrix_data.cidade;return;}
+    // 2. Por nome normalizado exato
+    const nn=normName(c.nome);
+    if(nn&&mxByNorm[nn]){c._in_matrix=true;c.matrix_data=mxByNorm[nn];if(!c.cidade&&c.matrix_data.cidade)c.cidade=c.matrix_data.cidade;return;}
+    // 3. Por nome similar (fuzzy — 2+ palavras em comum)
+    for(const[mnn,mr]of Object.entries(mxByNorm)){
+      if(nameMatch(c.nome,mr.cliente||mr.nome||'')){
+        c._in_matrix=true;c.matrix_data=mr;if(!c.cidade&&mr.cidade)c.cidade=mr.cidade;return;
+      }
+    }
+    // 4. Por protocolo compartilhado entre o Hubsoft e a Matrix
+    for(const prot of c.protocolos||[]){
+      if(mxByProt[prot]){c._in_matrix=true;c.matrix_data=mxByProt[prot];if(!c.cidade&&mxByProt[prot].cidade)c.cidade=mxByProt[prot].cidade;return;}
+    }
+  }
+
+  // Carrega Matrix primeiro
+  (S.raw.matrix||[]).forEach(function(r){
+    const id=getClientId(r);
+    const nome=String(r.cliente||r.nome||'').trim();
+    const prot=protocolValue(r);
+    const c=ensure(id,nome,r.cidade,prot);
+    if(!c)return;
+    c._in_matrix=true;c.matrix_data=r;
+    if(r.data)c.eventos.push({data:pd(r.data),tipo:'💰 Inadimplência',detalhe:'Vencimento: '+r.data+(r.secao?' ['+r.secao+']':''),cluster:'financeiro'});
+  });
+
+  // Atendimentos
+  (S.raw.atendimentos||[]).forEach(function(r){
+    const id=getClientId(r);
+    const nome=String(r.cliente||r.nome||'').trim();
+    const prot=protocolValue(r);
+    const c=ensure(id,nome,r.cidade,prot); if(!c)return;
+    if(prot) registerProtocol(c,prot);
+    c.chamados.push(r);
+    c.eventos.push({data:pd(r.data),tipo:'📋 Atendimento',detalhe:r.motivo||r.descricao||'',protocolo:prot,cluster:detectTextCluster(r.motivo+' '+r.descricao)});
+    tryMatrix(c);
+  });
+
+  // OS Abertas
+  (S.raw.os_abertas||[]).forEach(function(r){
+    const id=getClientId(r);
+    const nome=String(r.cliente||r.nome||'').trim();
+    const prot=protocolValue(r);
+    const c=ensure(id,nome,r.cidade,prot); if(!c)return;
+    if(prot) registerProtocol(c,prot);
+    c.os_abertas.push(r);
+    c.eventos.push({data:pd(r.data),tipo:'🔓 OS Aberta',detalhe:r.descricao||r.motivo||'',protocolo:prot,cluster:detectTextCluster(r.descricao+' '+r.motivo)});
+    tryMatrix(c);
+  });
+
+  // OS Fechadas
+  (S.raw.os_fechadas||[]).forEach(function(r){
+    const id=getClientId(r);
+    const nome=String(r.cliente||r.nome||'').trim();
+    const prot=protocolValue(r);
+    const c=ensure(id,nome,r.cidade,prot); if(!c)return;
+    if(prot) registerProtocol(c,prot);
+    c.os_fechadas.push(r);
+    c.eventos.push({data:pd(r.data),tipo:'🔒 OS Fechada',detalhe:r.descricao||r.motivo||'',protocolo:prot,cluster:detectTextCluster(r.descricao+' '+r.motivo)});
+    tryMatrix(c);
+  });
+
+  // Inadimplentes
+  (S.raw.telefonia||[]).forEach(function(r){
+    const id=getClientId(r);
+    const nome=String(r.cliente||r.nome||'').trim();
+    const prot=protocolValue(r);
+    const c=ensure(id,nome,r.cidade,prot); if(!c)return;
+    if(prot) registerProtocol(c,prot);
+    c.telefonia.push(r);
+    c.eventos.push({data:pd(r.data),tipo:'📞 Ligação',detalhe:r.descricao||r.motivo||'',protocolo:prot,cluster:detectTextCluster(r.descricao+' '+r.motivo)});
+    tryMatrix(c);
+  });
+
+  // Segunda passagem: clientes da Matrix que não tiveram match no Hubsoft já estão ok
+  // Calcular flags e scores
+  return Object.values(map).map(function(c){
+    c._in_hubsoft=c.chamados.length>0||c.os_abertas.length>0||c.os_fechadas.length>0||c.telefonia.length>0;
+    const contacts=new Set();
+    [...c.chamados,...c.os_abertas,...c.os_fechadas,...c.telefonia].forEach(function(r){
+      const key=contactKey(r);
+      if(key) contacts.add(key);
+    });
+    c.real_attendances=contacts.size;
+    c.score=calcScore(c);
+    c.status=calcStatus(c.score,c);
+    c.cluster=calcCluster(c);
+    c.churn_diag=calcDiag(c); // Diagnóstico de churn
+    c.predict=calcPrediction(c);
+    c.ultimo_motivo=lastMotivo(c);
+    c.eventos.sort(function(a,b){return(b.data||0)-(a.data||0);});
+    return c;
+  });
+}
+
+// ============================================================
+// FUNÇÕES AUXILIARES DE CÁLCULO
+// ============================================================
+function pd(v){if(!v)return null;if(v instanceof Date)return v;const d=new Date(v);return isNaN(d)?null:d;}
+function allText(c){return[...c.chamados,...c.os_abertas,...c.os_fechadas,...c.telefonia].map(r=>(r.motivo||'')+' '+(r.descricao||'')).join(' ').toLowerCase();}
+function countKw(t,ws){return ws.filter(w=>t.includes(w)).length;}
+function detectTextCluster(text){
+  const t=String(text||'').toLowerCase();
+  let best='outro',bestN=0;
+  for(const[k,ws]of Object.entries(CLUSTERS)){const n=countKw(t,ws);if(n>bestN){bestN=n;best=k;}}
+  return bestN>0?best:'outro';
+}
+
+function calcScore(c){
+  let s=0;
+  s+=Math.min(c.chamados.length*8,30);
+  s+=Math.min(c.os_abertas.length*10,25);
+  s+=Math.min(c.os_fechadas.length*3,15);
+  const t=allText(c);
+  s+=countKw(t,CLUSTERS.financeiro)*4;
+  s+=countKw(t,CLUSTERS.tecnico)*2;
+  s+=countKw(t,CLUSTERS.logistica)*5;
+  s+=countKw(t,CLUSTERS.atendimento)*2;
+  if(c._in_matrix)s+=15;
+  if(t.includes('reversa')||t.includes('devolutiva'))s+=20;
+  const u=c.eventos.find(e=>e.data);
+  if(u&&u.data){const d=(Date.now()-u.data.getTime())/86400000;s+=d<7?10:d<30?5:0;}
+  return Math.min(Math.round(s),100);
+}
+
+function calcStatus(score,c){
+  const t=allText(c);
+  if(t.includes('cancelado')||t.includes('cancelar'))return'cancelado';
+  if(t.includes('reversa')||t.includes('devolutiva'))return'logistica';
+  if(score>=65)return'alto_risco';
+  if(score>=35)return'atencao';
+  return'baixo_risco';
+}
+
+function calcCluster(c){
+  const t=allText(c);const sc={};
+  for(const[k,ws]of Object.entries(CLUSTERS))sc[k]=countKw(t,ws);
+  if(c._in_matrix&&!Object.values(sc).some(v=>v>0))sc.financeiro=1;
+  const best=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0];
+  return(best&&best[1]>0)?best[0]:'outro';
+}
+
+// Diagnóstico qualitativo de churn
+function calcDiag(c){
+  const t=allText(c);
+  const finScore=countKw(t,CLUSTERS.financeiro)+(c._in_matrix?5:0);
+  const svcScore=countKw(t,CLUSTERS.tecnico)+countKw(t,CLUSTERS.atendimento)+countKw(t,CLUSTERS.logistica);
+
+  if(c._in_matrix&&svcScore>=3){
+    return{tipo:'misto',icon:'🔴',titulo:'Cansou E parou de pagar',
+      texto:'Cliente com histórico de problemas técnicos/atendimento E inadimplente. Provável churn por insatisfação acumulada — parou de pagar porque não quer mais o serviço.',
+      cor:'var(--red)'};
+  }
+  if(c._in_matrix&&svcScore<3){
+    return{tipo:'financeiro',icon:'🟠',titulo:'Parou de pagar (financeiro)',
+      texto:'Cliente inadimplente mas sem histórico relevante de reclamações. Provável situação financeira particular — não necessariamente insatisfeito com o serviço.',
+      cor:'var(--orange)'};
+  }
+  if(!c._in_matrix&&svcScore>=3){
+    return{tipo:'cansou',icon:'🟡',titulo:'Sinais de cansaço com serviço',
+      texto:'Cliente com várias reclamações técnicas e/ou de atendimento, mas ainda não inadimplente. Risco elevado de cancelamento se os problemas não forem resolvidos.',
+      cor:'var(--yellow)'};
+  }
+  return{tipo:'ok',icon:'🟢',titulo:'Sem sinais críticos',
+    texto:'Cliente sem padrão claro de churn no momento.',
+    cor:'var(--green)'};
+}
+function calcPrediction(c){
+  const lost = c._in_matrix || c.status==='cancelado' || c.status==='logistica';
+  if(lost){
+    return {lost:true,willLose:false,reason:c.churn_diag.titulo,text:'Cliente já perdido ou inadimplente.',label:'Perdido',cor:c.churn_diag.cor};
+  }
+  if(c.score>=65){
+    return {lost:false,willLose:true,reason:c.churn_diag.titulo,text:'Alto risco de churn em breve se não agir.',label:'Risco alto',cor:'var(--red)'};
+  }
+  if(c.score>=35){
+    return {lost:false,willLose:true,reason:c.churn_diag.titulo,text:'Risco moderado de churn. Monitore de perto.',label:'Risco médio',cor:'var(--yellow)'};
+  }
+  return {lost:false,willLose:false,reason:c.churn_diag.titulo,text:'Baixo risco de churn no momento.',label:'Estável',cor:'var(--green)'};
+}
+
+function lastMotivo(c){
+  const all=[...c.chamados,...c.os_fechadas].filter(r=>r.motivo||r.descricao);
+  if(!all.length)return c._in_matrix?'Inadimplência/vencimento':'—';
+  const txt=all[all.length-1].motivo||all[all.length-1].descricao||'';
+  return txt.length>55?txt.slice(0,52)+'…':txt;
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll(){
+  renderKPIs();renderTherm();renderPredictionSummary();renderCharts();
+  renderSidebarStats();renderClusterLegend();
+  renderTable();renderFunil();populateTLSelect();
+}
+
+function renderKPIs(){
+  const cl=S.clients;
+  const total=cl.length;
+  const inMx=cl.filter(c=>c._in_matrix).length;
+  const crz=cl.filter(c=>c._in_matrix&&c._in_hubsoft).length;
+  const alto=cl.filter(c=>c.status==='alto_risco').length;
+  const avg=total?Math.round(cl.reduce((s,c)=>s+c.score,0)/total):0;
+  document.getElementById('kpi-grid').innerHTML=[
+    {label:'Total analisados',value:total,  color:'var(--accent)'},
+    {label:'Na Matrix (devedores)',value:inMx,  color:'var(--orange)'},
+    {label:'Cruzados Matrix+Hubsoft',value:crz,  color:'var(--purple)'},
+    {label:'Alto risco de churn',value:alto,  color:'var(--red)'},
+    {label:'Score médio',value:avg+'%',color:'var(--green)'},
+  ].map(k=>'<div class="card" style="border-top:3px solid '+k.color+'"><div class="card-title">'+k.label+'</div><div style="font-size:26px;font-weight:700;color:'+k.color+'">'+k.value+'</div></div>').join('');
+}
+
+function renderTherm(){
+  const cl=S.clients;if(!cl.length)return;
+  const pct=Math.round(cl.reduce((s,c)=>s+c.score,0)/cl.length);
+  document.getElementById('therm-needle').style.left=pct+'%';
+  const el=document.getElementById('therm-pct');
+  el.textContent=pct+'% risco médio';
+  el.style.color=pct>65?'var(--red)':pct>35?'var(--yellow)':'var(--green)';
+}
+function getTopProtocols(limit=4){
+  const counts={};
+  S.clients.forEach(c=>{
+    (c.protocolos||[]).forEach(p=>{if(!p) return; counts[p]=(counts[p]||0)+1;});
+  });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,limit);
+}
+function renderPredictionSummary(){
+  const cl=S.clients; if(!cl.length){document.getElementById('predictive-summary').innerHTML='';return;}
+  const lost=cl.filter(c=>c.predict.lost).length;
+  const willLose=cl.filter(c=>c.predict.willLose).length;
+  const serviceLoss=cl.filter(c=>c.predict.lost&&c.churn_diag.tipo==='misto').length;
+  const financeLoss=cl.filter(c=>c.predict.lost&&c.churn_diag.tipo==='financeiro').length;
+  const topProt=getTopProtocols(4);
+  document.getElementById('predictive-summary').innerHTML=[
+    {label:'Clientes perdidos',value:lost,color:'var(--red)',hint:'Perda provável confirmada por inadimplência ou cancelamento.'},
+    {label:'Clientes em risco',value:willLose,color:'var(--yellow)',hint:'Alto risco de churn com histórico de atendimento/OS/inadimplência.'},
+    {label:'Churn por insatisfação',value:serviceLoss,color:'var(--purple)',hint:'Problemas de serviço + inadimplência.'},
+    {label:'Churn por financeiro',value:financeLoss,color:'var(--orange)',hint:'Provável perda por situação financeira.'}
+  ].map(k=>' <div class="card" style="border-top:3px solid '+k.color+'"><div class="card-title">'+k.label+'</div><div style="font-size:24px;font-weight:700;color:'+k.color+'">'+k.value+'</div><div style="font-size:11px;color:var(--muted);margin-top:6px">'+k.hint+'</div></div>').join('')+
+  '<div class="card" style="border-top:3px solid var(--blue);grid-column:span 2"><div class="card-title">Protocolos mais comuns</div>'+ (topProt.length? '<div style="padding-top:10px">'+topProt.map(([p,n])=>'<div style="font-size:12px;margin-bottom:4px"><strong>'+p+'</strong> — '+n+' ocorrência'+(n!==1?'s':'')+'</div>').join('') + '</div>' : '<div style="font-size:12px;color:var(--muted);padding-top:10px">Nenhum protocolo encontrado.</div>') + '</div>';
+}
+
+function dc(){return document.documentElement.getAttribute('data-theme')==='dark';}
+function tcol(){return dc()?'#8b93a8':'#6b7280';}
+function gcol(){return dc()?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';}
+function dch(k){if(S.charts[k]){S.charts[k].destroy();delete S.charts[k];}}
+
+function renderCharts(){
+  const cl=S.clients,t=tcol(),g=gcol();
+
+  dch('risk');
+  const rc={'Baixo':cl.filter(c=>c.status==='baixo_risco').length,'Atenção':cl.filter(c=>c.status==='atencao').length,'Alto risco':cl.filter(c=>c.status==='alto_risco').length,'Cancelado':cl.filter(c=>c.status==='cancelado').length,'Log. reversa':cl.filter(c=>c.status==='logistica').length};
+  S.charts.risk=new Chart(document.getElementById('chart-risk'),{type:'doughnut',data:{labels:Object.keys(rc),datasets:[{data:Object.values(rc),backgroundColor:['#16a34a','#ca8a04','#dc2626','#6b7280','#7c3aed'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,color:t}}}}});
+
+  dch('motivos');
+  const mf={};cl.forEach(c=>[...c.chamados,...c.os_fechadas].forEach(r=>{const m=(r.motivo||'').trim();if(m)mf[m]=(mf[m]||0)+1;}));
+  const top10m=Object.entries(mf).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  S.charts.motivos=new Chart(document.getElementById('chart-motivos'),{type:'bar',data:{labels:top10m.map(e=>e[0].length>20?e[0].slice(0,18)+'…':e[0]),datasets:[{label:'Ocorrências',data:top10m.map(e=>e[1]),backgroundColor:'#4f46e5',borderRadius:4,borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:g},ticks:{color:t}},y:{grid:{display:false},ticks:{font:{size:10},color:t}}}}});
+
+  dch('chamados');
+  const top10c=[...cl].sort((a,b)=>(b.chamados.length+b.os_abertas.length)-(a.chamados.length+a.os_abertas.length)).slice(0,10);
+  S.charts.chamados=new Chart(document.getElementById('chart-chamados'),{type:'bar',data:{labels:top10c.map(c=>c.nome.split(' ')[0]),datasets:[{label:'Atendimentos reais',data:top10c.map(c=>c.real_attendances),backgroundColor:'#4f46e5',borderRadius:3,borderWidth:0},{label:'OS abertas',data:top10c.map(c=>c.os_abertas.length),backgroundColor:'#dc2626',borderRadius:3,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10},boxWidth:10,color:t}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:t}},y:{stacked:true,grid:{color:g},ticks:{color:t}}}}});
+
+  dch('corr');
+  S.charts.corr=new Chart(document.getElementById('chart-corr'),{type:'scatter',data:{datasets:[{label:'Clientes',data:cl.map(c=>({x:c.os_abertas.length+c.os_fechadas.length,y:c.score})),backgroundColor:'rgba(99,102,241,.5)',pointRadius:4,pointBorderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Nº OS',font:{size:10},color:t},grid:{color:g},ticks:{color:t}},y:{title:{display:true,text:'Score',font:{size:10},color:t},min:0,max:100,grid:{color:g},ticks:{color:t}}}}});
+}
+
+// ============================================================
+// FUNIL
+// ============================================================
+function renderFunil(){
+  const cl=S.clients;if(!cl.length)return;
+  const total=cl.length;
+  const inMx=cl.filter(c=>c._in_matrix).length;
+  const inHs=cl.filter(c=>c._in_hubsoft).length;
+  const crz=cl.filter(c=>c._in_matrix&&c._in_hubsoft).length;
+  const soFin=cl.filter(c=>c._in_matrix&&!c._in_hubsoft).length;
+  const soSvc=cl.filter(c=>c._in_hubsoft&&!c._in_matrix).length;
+
+  const steps=[
+    {label:'Total de clientes',count:total,color:'var(--accent)',pct:100},
+    {label:'Na Matrix (inadimplentes)',count:inMx,color:'var(--orange)',pct:total?Math.round(inMx/total*100):0},
+    {label:'No Hubsoft (OS/atend)',count:inHs,color:'var(--blue)',pct:total?Math.round(inHs/total*100):0},
+    {label:'Cruzados (ambas as bases)',count:crz,color:'var(--purple)',pct:total?Math.round(crz/total*100):0},
+    {label:'Só financeiro (sem OS/atend)',count:soFin,color:'var(--red)',pct:total?Math.round(soFin/total*100):0},
+    {label:'Só serviço (sem inadimplência)',count:soSvc,color:'var(--yellow)',pct:total?Math.round(soSvc/total*100):0},
+  ];
+  document.getElementById('funil-steps').innerHTML=steps.map(s=>
+    '<div class="funnel-step"><div class="funnel-label" style="color:'+s.color+'">'+s.label+'</div><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:'+s.pct+'%;background:'+s.color+'"></div></div><div class="funnel-count" style="color:'+s.color+'">'+s.count+'</div></div>'
+  ).join('');
+  renderFunilCharts();
+
+  // Tabela cruzados
+  const cruzList=cl.filter(c=>c._in_matrix&&c._in_hubsoft).sort((a,b)=>b.score-a.score);
+  const tbody=document.getElementById('funil-cross-tbody');
+  const empty=document.getElementById('funil-cross-empty');
+  if(!cruzList.length){tbody.innerHTML='';empty.style.display='flex';return;}
+  empty.style.display='none';
+  tbody.innerHTML=cruzList.map(function(c){
+    const sc=c.score>=65?'var(--red)':c.score>=35?'var(--yellow)':'var(--green)';
+    return'<tr>'+
+      '<td style="font-size:11px;color:var(--muted)">'+esc(c.id)+'</td>'+
+      '<td><strong>'+esc(c.nome)+'</strong></td>'+
+      '<td style="font-size:12px">'+esc(c.cidade||'—')+'</td>'+
+      '<td style="font-size:12px">'+(c.matrix_data?esc(c.matrix_data.data||'—'):'—')+'</td>'+
+      '<td style="font-size:12px">'+(c.matrix_data?esc(c.matrix_data.secao||'—'):'—')+'</td>'+
+      '<td>'+c.chamados.length+'</td>'+
+      '<td>'+c.os_abertas.length+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:5px"><div class="score-bar" style="width:50px"><div class="score-fill" style="width:'+c.score+'%;background:'+sc+'"></div></div><strong style="color:'+sc+'">'+c.score+'</strong></div></td>'+
+      '<td style="font-size:12px">'+c.churn_diag.icon+' '+esc(c.churn_diag.titulo)+'</td>'+
+      '<td><button class="btn btn-sm ver-btn" data-id="'+esc(c.id)+'">🔍</button></td>'+
+    '</tr>';
+  }).join('');
+  tbody.querySelectorAll('.ver-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){showCross(btn.getAttribute('data-id'));});
+  });
+}
+
+function renderFunilCharts(){
+  const cl=S.clients,t=tcol(),g=gcol();
+  const soFin=cl.filter(c=>c._in_matrix&&!c._in_hubsoft).length;
+  const ambos=cl.filter(c=>c._in_matrix&&c._in_hubsoft).length;
+  const soSvc=cl.filter(c=>c._in_hubsoft&&!c._in_matrix).length;
+  const outros=cl.filter(c=>!c._in_matrix&&!c._in_hubsoft).length;
+
+  dch('perfil');
+  S.charts.perfil=new Chart(document.getElementById('chart-perfil'),{type:'doughnut',data:{labels:['Só financeiro','Financeiro+Serviço','Só serviço','Sem dados'],datasets:[{data:[soFin,ambos,soSvc,outros],backgroundColor:['#dc2626','#7c3aed','#ca8a04','#6b7280'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,color:t}}}}});
+
+  dch('fin');
+  const sec={};cl.filter(c=>c._in_matrix).forEach(c=>{const s=c.matrix_data&&c.matrix_data.secao?c.matrix_data.secao:'Geral';sec[s]=(sec[s]||0)+1;});
+  S.charts.fin=new Chart(document.getElementById('chart-fin'),{type:'bar',data:{labels:Object.keys(sec),datasets:[{label:'Clientes',data:Object.values(sec),backgroundColor:'#ea580c',borderRadius:4,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:t}},y:{grid:{color:g},ticks:{color:t}}}}});
+
+  dch('serv');
+  const bk={'Score 0–34':0,'Score 35–64':0,'Score 65+':0};
+  cl.filter(c=>c._in_hubsoft).forEach(c=>{if(c.score>=65)bk['Score 65+']++;else if(c.score>=35)bk['Score 35–64']++;else bk['Score 0–34']++;});
+  S.charts.serv=new Chart(document.getElementById('chart-serv'),{type:'bar',data:{labels:Object.keys(bk),datasets:[{label:'Clientes',data:Object.values(bk),backgroundColor:['#16a34a','#ca8a04','#dc2626'],borderRadius:4,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:t}},y:{grid:{color:g},ticks:{color:t}}}}});
+}
+
+// ============================================================
+// TABELA TODOS OS CLIENTES
+// ============================================================
+function renderTable(){
+  const nome=(document.getElementById('filter-nome').value||'').toLowerCase();
+  const status=document.getElementById('filter-status').value||'';
+  const cluster=document.getElementById('filter-cluster').value||'';
+  const base=document.getElementById('filter-base').value||'';
+
+  let list=S.clients.filter(function(c){
+    if(nome&&!c.nome.toLowerCase().includes(nome)&&!c.id.toLowerCase().includes(nome))return false;
+    if(status&&c.status!==status)return false;
+    if(cluster&&c.cluster!==cluster)return false;
+    if(base==='matrix'   &&!c._in_matrix)return false;
+    if(base==='hubsoft'  &&!c._in_hubsoft)return false;
+    if(base==='ambos'    &&!(c._in_matrix&&c._in_hubsoft))return false;
+    if(base==='so_matrix'&&!(c._in_matrix&&!c._in_hubsoft))return false;
+    if(base==='so_hubsoft'&&!(!c._in_matrix&&c._in_hubsoft))return false;
+    return true;
+  });
+
+  document.getElementById('filter-count').textContent=list.length+' cliente'+(list.length!==1?'s':'');
+  const tbody=document.getElementById('client-tbody');
+  const empty=document.getElementById('table-empty');
+  if(!list.length){tbody.innerHTML='';empty.style.display='flex';return;}
+  empty.style.display='none';
+
+  const SB={alto_risco:'<span class="risk-badge risk-high"><span class="risk-dot"></span>Alto risco</span>',atencao:'<span class="risk-badge risk-med"><span class="risk-dot"></span>Atenção</span>',baixo_risco:'<span class="risk-badge risk-low"><span class="risk-dot"></span>Baixo risco</span>',cancelado:'<span class="risk-badge" style="background:var(--surface2);color:var(--muted)"><span class="risk-dot"></span>Cancelado</span>',logistica:'<span class="risk-badge" style="background:var(--purple-bg);color:var(--purple)"><span class="risk-dot"></span>Log. reversa</span>'};
+  const CB={financeiro:'<span class="chip chip-fin">Financeiro</span>',tecnico:'<span class="chip chip-tec">Técnico</span>',atendimento:'<span class="chip chip-atd">Atendimento</span>',logistica:'<span class="chip chip-log">Logística</span>',outro:'<span class="chip chip-gen">Outro</span>'};
+
+  tbody.innerHTML=list.map(function(c){
+    const sc=c.score>=65?'var(--red)':c.score>=35?'var(--yellow)':'var(--green)';
+    const bases='<div class="presence-pills">'+
+      '<span class="pill '+(c._in_matrix?'pill-on':'pill-off')+'">💰 Matrix</span>'+
+      '<span class="pill '+(c._in_hubsoft?'pill-on':'pill-off')+'">📋 Hubsoft</span>'+
+    '</div>';
+    return'<tr>'+
+      '<td style="font-size:11px;color:var(--muted)">'+esc(c.id)+'</td>'+
+      '<td><strong>'+esc(c.nome)+'</strong></td>'+
+      '<td style="font-size:12px">'+esc(c.cidade||'—')+'</td>'+
+      '<td>'+bases+'</td>'+
+      '<td>'+c.chamados.length+'</td>'+
+      '<td>'+c.os_abertas.length+'</td>'+
+      '<td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">'+esc(c.ultimo_motivo)+'</td>'+
+      '<td>'+(CB[c.cluster]||'')+'</td>'+
+      '<td style="min-width:85px"><div style="display:flex;align-items:center;gap:5px"><div class="score-bar" style="flex:1"><div class="score-fill" style="width:'+c.score+'%;background:'+sc+'"></div></div><strong style="color:'+sc+'">'+c.score+'</strong></div></td>'+
+      '<td>'+(SB[c.status]||'')+'</td>'+
+      '<td><button class="btn btn-sm ver-btn" data-id="'+esc(c.id)+'">🔍</button></td>'+
+    '</tr>';
+  }).join('');
+  tbody.querySelectorAll('.ver-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){showCross(btn.getAttribute('data-id'));});
+  });
+}
+
+// ============================================================
+// CRUZAMENTO DETALHADO — ENGINE PRINCIPAL
+// ============================================================
+function runCross(){
+  const q=(document.getElementById('cross-input').value||'').trim();
+  if(!q){alert('Digite um nome, código ou protocolo.');return;}
+  if(!S.loaded){alert('Processe os dados primeiro.');return;}
+  // Busca por código, nome, ou protocolo nos eventos
+  const ql=q.toLowerCase();
+  const found=S.clients.filter(function(c){
+    if(c.id.toLowerCase().includes(ql))return true;
+    if(c.nome.toLowerCase().includes(ql))return true;
+    if(normName(c.nome).includes(normName(q)))return true;
+    // Protocolo nos eventos
+    if(c.eventos.some(e=>e.protocolo&&e.protocolo.toLowerCase().includes(ql)))return true;
+    return false;
+  });
+  if(!found.length){
+    document.getElementById('cross-result-area').innerHTML='<div class="empty"><div style="font-size:28px">🔍</div><div>Nenhum cliente encontrado para <strong>"'+esc(q)+'"</strong></div></div>';
+    return;
+  }
+  document.getElementById('cross-result-area').innerHTML=found.map(function(c){return renderCrossCard(c);}).join('');
+  found.forEach(function(c){
+    const btn=document.getElementById('tl-link-'+c.id);
+    if(btn)btn.addEventListener('click',function(){showTimeline(c.id);});
+  });
+}
+
+function showCross(id){
+  const c=S.clients.find(x=>x.id===id);if(!c)return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+  document.querySelector('[data-tab="cruzamento"]').classList.add('active');
+  document.getElementById('tab-cruzamento').classList.add('active');
+  document.getElementById('cross-input').value=c.nome;
+  document.getElementById('cross-result-area').innerHTML=renderCrossCard(c);
+  const btn=document.getElementById('tl-link-'+c.id);
+  if(btn)btn.addEventListener('click',function(){showTimeline(c.id);});
+}
+
+function renderCrossCard(c){
+  const sc=c.score>=65?'var(--red)':c.score>=35?'var(--yellow)':'var(--green)';
+  const diag=c.churn_diag;
+
+  function baseBadge(ok,label){
+    return'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+(ok?'var(--green-bg)':'var(--surface2)')+';color:'+(ok?'var(--green)':'var(--muted)')+'">'+(ok?'✓':'○')+' '+label+'</span>';
+  }
+
+  const protocols=[...new Set(c.eventos.filter(e=>e.protocolo).map(e=>e.protocolo))].slice(0,6);
+  const events=c.eventos.slice(0,10);
+
+  return'<div class="cross-box">'+
+    // Header
+    '<div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:12px">'+
+      '<div style="flex:1">'+
+        '<div style="font-size:11px;color:var(--muted)">Código: '+esc(c.id)+'</div>'+
+        '<div style="font-size:17px;font-weight:700;margin:2px 0">'+esc(c.nome)+'</div>'+
+        '<div style="font-size:12px;color:var(--muted)">📍 '+esc(c.cidade||'—')+'</div>'+
+      '</div>'+
+      '<div style="text-align:center;padding:8px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border)">'+
+        '<div style="font-size:28px;font-weight:800;color:'+sc+'">'+c.score+'</div>'+
+        '<div style="font-size:10px;color:var(--muted)">score de risco</div>'+
+      '</div>'+
+    '</div>'+
+
+    // Diagnóstico
+    '<div class="diag-card diag-'+diag.tipo+'" style="border-color:'+diag.cor+';background-color:'+diag.cor+'15;margin-bottom:12px">'+
+      '<div style="font-size:14px;font-weight:700;margin-bottom:4px">'+diag.icon+' '+esc(diag.titulo)+'</div>'+
+      '<div style="font-size:13px;line-height:1.6">'+esc(diag.texto)+'</div>'+
+    '</div>'+
+
+    // Presença nas bases
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
+      baseBadge(c._in_matrix,'Matrix/Inadimplência'+(c.matrix_data?' (vcmt: '+esc(c.matrix_data.data||'—')+')':''))+
+      baseBadge(c.real_attendances>0,'Atendimentos reais ('+c.real_attendances+')')+
+      baseBadge(c.chamados.length>0,'Atendimentos brutos ('+c.chamados.length+')')+
+      baseBadge(c.os_abertas.length>0,'OS Abertas ('+c.os_abertas.length+')')+
+      baseBadge(c.os_fechadas.length>0,'OS Fechadas ('+c.os_fechadas.length+')')+
+      baseBadge(c.telefonia.length>0,'Inadimplentes ('+c.telefonia.length+')')+
+    '</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Status: <strong>'+esc(c.predict.label)+'</strong> — '+esc(c.predict.text)+'</div>'+ 
+
+    // Matrix detail
+    (c._in_matrix&&c.matrix_data?
+      '<div style="font-size:12px;color:var(--orange);margin-bottom:10px;padding:7px 10px;background:var(--orange-bg);border-radius:7px">'+
+        '💰 <strong>Inadimplente</strong> — Vencimento: '+esc(c.matrix_data.data||'—')+
+        ' | Seção: '+esc(c.matrix_data.secao||'—')+
+        ' | Cidade: '+esc(c.matrix_data.cidade||'—')+
+      '</div>':'')+
+
+    // Protocolos
+    (protocols.length?
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Protocolos identificados: '+
+        protocols.map(p=>'<span style="font-family:monospace;background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:11px">'+esc(p)+'</span>').join(' ')+
+      '</div>':'')+
+
+    // Últimos eventos
+    '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Últimos eventos</div>'+
+    '<ul class="timeline">'+
+      (events.length?events.map(function(e){
+        const clsCls=e.cluster==='financeiro'?'tl-fin':e.cluster==='tecnico'?'tl-tec':e.cluster==='logistica'?'tl-log':'';
+        return'<li class="'+clsCls+'">'+
+          '<div class="tl-date">'+(e.data?e.data.toLocaleDateString('pt-BR'):'—')+' · <strong>'+esc(e.tipo)+'</strong>'+(e.protocolo?' <span style="font-family:monospace;font-size:10px;color:var(--muted)">#'+esc(e.protocolo)+'</span>':'')+' </div>'+
+          '<div class="tl-event">'+esc(e.detalhe||'sem descrição')+'</div>'+
+        '</li>';
+      }).join(''):'<li><div class="tl-event" style="color:var(--muted)">Sem eventos.</div></li>')+
+    '</ul>'+
+
+    '<button class="btn btn-sm" id="tl-link-'+esc(c.id)+'" style="margin-top:8px">📅 Ver linha do tempo completa</button>'+
+  '</div>';
+}
+
+// ============================================================
+// TIMELINE
+// ============================================================
+function populateTLSelect(){
+  const sel=document.getElementById('tl-select');
+  sel.innerHTML='<option value="">— Selecione um cliente —</option>'+
+    [...S.clients].sort((a,b)=>b.score-a.score).map(c=>
+      '<option value="'+esc(c.id)+'">'+esc(c.nome)+' ['+c.score+']'+(c._in_matrix?' 💰':'')+'</option>'
+    ).join('');
+}
+
+function showTimeline(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+  document.querySelector('[data-tab="timeline"]').classList.add('active');
+  document.getElementById('tab-timeline').classList.add('active');
+  document.getElementById('tl-select').value=id;
+  renderTimeline();
+}
+
+function renderTimeline(){
+  const id=document.getElementById('tl-select').value;
+  const el=document.getElementById('timeline-content');
+  if(!id)return;
+  const c=S.clients.find(x=>x.id===id);if(!c)return;
+  const sc=c.score>=65?'var(--red)':c.score>=35?'var(--yellow)':'var(--green)';
+  el.innerHTML=
+    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">'+
+      '<div><div class="card-title">Cliente</div><strong style="font-size:14px">'+esc(c.nome)+'</strong><br><span style="font-size:11px;color:var(--muted)">'+esc(c.cidade||'')+'</span></div>'+
+      '<div><div class="card-title">Score</div><strong style="font-size:22px;color:'+sc+'">'+c.score+'/100</strong></div>'+
+      '<div><div class="card-title">Chamados</div><strong style="font-size:20px">'+c.chamados.length+'</strong></div>'+
+      '<div><div class="card-title">OS abertas</div><strong style="font-size:20px;color:var(--red)">'+c.os_abertas.length+'</strong></div>'+
+      '<div><div class="card-title">Matrix</div><strong style="font-size:13px">'+(c._in_matrix?'💰 Sim ('+esc(c.matrix_data&&c.matrix_data.data||'—')+')':'—')+'</strong></div>'+
+      '<div><div class="card-title">Diagnóstico</div><strong style="font-size:12px">'+c.churn_diag.icon+' '+esc(c.churn_diag.titulo)+'</strong></div>'+
+    '</div>'+
+    '<hr style="border:none;border-top:1px solid var(--border);margin-bottom:12px"/>'+
+    '<ul class="timeline">'+
+      (c.eventos.length?c.eventos.slice(0,40).map(function(e){
+        const clsCls=e.cluster==='financeiro'?'tl-fin':e.cluster==='tecnico'?'tl-tec':e.cluster==='logistica'?'tl-log':'';
+        return'<li class="'+clsCls+'">'+
+          '<div class="tl-date">'+(e.data?e.data.toLocaleDateString('pt-BR'):'—')+' · <strong>'+esc(e.tipo)+'</strong>'+(e.protocolo?' <span style="font-family:monospace;font-size:10px;color:var(--muted)">#'+esc(e.protocolo)+'</span>':'')+' </div>'+
+          '<div class="tl-event">'+esc(e.detalhe||'Sem descrição')+'</div>'+
+        '</li>';
+      }).join(''):'<li><div class="tl-event" style="color:var(--muted)">Nenhum evento.</div></li>')+
+    '</ul>';
+}
+
+// ============================================================
+// QUICK SEARCH SIDEBAR
+// ============================================================
+function renderQuickSearch(){
+  const q=(document.getElementById('quick-search').value||'').trim().toLowerCase();
+  const el=document.getElementById('quick-result');
+  if(!q||!S.clients.length){el.textContent='Digite para ver resumo do cliente.';return;}
+  const found=S.clients.filter(c=>c.nome.toLowerCase().includes(q)||c.id.toLowerCase().includes(q));
+  if(!found.length){el.textContent='Nenhum cliente encontrado.';return;}
+  const c=found[0];
+  const sc=c.score>=65?'var(--red)':c.score>=35?'var(--yellow)':'var(--green)';
+  el.innerHTML='<div class="qs-result">'+
+    '<strong>'+esc(c.nome)+'</strong><br>'+
+    'Score: <strong style="color:'+sc+'">'+c.score+'</strong> · '+c.churn_diag.icon+' '+esc(c.churn_diag.titulo)+'<br>'+
+    (c._in_matrix?'<span style="color:var(--orange)">💰 Inadimplente</span>':'')+(c._in_hubsoft?' · 📋 '+c.chamados.length+' atend.':'')+
+    (found.length>1?'<br><span style="color:var(--muted)">+'+(found.length-1)+'  outros resultados</span>':'')+
+  '</div>';
+}
+
+// ============================================================
+// PALAVRAS-CHAVE
+// ============================================================
+function extractKw(){
+  const stop=new Set(['de','da','do','em','no','na','por','para','com','que','os','as','um','uma','ou','e','a','o','é','se','ao','dos','das','nos','pelo','pela','ser','foi','tem','ter','não','mais','mas','como','seu','sua','seus','suas','quando','já','muito','bem','até']);
+  const freq={};
+  S.clients.forEach(c=>allText(c).split(/\s+/).forEach(function(w){
+    const cl=w.replace(/[^a-záéíóúàêâôãõü]/g,'');
+    if(cl.length>3&&!stop.has(cl))freq[cl]=(freq[cl]||0)+1;
+  }));
+  return Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+}
+function wCluster(w){for(const[k,ws]of Object.entries(CLUSTERS))if(ws.includes(w))return k;return'gen';}
+
+function renderKeywords(){
+  const kws=extractKw().slice(0,60);if(!kws.length)return;
+  const max=kws[0][1];
+  const cmap={financeiro:'chip-fin',tecnico:'chip-tec',atendimento:'chip-atd',logistica:'chip-log',gen:'chip-gen'};
+  document.getElementById('word-cloud').innerHTML=kws.slice(0,40).map(function([w,f]){
+    const cl=wCluster(w),sz=Math.round(11+(f/max)*20);
+    return'<span class="chip '+cmap[cl]+'" style="font-size:'+sz+'px">'+w+' <small style="opacity:.55">'+f+'</small></span>';
+  }).join('');
+  dch('clusters');
+  const cc={financeiro:0,tecnico:0,atendimento:0,logistica:0,outro:0};
+  kws.forEach(([w,f])=>{const cl=wCluster(w);cc[cl in cc?cl:'outro']+=f;});
+  const t=tcol(),g=gcol();
+  S.charts.clusters=new Chart(document.getElementById('chart-clusters'),{type:'bar',data:{labels:Object.keys(cc).map(k=>CL_LABELS[k]),datasets:[{label:'Frequência',data:Object.values(cc),backgroundColor:Object.keys(cc).map(k=>CL_COLORS[k]||'#6b7280'),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:t}},y:{grid:{color:g},ticks:{color:t}}}}});
+  document.getElementById('keyword-table').innerHTML='<table style="font-size:13px;width:100%"><thead><tr><th>#</th><th>Palavra</th><th>Freq.</th><th>Cluster</th></tr></thead><tbody>'+kws.slice(0,30).map(([w,f],i)=>{const cl=wCluster(w);return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td><strong>'+w+'</strong></td><td>'+f+'</td><td><span class="chip '+(cmap[cl]||'chip-gen')+'">'+(CL_LABELS[cl]||'Outro')+'</span></td></tr>';}).join('')+'</tbody></table>';
+}
+
+// ============================================================
+// SIDEBAR STATS + CLUSTERS
+// ============================================================
+function renderSidebarStats(){
+  const cl=S.clients;
+  document.getElementById('sidebar-stats').innerHTML=[
+    {l:'Total',v:cl.length},{l:'Na Matrix',v:cl.filter(c=>c._in_matrix).length},
+    {l:'No Hubsoft',v:cl.filter(c=>c._in_hubsoft).length},
+    {l:'Cruzados',v:cl.filter(c=>c._in_matrix&&c._in_hubsoft).length},
+    {l:'Alto risco',v:cl.filter(c=>c.status==='alto_risco').length},
+    {l:'Atenção',v:cl.filter(c=>c.status==='atencao').length},
+    {l:'Baixo risco',v:cl.filter(c=>c.status==='baixo_risco').length},
+  ].map(s=>'<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">'+s.l+'</span><strong>'+s.v+'</strong></div>').join('');
+}
+function renderClusterLegend(){
+  const cmap={financeiro:'chip-fin',tecnico:'chip-tec',atendimento:'chip-atd',logistica:'chip-log',outro:'chip-gen'};
+  document.getElementById('cluster-legend').innerHTML=Object.entries(CL_LABELS).map(([k,v])=>'<span class="chip '+(cmap[k]||'chip-gen')+'">'+v+'</span>').join('');
+}
+
+// ============================================================
+// EXPORTAÇÃO
+// ============================================================
+function exportReport(){
+  if(!S.clients.length){alert('Processe os dados primeiro.');return;}
+  const h=['Código','Nome','Cidade','Matrix','Hubsoft','Chamados','OS Ab.','OS Fech.','Score','Status','Cluster','Vencimento','Seção','Diagnóstico','Último Motivo'];
+  const rows=S.clients.map(c=>[c.id,c.nome,c.cidade,c._in_matrix?'SIM':'NÃO',c._in_hubsoft?'SIM':'NÃO',c.chamados.length,c.os_abertas.length,c.os_fechadas.length,c.score,c.status,c.cluster,c.matrix_data&&c.matrix_data.data?c.matrix_data.data:'',c.matrix_data&&c.matrix_data.secao?c.matrix_data.secao:'',c.churn_diag.titulo,'"'+(c.ultimo_motivo||'').replace(/"/g,"'")+'"']);
+  const csv=[h.join(','),...rows.map(r=>r.join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='churnscope.csv';a.click();
+}
+
+// ============================================================
+// DEMO DATA
+// ============================================================
+function loadDemo(){
+  const nomes=['JOAO SILVA','MARIA OLIVEIRA','CARLOS SANTOS','ANA LIMA','PEDRO SOUZA','FERNANDA COSTA','ROBERTO ALVES','JULIANA MARTINS','MARCOS PEREIRA','CAMILA ROCHA','BRUNO FERREIRA','PATRICIA GOMES','LUCAS NUNES','BEATRIZ CARVALHO','THIAGO BARBOSA','AMANDA PINTO','RAFAEL RIBEIRO','ISABELA FREITAS','GUSTAVO MELO','LETICIA CORREIA','RODRIGO ALMEIDA','SIMONE CASTRO','FELIPE MENDES','ADRIANA LIMA','DIEGO ROCHA'];
+  const cidades=['MOCOCA','SÃO JOSÉ DO RIO PARDO','MOGI MIRIM','CASA BRANCA','PASSOS','CACONDE'];
+  const motivos=['Falta de pagamento - inadimplência','Problema técnico recorrente no equipamento','Atendimento ruim - demora na resolução','Logística reversa solicitada','Falha de sinal - chamado técnico','Cobrança indevida na fatura','Resolvido após manutenção','OS gerada - aguardando técnico','Oscilação de sinal frequente','Sem retorno do técnico','Equipamento com defeito','Queda de conexão recorrente'];
+  const secs=['Pendente','vencimento 10-03','vencimento 15-03','vencimento 20-03'];
+  const rnd=a=>a[Math.floor(Math.random()*a.length)];
+  const rndDate=()=>{const d=new Date();d.setDate(d.getDate()-Math.floor(Math.random()*120));return d.toISOString().split('T')[0];};
+  const rndVenc=()=>{const d=new Date();d.setDate(d.getDate()+Math.floor(Math.random()*30));return d.toISOString().split('T')[0];};
+
+  S.raw.matrix=nomes.slice(0,14).map((nome,i)=>({id:String(1000+i),cliente:nome,cidade:rnd(cidades),data:rndVenc(),secao:rnd(secs),_from_matrix:true}));
+  S.raw.atendimentos=nomes.flatMap((nome,i)=>Array.from({length:Math.floor(Math.random()*8)+1},(_,j)=>({id:String(1000+i),cliente:nome,data:rndDate(),motivo:rnd(motivos),descricao:rnd(motivos),status:Math.random()>.3?'fechado':'aberto',protocolo:'ATD-'+(10000+i*10+j)})));
+  S.raw.os_abertas=nomes.slice(0,14).flatMap((nome,i)=>Array.from({length:Math.floor(Math.random()*4)+1},(_,j)=>({id:String(1000+i),cliente:nome,data:rndDate(),descricao:rnd(motivos),status:'aberta',protocolo:'OS-'+(20000+i*10+j)})));
+  S.raw.os_fechadas=nomes.flatMap((nome,i)=>Array.from({length:Math.floor(Math.random()*4)},(_,j)=>({id:String(1000+i),cliente:nome,data:rndDate(),motivo:rnd(motivos),descricao:'Ordem encerrada',status:'fechada',protocolo:'OS-'+(30000+i*10+j)})));
+  S.raw.telefonia=nomes.slice(0,12).map((nome,i)=>({id:String(1000+i),cliente:nome,data:rndDate(),descricao:'Ligação: '+rnd(motivos)}));
+
+  S.clients=buildProfiles();S.loaded=true;
+  buildUploadList();renderAll();
+  alert('✓ Demo carregada! '+S.clients.length+' clientes.\n'+S.clients.filter(c=>c._in_matrix).length+' inadimplentes | '+S.clients.filter(c=>c._in_matrix&&c._in_hubsoft).length+' cruzados.\n\nAgora vá em "Cruzamento" e busque um nome para ver o diagnóstico completo!');
+}
+
+// ============================================================
+// UTILITÁRIO
+// ============================================================
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ============================================================
+// INIT
+// ============================================================
+buildUploadList();
+renderClusterLegend();
+
+}); // DOMContentLoaded
+</script>
+</body>
+</html>
