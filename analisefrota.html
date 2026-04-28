@@ -17,7 +17,7 @@
             --modal-bg: rgba(0,0,0,0.8);
         }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-body); color: var(--text-main); padding: 20px; transition: 0.3s; margin: 0; }
-        .container { max-width: 1100px; margin: auto; padding-bottom: 50px; }
+        .container { max-width: 1150px; margin: auto; padding-bottom: 50px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .theme-switch { cursor: pointer; padding: 8px 15px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: bold; }
         .card { background: var(--bg-card); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 30px; border: 1px solid var(--border-color); }
@@ -26,27 +26,35 @@
         .field { display: flex; flex-direction: column; }
         label { font-size: 11px; font-weight: bold; color: var(--text-sub); margin-bottom: 5px; text-transform: uppercase; }
         input, select, textarea { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; background: var(--input-bg); color: var(--text-main); outline: none; }
-        .btn-primary { background: var(--site-blue); color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; margin-top: 10px; transition: 0.2s; }
-        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary { background: var(--site-blue); color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; margin-top: 10px; }
         
+        /* Tabela */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border-color); color: var(--text-sub); }
         td { padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
         tr:hover { background-color: var(--table-hover); }
         .badge { background: #1a73e8; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .status-sent { color: #27ae60; font-weight: bold; font-size: 11px; text-transform: uppercase; }
+        .status-pending { color: #e67e22; font-weight: bold; font-size: 11px; text-transform: uppercase; }
         .btn-delete { background: transparent; border: none; color: #eb4d4b; cursor: pointer; font-size: 16px; }
 
+        /* Rodapé */
         .dev-footer { margin-top: 50px; display: flex; justify-content: center; }
         .dev-box { background-color: var(--footer-dark-bg); border: 1px solid #1e293b; border-radius: 12px; padding: 15px 25px; display: flex; align-items: center; gap: 15px; width: fit-content; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
         .dev-logo { width: 70px; height: 70px; object-fit: contain; }
         .dev-text { color: var(--site-blue); font-size: 16px; font-weight: bold; }
         .dev-email { color: #94a3b8; font-size: 13px; text-decoration: none; }
 
-        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: var(--modal-bg); }
-        .modal-content { background: var(--bg-card); margin: 5% auto; padding: 25px; width: 75%; border-radius: 12px; border: 1px solid var(--border-color); }
-        .email-preview { background: var(--input-bg); padding: 20px; border: 1px solid var(--border-color); white-space: pre-wrap; font-family: monospace; font-size: 14px; color: var(--text-main); margin: 15px 0; max-height: 400px; overflow-y: auto; }
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: var(--modal-bg); overflow-y: auto; }
+        .modal-content { background: var(--bg-card); margin: 2% auto; padding: 25px; width: 80%; border-radius: 12px; border: 1px solid var(--border-color); }
+        .email-preview { background: var(--input-bg); padding: 15px; border: 1px solid var(--border-color); white-space: pre-wrap; font-family: monospace; font-size: 13px; color: var(--text-main); margin-bottom: 20px; border-radius: 6px; }
+        
+        /* Gestão de Justificativa */
+        .manager-section { border-top: 2px dashed var(--border-color); padding-top: 20px; margin-top: 20px; }
+        .update-box { display: flex; flex-direction: column; gap: 10px; }
+        .btn-update { background: #27ae60; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .close-btn { background: #eb4d4b; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; float: right; }
-        .copy-btn { background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -57,12 +65,11 @@
         <button class="theme-switch" onclick="toggleTheme()" id="themeBtn">🌙 Modo Escuro</button>
     </div>
 
-    <!-- CONFIGURAÇÃO DE TURNO GLOBAL -->
     <div class="card">
-        <h3>Configuração de Horário de Turno (Aplica aos 3 Sistemas)</h3>
+        <h3>Configuração de Horário</h3>
         <div class="grid" style="grid-template-columns: 1fr 1fr;">
-            <div class="field"><label>Início do Expediente</label><input type="time" id="turno_inicio" value="08:30"></div>
-            <div class="field"><label>Fim do Expediente</label><input type="time" id="turno_fim" value="18:00"></div>
+            <div class="field"><label>Início Expediente</label><input type="time" id="turno_inicio" value="08:30"></div>
+            <div class="field"><label>Fim Expediente</label><input type="time" id="turno_fim" value="18:00"></div>
         </div>
     </div>
 
@@ -81,13 +88,13 @@
                     <option value="Carblock">Carblock (Log de Posições)</option>
                 </select>
             </div>
-            <div class="field"><label>Justificativa</label><input type="text" id="justificativa"></div>
+            <div class="field"><label>Justificativa Real (Técnico)</label><input type="text" id="justificativa"></div>
         </div>
         <div class="field">
             <label>Dados Brutos:</label>
-            <textarea id="rawData" rows="5" placeholder="Cole os dados aqui..."></textarea>
+            <textarea id="rawData" rows="4" placeholder="Cole os dados aqui..."></textarea>
         </div>
-        <button class="btn-primary" onclick="processarESalvar()">Analisar e Salvar no Banco</button>
+        <button class="btn-primary" onclick="processarESalvar()">Analisar e Salvar</button>
     </div>
 
     <div class="card">
@@ -99,7 +106,7 @@
                     <th>Técnico</th>
                     <th>Placa</th>
                     <th>KM Total</th>
-                    <th>Justificativa</th>
+                    <th>E-mail Enviado?</th>
                     <th>Ação</th>
                 </tr>
             </thead>
@@ -118,12 +125,31 @@
     </footer>
 </div>
 
+<!-- Modal Detalhado -->
 <div id="modalEmail" class="modal">
     <div class="modal-content">
-        <button class="close-btn" onclick="fecharModal()">Fechar</button>
-        <h3>Relatório Formatado</h3>
+        <button class="close-btn" onclick="fecharModal()">Fechar X</button>
+        <h3 style="color: var(--site-blue);">Relatório Analítico</h3>
+        
         <div id="emailConteudo" class="email-preview"></div>
-        <button class="copy-btn" onclick="copiarEmail()">Copiar para o E-mail</button>
+        <button class="btn-primary" style="width: auto; padding: 10px 20px; background: #27ae60;" onclick="copiarEmail()">Copiar Texto p/ Email</button>
+
+        <!-- SEÇÃO DO GESTOR -->
+        <div class="manager-section">
+            <h3 style="color: #27ae60;">Ações do Gestor</h3>
+            <div class="update-box">
+                <input type="hidden" id="edit_id">
+                <div class="field">
+                    <label>Parecer Final / Nova Justificativa:</label>
+                    <textarea id="gestor_obs" rows="3" placeholder="Adicione notas do gestor ou nova justificativa aqui..."></textarea>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+                    <input type="checkbox" id="check_enviado" style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="check_enviado" style="font-size: 14px; cursor: pointer;">MARCAR COMO E-MAIL ENVIADO</label>
+                </div>
+                <button class="btn-update" onclick="salvarAtualizacaoGestor()">Salvar Atualização no Banco</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -133,27 +159,16 @@
     const sbClient = supabase.createClient(SB_URL, SB_KEY);
     let historicoLocal = [];
 
-    // Feriados 2026
     const feriados2026 = ["01/01", "16/02", "17/02", "18/02", "03/04", "21/04", "01/05", "04/06", "07/09", "12/10", "02/11", "15/11", "20/11", "25/12"];
 
-    // FUNÇÃO MESTRA DE VALIDAÇÃO (PARA OS 3 RASTREADORES)
-    function estaForaDoHorario(dataObj) {
-        const diaSemana = dataObj.getDay(); 
-        const diaMes = String(dataObj.getDate()).padStart(2, '0');
-        const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-        const dataFmt = `${diaMes}/${mes}`;
-
-        // Regra 1: Sáb, Dom ou Feriado -> Sempre Fora
-        if (diaSemana === 0 || diaSemana === 6 || feriados2026.includes(dataFmt)) return true;
-
-        // Regra 2: Dia útil -> Compara com campos da tela
-        const [hIni, mIni] = document.getElementById('turno_inicio').value.split(':');
-        const [hFim, mFim] = document.getElementById('turno_fim').value.split(':');
-        const minInicio = (parseInt(hIni)*60) + parseInt(mIni);
-        const minFim = (parseInt(hFim)*60) + parseInt(mFim);
-        
-        const minAtual = (dataObj.getHours() * 60) + dataObj.getMinutes();
-        return (minAtual < minInicio || minAtual > minFim);
+    function estaForaDoHorario(dt) {
+        const diaS = dt.getDay(); 
+        const diaM = String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+        if (diaS === 0 || diaS === 6 || feriados2026.includes(diaM)) return true;
+        const [hI, mI] = document.getElementById('turno_inicio').value.split(':');
+        const [hF, mF] = document.getElementById('turno_fim').value.split(':');
+        const minAtual = (dt.getHours() * 60) + dt.getMinutes();
+        return (minAtual < (parseInt(hI)*60+parseInt(mI)) || minAtual > (parseInt(hF)*60+parseInt(mF)));
     }
 
     function setarDataAtual() {
@@ -174,85 +189,83 @@
         const raw = document.getElementById('rawData').value.trim();
         const tipo = document.getElementById('rastreador').value;
         const placaAlvo = document.getElementById('placa').value.trim().toUpperCase();
-        const justificativa = document.getElementById('justificativa').value.trim();
+        const justificativa = document.getElementById('justificativa').value.trim() || "Sem justificativa inicial";
 
-        if (!raw || !justificativa) return alert("Preencha os dados e a justificativa!");
+        if (!raw) return alert("Cole os dados!");
 
-        let totalKm = 0, totalMins = 0, detalhes = "";
+        let totalKm = 0, totalMins = 0, detalhes = "", h1 = "", h2 = "";
         let detectPlaca = "", detectNome = "", detectData = "";
 
         try {
             if (tipo === "Carblock") {
                 const linhas = raw.split('\n');
-                let viagens = [];
-                let vAtual = null;
-                for (let i = linhas.length - 1; i >= 0; i--) {
-                    const col = linhas[i].split('\t');
-                    if (col.length >= 7 && col[1].includes('-')) {
-                        const [dPart, hPart] = col[1].split(' ');
-                        const [d, m, a] = dPart.split('-');
-                        const dt = new Date(a, m-1, d, hPart.split(':')[0], hPart.split(':')[1]);
-                        if (estaForaDoHorario(dt)) {
-                            if (col[0].trim() === "Ligada" && !vAtual) vAtual = { ini: hPart, de: col[6].trim(), tIni: dt.getTime() };
-                            else if (col[0].trim() === "Desligada" && vAtual) {
-                                totalMins += Math.round((dt.getTime() - vAtual.tIni) / 60000);
-                                viagens.push(`Hora: das ${vAtual.ini} às ${hPart}\nOrigem: ${vAtual.de}\nDestino: ${col[6].trim()}`);
-                                vAtual = null;
-                            }
-                        }
+                let pts = [];
+                linhas.forEach(l => {
+                    const c = l.split('\t');
+                    if (c.length >= 7 && c[1].includes('-')) {
+                        const [dp, hp] = c[1].split(' ');
+                        const [dia, mes, ano] = dp.split('-');
+                        const dt = new Date(ano, mes-1, dia, hp.split(':')[0], hp.split(':')[1]);
+                        if (estaForaDoHorario(dt)) pts.push({ status: c[0].trim(), hora: hp, end: c[6].trim(), ts: dt.getTime(), data: dp.replace(/-/g, '/') });
                     }
-                }
-                detalhes = viagens.join('\n---\n');
-
+                });
+                pts.sort((a,b) => a.ts - b.ts);
+                let viag = [], vAt = null;
+                pts.forEach(p => {
+                    if (p.status === "Ligada" && !vAt) vAt = { ini: p.hora, de: p.end, tI: p.ts };
+                    else if (p.status === "Desligada" && vAt) {
+                        let d = Math.round((p.ts - vAt.tI)/60000);
+                        if (d >= 1) { totalMins += d; viag.push(`Hora: das ${vAt.ini} às ${p.hora}\nOrigem: ${vAt.de}\nDestino: ${p.end}`); }
+                        vAt = null;
+                    }
+                    detectData = p.data;
+                });
+                detalhes = viag.join('\n---\n');
             } else if (tipo === "Cobli") {
                 const linhas = raw.split('\n');
-                let trechos = [];
+                let tr = [];
                 linhas.forEach(linha => {
                     const col = linha.split('\t');
                     if (col.length >= 7 && col[0].includes('/')) {
-                        const pLinha = col[1].trim().toUpperCase();
-                        if (!placaAlvo || pLinha === placaAlvo) {
-                            const [d, m, a] = col[0].split('/');
-                            const hIniRaw = col[6].split(' ')[1];
-                            const dt = new Date(a, m-1, d, hIniRaw.split(':')[0], hIniRaw.split(':')[1]);
+                        const p = col[1].trim().toUpperCase();
+                        if (!placaAlvo || p === placaAlvo) {
+                            const dH = col[6].split(' ');
+                            const [dia, mes, ano] = dH[0].split('/');
+                            const dt = new Date(ano, mes-1, dia, dH[1].split(':')[0], dH[1].split(':')[1]);
                             if (estaForaDoHorario(dt)) {
-                                detectPlaca = pLinha; detectNome = col[2]; detectData = col[0];
+                                detectPlaca = p; detectNome = col[2]; detectData = col[0];
                                 let km = parseFloat(col[4].replace(',', '.')) || parseFloat(col[5].replace(',', '.')) || 0;
-                                totalKm += km; totalMins += parseInt(col[3]) || 0;
-                                trechos.push(`Hora: das ${hIniRaw} às ${col[7].split(' ')[1]} (${km.toString().replace('.',',')} km)`);
+                                tr.push({ ini: dH[1], fim: col[7].split(' ')[1], km: km, min: parseInt(col[3])||0, ts: dt.getTime() });
                             }
                         }
                     }
                 });
-                detalhes = trechos.reverse().join('\n');
-
-            } else { 
-                // MZONE WEB
-                const blocos = raw.split(/(?=\([\d:]{5,}\s*-\s*[\d:]{5,}\))/g);
-                let trechos = [];
-                blocos.forEach(bloco => {
-                    const timeMatch = bloco.match(/\(([\d:]{5,})\s*-\s*([\d:]{5,})\)/);
-                    const kmMatch = bloco.match(/Distância[\s\n]+([\d,.]+)\s*km/i) || bloco.match(/([\d,.]+)\s*km/i);
-                    const durMatch = bloco.match(/(\d+)m/) || bloco.match(/(?:(\d+)h)?\s*?(\d+)m/);
-                    if (timeMatch && kmMatch) {
-                        const hIni = timeMatch[1].substring(0,5);
-                        const dtValid = new Date(); dtValid.setHours(hIni.split(':')[0], hIni.split(':')[1]);
-                        if (estaForaDoHorario(dtValid)) {
-                            const km = parseFloat(kmMatch[1].replace(',', '.'));
-                            totalKm += km;
-                            if (durMatch) totalMins += (parseInt(durMatch[1]||0)*60 + parseInt(durMatch[2]||durMatch[1]));
-                            trechos.push(`Hora: das ${timeMatch[1]} às ${timeMatch[2]} (${km.toString().replace('.',',')} km)`);
-                            if (!detectPlaca) {
-                                const vM = raw.match(/Veículo\s*[:\n\s]*([^\n-]+)\s*-\s*([A-Z0-9]+)/i);
-                                if (vM) { detectNome = vM[1].trim(); detectPlaca = vM[2].trim(); }
-                            }
+                tr.sort((a,b) => a.ts - b.ts);
+                tr.forEach(t => { totalKm += t.km; totalMins += t.min; detalhes += `Hora: das ${t.ini} às ${t.fim} (${t.km.toString().replace('.',',')} km)\n`; });
+            } else {
+                const bcz = raw.split(/(?=Trip Data|\d{1,2} de [a-z]{3} de \d{4})/gi);
+                let tr = [];
+                bcz.forEach(b => {
+                    const dM = b.match(/(\d{1,2}) de ([a-z]{3,}) de (\d{4})/i);
+                    const durM = b.match(/Duração\s+(?:(\d+)h\s*)?(\d+)m/i);
+                    const timeM = b.match(/\(([\d:]{5,})\s*-\s*([\d:]{5,})\)/);
+                    const kmM = b.match(/Distância\s+([\d,.]+)\s*km/i);
+                    if (dM && timeM && kmM && durM) {
+                        const dtV = new Date(); dtV.setHours(timeM[1].split(':')[0], timeM[1].split(':')[1]);
+                        if (estaForaDoHorario(dtV)) {
+                            let km = parseFloat(kmM[1].replace(',', '.'));
+                            totalKm += km; totalMins += (parseInt(durM[1]||0)*60)+parseInt(durM[2]||0);
+                            tr.push({ ini: timeM[1], fim: timeM[2], km: km, ts: dtV.getTime() });
+                            const vM = b.match(/Veículo\s+([^\n-]+)/i);
+                            if (vM && !detectPlaca) { detectNome = vM[1].split(' - ')[0]; detectPlaca = vM[1].split(' - ')[1]; }
                         }
                     }
                 });
-                detalhes = trechos.join('\n');
+                tr.sort((a,b) => a.ts - b.ts);
+                tr.forEach(t => { detalhes += `Hora: das ${t.ini} às ${t.fim} (${t.km.toString().replace('.',',')} km)\n`; });
             }
 
-            if (!detalhes) return alert("Nenhum deslocamento indevido detectado para este rastreador/horário.");
+            if (!detalhes) return alert("Nada indevido encontrado.");
 
             const dadosDB = {
                 data_movimentacao: detectData || document.getElementById('data').value,
@@ -261,15 +274,15 @@
                 filial: document.getElementById('filial').value,
                 rastreador: tipo,
                 km_total: parseFloat(totalKm.toFixed(1)),
-                tempo_total: `${Math.floor(totalMins/60)}h ${totalMins%60} min`,
+                tempo_total: totalMins >= 60 ? `${Math.floor(totalMins/60)}h ${totalMins%60} min` : `${totalMins} min`,
                 origem_inicial: detalhes,
-                justificativa: justificativa
+                justificativa: justificativa,
+                email_enviado: false
             };
 
             await sbClient.from('relatorios_frota').insert([dadosDB]);
-            alert("Sucesso! Registro salvo."); carregarHistorico();
-            document.getElementById('rawData').value = "";
-        } catch (e) { alert("Erro ao processar."); console.error(e); }
+            alert("Sucesso!"); carregarHistorico(); document.getElementById('rawData').value = "";
+        } catch (e) { alert("Erro."); console.error(e); }
     }
 
     async function carregarHistorico() {
@@ -279,24 +292,38 @@
             const corpo = document.getElementById('corpoTabela');
             corpo.innerHTML = "";
             data.forEach((item, index) => {
-                corpo.innerHTML += `<tr onclick="abrirEmail(${index})"><td>${item.data_movimentacao}</td><td>${item.tecnico}</td><td><span class="badge">${item.placa}</span></td><td>${item.km_total} km</td><td>${item.justificativa}</td><td><button class="btn-delete" onclick="deletarRegistro(${item.id}, event)">🗑️</button></td></tr>`;
+                const statusHtml = item.email_enviado ? '<span class="status-sent">✅ Enviado</span>' : '<span class="status-pending">⏳ Pendente</span>';
+                corpo.innerHTML += `<tr onclick="abrirEmail(${index})"><td>${item.data_movimentacao}</td><td>${item.tecnico}</td><td><span class="badge">${item.placa}</span></td><td>${item.km_total} km</td><td>${statusHtml}</td><td><button class="btn-delete" onclick="deletarRegistro(${item.id}, event)">🗑️</button></td></tr>`;
             });
         }
     }
 
-    async function deletarRegistro(id, e) {
-        e.stopPropagation();
-        if (confirm("Deletar registro?")) { await sbClient.from('relatorios_frota').delete().eq('id', id); carregarHistorico(); }
-    }
-
     function abrirEmail(index) {
         const d = historicoLocal[index];
-        const kmFmt = String(d.km_total).replace('.',',');
-        const texto = `Assunto: Relatório de Movimentação fora de padrão ${d.tecnico}, ${d.placa}, ${d.data_movimentacao}, ${d.filial}, ${d.rastreador}\n\nRELATÓRIO DE DESLOCAMENTO VEICULAR\n\nData: ${d.data_movimentacao}\nVeículo: ${d.placa}\nCondutor: ${d.tecnico} (${d.filial})\n\nDeslocamento registrado:\n\n${d.origem_inicial}\n\nTempo total em movimento: ${d.tempo_total}\n${d.km_total > 0 ? 'Distância total: ' + kmFmt + ' km' : ''}\n\nJustificativa: ${d.justificativa}`;
+        const texto = `Assunto: Relatório de Movimentação fora de padrão ${d.tecnico}, ${d.placa}, ${d.data_movimentacao}, ${d.filial}, ${d.rastreador}\n\nRELATÓRIO DE DESLOCAMENTO VEICULAR\n\nData: ${d.data_movimentacao}\nVeículo: ${d.placa}\nCondutor: ${d.tecnico} (${d.filial})\n\nDeslocamento registrado:\n\n${d.origem_inicial}\n\nTempo total: ${d.tempo_total}\nDistância: ${String(d.km_total).replace('.',',')} km\n\nJustificativa Técnico: ${d.justificativa}\n\nParecer Gestor: ${d.justificativa_gestor || 'Aguardando'}`;
+        
         document.getElementById('emailConteudo').innerText = texto;
+        document.getElementById('edit_id').value = d.id;
+        document.getElementById('gestor_obs').value = d.justificativa_gestor || "";
+        document.getElementById('check_enviado').checked = d.email_enviado;
         document.getElementById('modalEmail').style.display = 'block';
     }
 
+    async function salvarAtualizacaoGestor() {
+        const id = document.getElementById('edit_id').value;
+        const obs = document.getElementById('gestor_obs').value;
+        const enviado = document.getElementById('check_enviado').checked;
+
+        const { error } = await sbClient.from('relatorios_frota').update({ 
+            justificativa_gestor: obs, 
+            email_enviado: enviado 
+        }).eq('id', id);
+
+        if (error) alert("Erro ao atualizar.");
+        else { alert("Registro atualizado!"); fecharModal(); carregarHistorico(); }
+    }
+
+    async function deletarRegistro(id, e) { e.stopPropagation(); if (confirm("Deletar?")) { await sbClient.from('relatorios_frota').delete().eq('id', id); carregarHistorico(); } }
     function fecharModal() { document.getElementById('modalEmail').style.display = 'none'; }
     function copiarEmail() { navigator.clipboard.writeText(document.getElementById('emailConteudo').innerText); alert("Copiado!"); }
 </script>
