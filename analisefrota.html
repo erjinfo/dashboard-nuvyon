@@ -154,10 +154,110 @@
 </div>
 
 <script>
-    const SB_URL = "https://sdavoozyfnegtzxosabz.supabase.co";
+        const SB_URL = "https://sdavoozyfnegtzxosabz.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkYXZvb3p5Zm5lZ3R6eG9zYWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODM0NjcsImV4cCI6MjA5MTc1OTQ2N30.Re_TEacuSJSNxCczjdYcv6137nbvF-pe057y5tErgOM";
     const sbClient = supabase.createClient(SB_URL, SB_KEY);
+    
+    let usuarioLogado = null;
     let historicoLocal = [];
+
+    // --- FUNÇÕES DE SEGURANÇA ---
+
+    // Captura o usuário assim que a página carrega
+    async function obterUsuario() {
+    const { data: { user } } = await sbClient.auth.getUser();
+    usuarioLogado = user;
+    
+    if (usuarioLogado) {
+        console.log("Sistema pronto. Usuário logado: " + usuarioLogado.email);
+    } else {
+        console.error("ALERTA: Nenhum usuário logado no Supabase!");
+    }
+}
+
+    async function verificarSenha() {
+        if (!usuarioLogado) {
+            alert("Erro: Usuário não identificado. Por favor, faça login novamente no painel principal.");
+            return false;
+        }
+
+        const senha = prompt("Confirme sua senha do sistema para autorizar esta ação:");
+        if (!senha) return false;
+
+        // Tenta fazer um login silencioso para validar se a senha digitada está correta
+        const { error } = await sbClient.auth.signInWithPassword({
+            email: usuarioLogado.email,
+            password: senha
+        });
+
+        if (error) {
+            alert("Senha incorreta! Ação não autorizada.");
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- FUNÇÕES DE INTERAÇÃO (APAGAR E EDITAR) ---
+
+   async function deletarRegistro(id, e) {
+    e.stopPropagation(); // Impede de abrir o e-mail ao clicar no lixo
+    
+    // --- EXCEÇÃO PARA O USUÁRIO SUPORTE ---
+    if (usuarioLogado && usuarioLogado.email === 'suporte@nuvyon.com.br') {
+        alert("Acesso Negado: O usuário de suporte não tem permissão para deletar registros.");
+        return; // Sai da função imediatamente
+    }
+
+    if (confirm("Deseja realmente deletar este registro de movimentação?")) {
+        
+        // Exige a senha para outros usuários
+        const autorizado = await verificarSenha();
+        if (!autorizado) return;
+
+        const { error } = await sbClient.from('relatorios_frota').delete().eq('id', id);
+        
+        if (error) {
+            alert("Erro ao deletar: " + error.message);
+        } else {
+            alert("Registro removido com sucesso!");
+            carregarHistorico();
+        }
+    }
+}
+
+   async function salvarAtualizacaoGestor() {
+    // 1. Verificar exceção ANTES de qualquer coisa
+    if (usuarioLogado && usuarioLogado.email === 'suporte@nuvyon.com.br') {
+        alert("Acesso Negado: O usuário de suporte não tem permissão para alterar registros.");
+        return;
+    }
+
+    // 2. Pegar os valores do modal (Removido a duplicidade do 'id')
+    const id = document.getElementById('edit_id').value;
+    const obs = document.getElementById('gestor_obs').value;
+    const enviado = document.getElementById('check_enviado').checked;
+
+    // 3. Trava de senha (exige para todos que não forem suporte)
+    const autorizado = await verificarSenha();
+    if (!autorizado) return; 
+
+    // 4. Execução no Supabase
+    const { error } = await sbClient.from('relatorios_frota').update({ 
+        justificativa_gestor: obs, 
+        email_enviado: enviado 
+    }).eq('id', id);
+
+    if (error) {
+        alert("Erro ao atualizar: " + error.message);
+    } else {
+        alert("Registro atualizado com sucesso!");
+        fecharModal();
+        carregarHistorico();
+    }
+}
+
+    // --- RESTANTE DA LÓGICA (CALENDÁRIO, TEMA, ETC) ---
 
     const feriados2026 = ["01/01", "16/02", "17/02", "18/02", "03/04", "21/04", "01/05", "04/06", "07/09", "12/10", "02/11", "15/11", "20/11", "25/12"];
 
@@ -182,7 +282,7 @@
         document.getElementById('themeBtn').innerText = isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro';
     }
 
-    if (localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark-mode'); document.getElementById('themeBtn').innerText = '☀️ Modo Claro'; }
+       if (localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark-mode'); document.getElementById('themeBtn').innerText = '☀️ Modo Claro'; }
     window.onload = () => { setarDataAtual(); carregarHistorico(); };
 
     async function processarESalvar() {
@@ -285,7 +385,7 @@
         } catch (e) { alert("Erro."); console.error(e); }
     }
 
-    async function carregarHistorico() {
+     async function carregarHistorico() {
         const { data } = await sbClient.from('relatorios_frota').select('*').order('id', { ascending: false });
         if (data) {
             historicoLocal = data;
@@ -297,6 +397,12 @@
             });
         }
     }
+// AQUI ESTÁ A CORREÇÃO: Adicionamos o obterUsuario() no carregamento
+    window.onload = async () => { 
+        setarDataAtual(); 
+        await carregarHistorico(); 
+        await obterUsuario(); 
+    };
 
     function abrirEmail(index) {
         const d = historicoLocal[index];
@@ -308,22 +414,48 @@
         document.getElementById('check_enviado').checked = d.email_enviado;
         document.getElementById('modalEmail').style.display = 'block';
     }
+async function salvarAtualizacaoGestor() {
+    const id = document.getElementById('edit_id').value;
+    const obs = document.getElementById('gestor_obs').value;
+    const enviado = document.getElementById('check_enviado').checked;
 
-    async function salvarAtualizacaoGestor() {
-        const id = document.getElementById('edit_id').value;
-        const obs = document.getElementById('gestor_obs').value;
-        const enviado = document.getElementById('check_enviado').checked;
+    // Exige a senha antes de salvar a edição
+    const autorizado = await verificarSenha();
+    if (!autorizado) return;
 
-        const { error } = await sbClient.from('relatorios_frota').update({ 
-            justificativa_gestor: obs, 
-            email_enviado: enviado 
-        }).eq('id', id);
+    const { error } = await sbClient.from('relatorios_frota').update({ 
+        justificativa_gestor: obs, 
+        email_enviado: enviado 
+    }).eq('id', id);
 
-        if (error) alert("Erro ao atualizar.");
-        else { alert("Registro atualizado!"); fecharModal(); carregarHistorico(); }
+    if (error) {
+        alert("Erro ao atualizar: " + error.message);
+    } else {
+        alert("Registro atualizado com sucesso!");
+        fecharModal();
+        carregarHistorico();
+    }
+}
+
+    async function deletarRegistro(id, e) {
+    e.stopPropagation(); 
+    
+    // Trava para o usuário suporte
+    if (usuarioLogado && usuarioLogado.email === 'suporte@nuvyon.com.br') {
+        alert("Acesso Negado: O usuário de suporte não tem permissão para deletar registros.");
+        return;
     }
 
-    async function deletarRegistro(id, e) { e.stopPropagation(); if (confirm("Deletar?")) { await sbClient.from('relatorios_frota').delete().eq('id', id); carregarHistorico(); } }
+    if (confirm("Deseja realmente deletar este registro?")) {
+        const autorizado = await verificarSenha();
+        if (!autorizado) return;
+
+        const { error } = await sbClient.from('relatorios_frota').delete().eq('id', id);
+        if (error) alert("Erro ao deletar.");
+        else { alert("Registro removido!"); carregarHistorico(); }
+    }
+}
+
     function fecharModal() { document.getElementById('modalEmail').style.display = 'none'; }
     function copiarEmail() { navigator.clipboard.writeText(document.getElementById('emailConteudo').innerText); alert("Copiado!"); }
 </script>
