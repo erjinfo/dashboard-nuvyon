@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+ <!-- Configurações de App -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00C9A7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png"> 
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Nuvyon — Inteligência Operacional</title>
@@ -306,6 +312,8 @@ td{padding:9px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+
+
     // Supabase client — inicializado antes de qualquer outro script
     const _SUPA = supabase.createClient('https://tijefreqgogqwwwhejsp.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpamVmcmVxZ29ncXd3d2hlanNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NjU0MjksImV4cCI6MjA5MTU0MTQyOX0.XefqPltzFbOMEaP3BFiSRyfq6CDE38ltxblXiMalWkw');
   </script>
@@ -971,6 +979,15 @@ window.addEventListener('load', async () => {
   const tabbar = document.getElementById('tabbar');
   if (tabbar) tabbar.style.display = 'none';
 });
+
+// Registra o Service Worker para permitir instalação como App
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('Service Worker registrado!', reg))
+      .catch(err => console.log('Erro ao registrar Service Worker', err));
+  });
+}
 </script>
 
 <!-- TOP BAR (estreito) -->
