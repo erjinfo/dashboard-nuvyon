@@ -1506,6 +1506,11 @@ async function processarAuditoria() {
   }
 }
 
+function ajustarAlturaTextarea(el) {
+  el.style.height = 'auto'; // Reseta a altura
+  el.style.height = el.scrollHeight + 'px'; // Define a nova altura baseada no conteúdo
+}
+
 async function lerPDF(file) {
   const reader = new FileReader();
   reader.onload = async function() {
@@ -1532,37 +1537,44 @@ function normalizarPlaca(p) {
 }
 
 function parsearTextoPDF(text) {
-  // ── CORREÇÃO 1: Regex ampliada para capturar placa em múltiplos formatos ──
-  // Suporta formato antigo (ABC-1234), Mercosul (ABC1D23), com ou sem hífen/espaço,
-  // labels "Placa:", "Veículo:", "Veiculo Placa:", "Veic.:", etc.
-  const placaPatterns = [
-    /[Vv]e[íi]c(?:ulo)?[.\s]*[Pp]laca[:\s]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
-    /[Pp]laca[:\s]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
-    /[Vv]e[íi]c(?:ulo)?[.\s:]+([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})/i,
-    /\b([A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2})\b/
-  ];
+  // --- 1. IDENTIFICAÇÃO ESPECÍFICA MZONE (MOTORISTA E PLACA) ---
+  // Padrão do PDF: "Descrição do veículo: Nome - ABC1D23"
+  let motoristaNome = null;
   let placa = "—";
-  for (const pat of placaPatterns) {
-    const m = text.match(pat);
-    if (m) { placa = m[1].replace(/[\s]/g, "").toUpperCase(); break; }
+
+  const mzoneDescMatch = text.match(/Descrição do veículo:\s*(.*?)\s*-\s*([A-Z0-9]{7})/i);
+  
+  if (mzoneDescMatch) {
+    motoristaNome = mzoneDescMatch[1].trim(); // Pega "Robson"
+    placa = mzoneDescMatch[2].trim().toUpperCase(); // Pega "STM1D83"
+  } else {
+    // Fallback: Tenta pegar apenas a placa se o formato mudar
+    const placaMatch = text.match(/Veículo Placa:\s*([A-Z0-9]{7})/i);
+    if (placaMatch) placa = placaMatch[1].trim().toUpperCase();
   }
 
-  // ── BUG FIX 1b: Regex ampliada para capturar data em múltiplos formatos ──
-  // Suporta: "2026-04-08", "08/04/2026", "04 Apr 2026", "08-04-2026"
-  const dataPatterns = [
-    { re: /(\d{4}-\d{2}-\d{2})/, fn: m => m[1] },
-    { re: /(\d{2})\/(\d{2})\/(\d{4})/, fn: m => `${m[3]}-${m[2]}-${m[1]}` },
-    { re: /(\d{2})-(\d{2})-(\d{4})/, fn: m => `${m[3]}-${m[2]}-${m[1]}` },
-    { re: /(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/, fn: m => { const d = new Date(`${m[2]} ${m[1]} ${m[3]}`); return isNaN(d) ? null : d.toISOString().slice(0,10); } }
-  ];
+  // --- 2. CAPTURA DA DATA (Suporte ao formato "15 Apr 2026") ---
+  const meses = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06', Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
   let dataISO = "";
-  for (const { re, fn } of dataPatterns) {
-    const m = text.match(re);
-    if (m) { const r = fn(m); if (r) { dataISO = r; break; } }
+
+  // Busca "15 Apr 2026"
+  const dataExtensoMatch = text.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/i);
+  if (dataExtensoMatch) {
+    const dia = dataExtensoMatch[1].padStart(2, '0');
+    const mes = meses[dataExtensoMatch[2]];
+    const ano = dataExtensoMatch[3];
+    dataISO = `${ano}-${mes}-${dia}`;
+  } else {
+    // Busca "2026-04-15" (Período de datas)
+    const dataIsoMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+    if (dataIsoMatch) dataISO = dataIsoMatch[1];
   }
 
+  // --- 3. MAPEAMENTO DE EVENTOS ---
   const eventosEncontrados = [];
-  const eventRegex = /(\d{2}:\d{2}:\d{2})\s+(Posição \(parado\)|Ignição ligada|Ignição desligada|Posição regular|Dados de tacógrafo)/g;
+  // Regex ajustada para os tipos de eventos exatos da Mzone
+  const eventRegex = /(\d{2}:\d{2}:\d{2})\s+(Posição \(parado\)|Ignição ligada|Ignição desligada|Posição regular|Movimento|Excesso de velocidade)/g;
+  
   let match;
   const matches = [];
   while ((match = eventRegex.exec(text)) !== null) {
@@ -1574,88 +1586,39 @@ function parsearTextoPDF(text) {
     const nextIndex = matches[i+1] ? matches[i+1].index : text.length;
     const trecho = text.substring(current.index, nextIndex);
     
+    // Localização na Mzone fica entre o tipo de evento e o Odômetro
     let local = "Localização não identificada";
-    const localMatch = trecho.match(new RegExp(current.tipo.replace(/[()]/g, "\\$&") + "\\s+(.*?)\\s+(\\d{4,}|RPM|Odômetro)", "i"));
-    if (localMatch) local = localMatch[1].trim();
+    const localMatch = trecho.match(new RegExp(current.tipo.replace(/[()]/g, "\\$&") + "\\s+(.*?)\\s+(\\d{4,}|Odômetro)", "s"));
+    if (localMatch) {
+      local = localMatch[1].replace(/\s+/g, ' ').trim(); // Limpa quebras de linha extras
+    }
 
-    const odoMatch = trecho.match(/Odômetro.*?(\d+)/i);
-    const rpmMatch = trecho.match(/RPM.*?(\d+)/i);
+    const odoMatch = trecho.match(/Odômetro\s+(\d+)/i);
     
     eventosEncontrados.push({
       hora: current.hora,
       evento: current.tipo,
       local: local,
-      info: (odoMatch ? "Odo: " + odoMatch[1] : "") + (rpmMatch ? " | RPM: " + rpmMatch[1] : ""),
-      status: current.tipo.includes("Ignição") ? "ALERTA" : "OK"
+      info: odoMatch ? "Odo: " + odoMatch[1] : "",
+      status: (current.tipo.includes("Ignição") || current.tipo.includes("velocidade")) ? "ALERTA" : "OK"
     });
   }
 
   if (eventosEncontrados.length === 0) {
-    showToast("Nenhum evento reconhecido no PDF.", "err");
+    showToast("Nenhum evento Mzone reconhecido.", "err");
     return;
   }
 
-  // ── CORREÇÃO 2: Identificar motorista com prioridade e precisão ──
-  // ESTRATÉGIA:
-  // 1) Busca por labels explícitos no cabeçalho: "Motorista:", "Condutor:", "Usuário:", "Operador:", "Driver:"
-  // 2) Cruza o valor encontrado com a lista de técnicos cadastrados
-  // 3) Só como último recurso: busca nome de técnico no cabeçalho (primeiros 800 chars), nunca no texto inteiro
-  // 4) Fallback: placa
-
-  let motoristaNome = null;
-
-  // Cabeçalho = primeiros 800 caracteres (antes dos eventos de telemetria)
-  const primeiroEvento = matches.length > 0 ? matches[0].index : 800;
-  const cabecalho = text.substring(0, Math.min(primeiroEvento, 800));
-  const cabecalhoUpper = cabecalho.toUpperCase();
-
-  // Passo 1: labels explícitos de motorista/condutor
-  const labelPatterns = [
-    /[Mm]otorista[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-    /[Cc]ondutor[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-    /[Uu]su[aá]rio[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-    /[Oo]perador[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-    /[Dd]river[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-    /[Rr]espons[aá]vel[:\s]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç\s]{2,40}?)(?:\s{2,}|\n|$)/,
-  ];
-
-  for (const pat of labelPatterns) {
-    const m = cabecalho.match(pat);
-    if (m) {
-      const nomeExtraido = m[1].trim().toUpperCase();
-      // Tenta cruzar com técnico cadastrado (match parcial: nome extraído contém parte do nome cadastrado ou vice-versa)
-      const tecEncontrado = tecnicos.find(t =>
-        t.nome && (
-          t.nome.toUpperCase().includes(nomeExtraido) ||
-          nomeExtraido.includes(t.nome.toUpperCase()) ||
-          // match por primeiro nome + sobrenome
-          t.nome.toUpperCase().split(" ").some(parte => parte.length > 3 && nomeExtraido.includes(parte))
-        )
-      );
-      if (tecEncontrado) { motoristaNome = tecEncontrado.nome; break; }
-      // Se não cruzou mas o label é explícito, usa o nome extraído mesmo assim
-      if (nomeExtraido.length > 3) { motoristaNome = m[1].trim(); break; }
-    }
+  // --- 4. TENTAR CRUZAR MOTORISTA COM TÉCNICOS CADASTRADOS ---
+  if (motoristaNome) {
+    const tecEncontrado = tecnicos.find(t => 
+      t.nome.toUpperCase().includes(motoristaNome.toUpperCase()) || 
+      motoristaNome.toUpperCase().includes(t.nome.toUpperCase())
+    );
+    if (tecEncontrado) motoristaNome = tecEncontrado.nome;
   }
 
-  // Passo 2: busca nome de técnico APENAS no cabeçalho (não no texto inteiro)
-  if (!motoristaNome) {
-    for (const t of tecnicos) {
-      if (t.nome && t.nome.length > 4 && cabecalhoUpper.includes(t.nome.toUpperCase())) {
-        motoristaNome = t.nome;
-        break;
-      }
-    }
-  }
-
-  // Passo 3: fallback pela placa
-  if (!motoristaNome && placa !== "—") {
-    const placaN = placa.replace(/[\s\-]/g, "").toUpperCase();
-    const tecPl = tecnicos.find(t => t.placa && t.placa.replace(/[\s\-]/g, "").toUpperCase() === placaN);
-    if (tecPl) motoristaNome = tecPl.nome;
-  }
-
-  finalizarAnalise(placa, dataISO, eventosEncontrados, "PDF", motoristaNome);
+  finalizarAnalise(placa, dataISO, eventosEncontrados, "MZONE / GM FLEET", motoristaNome);
 }
 
 async function lerExcel(file) {
@@ -1678,25 +1641,41 @@ async function lerExcel(file) {
 }
 
 function finalizarAnalise(veiculo, data, eventos, tipo, motoristaNomePreResolvido) {
-  // ── CORREÇÃO 2b: Prioriza nome pré-resolvido; fallback por placa/data normalizada ──
   const placaNorm = normalizarPlaca(veiculo);
   let tec = null;
+
+  // 1. Tenta achar técnico pelo nome exato vindo do PDF
   if (motoristaNomePreResolvido) {
-    tec = tecnicos.find(t => t.nome === motoristaNomePreResolvido);
+    tec = tecnicos.find(t => t.nome.toUpperCase() === motoristaNomePreResolvido.toUpperCase());
   }
+  // 2. Se não achou, tenta pela Placa
   if (!tec && placaNorm !== "" && placaNorm !== "—") {
     tec = tecnicos.find(t => normalizarPlaca(t.placa) === placaNorm);
   }
+  // 3. Se não achou, tenta por quem teve atividade no dia
   if (!tec && data) {
     tec = tecnicos.find(t => dbAtv[t.nome] && dbAtv[t.nome][data]);
   }
+
   let alertas = eventos.filter(e => e.evento.includes("Ignição") || e.status === "ALERTA").length;
-  auditDadosAtuais = { veiculo, data, eventos, tecnico: tec, tipo };
+
+  // GUARDAMOS OS DADOS: Note que incluímos o 'motoristaExtraido'
+  auditDadosAtuais = { 
+    veiculo, 
+    data, 
+    eventos, 
+    tecnico: tec, 
+    tipo, 
+    motoristaExtraido: motoristaNomePreResolvido // <--- Salva o nome "Robson" aqui
+  };
 
   document.getElementById("resKml").classList.remove("hidden");
   document.getElementById("auditStatsVeiculo").innerText = veiculo;
   document.getElementById("auditStatsData").innerText = data || "—";
-  document.getElementById("auditStatsTecnico").innerText = tec ? tec.nome : "Não identificado";
+  
+  // Na interface de estatísticas: Mostra o técnico ou o nome do PDF
+  document.getElementById("auditStatsTecnico").innerText = tec ? tec.nome : (motoristaNomePreResolvido || "Não identificado");
+  
   document.getElementById("auditStatsAlertas").innerText = alertas;
   document.getElementById("auditBadgeTipo").innerText = tipo;
 
@@ -1717,29 +1696,56 @@ function finalizarAnalise(veiculo, data, eventos, tipo, motoristaNomePreResolvid
   showToast("✅ Análise concluída!", "ok");
 }
 
+
 function gerarRelatorioAuditoria() {
   if (!auditDadosAtuais) return;
   const d = auditDadosAtuais;
-  const tec = d.tecnico || { nome: "NÃO IDENTIFICADO", placa: d.veiculo };
+  
+  // PRIORIDADE: 1º Técnico Cadastrado, 2º Nome Extraído do PDF, 3º "Não identificado"
+  const motoristaFinal = d.tecnico ? d.tecnico.nome : (d.motoristaExtraido || "Não identificado");
+  
+  const placa = d.veiculo;
+  const dataF = d.data ? d.data.split('-').reverse().join('/') : "—";
   const inicio = d.eventos[0];
   const fim = d.eventos[d.eventos.length - 1];
 
+  const textoDiretoria = `RESUMO EXECUTIVO DE DESLOCAMENTO
+-----------------------------------------
+VEÍCULO: ${placa}
+CONDUTOR: ${motoristaFinal.toUpperCase()}
+DATA: ${dataF}
+
+PERÍODO ANALISADO:
+Início: ${inicio.hora} em ${inicio.local}
+Término: ${fim.hora} em ${fim.local}
+
+HISTÓRICO DE MOVIMENTAÇÃO:
+${d.eventos.map(e => `- ${e.hora}: ${e.evento}`).join('\n')}
+
+RELATO DE AUDITORIA:
+O veículo placa ${placa}, conduzido por ${motoristaFinal.toUpperCase()}, foi monitorado via sistema Mzone. 
+O deslocamento iniciou-se às ${inicio.hora}. Não foram encontradas irregularidades graves.`;
+
+  // Preenche a aba de Movimentação Extra
   mudarAba('mov');
   
-  // Preenche os novos campos individuais automaticamente
-  document.getElementById("movNome").value = tec.nome;
-  document.getElementById("movData").value = d.data || new Date().toISOString().slice(0, 10);
+  // Seleciona o nome no campo "Técnico" da aba Movimentação
+  const sel = document.getElementById("movNome");
+  sel.value = motoristaFinal; 
+
+  document.getElementById("movData").value = d.data;
   document.getElementById("movInicio").value = inicio.hora.substring(0, 5);
   document.getElementById("movFim").value = fim.hora.substring(0, 5);
+  document.getElementById("fVeiculo").value = "Chevrolet (Mzone)";
+  document.getElementById("fPlaca").value = placa;
   
-  document.getElementById("fVeiculo").value = d.veiculo;
-  document.getElementById("fPlaca").value = tec.placa || d.veiculo;
-  document.getElementById("fOrigem").value = inicio.local;
-  document.getElementById("fDestino").value = fim.local;
-  document.getElementById("fRelato").value = `Auditoria automática via arquivo ${d.tipo}. Foram analisados ${d.eventos.length} eventos de telemetria.`;
-  document.getElementById("fJustificativa").value = "Análise de auditoria de deslocamento";
+  const campoRelato = document.getElementById("fRelato");
+  campoRelato.value = textoDiretoria;
 
-  showToast("📋 Dados da auditoria carregados no formulário!", "ok");
+  // Ajusta o tamanho da caixa de texto
+  ajustarAlturaTextarea(campoRelato);
+
+  showToast("📋 Relatório Executivo gerado com sucesso!", "ok");
 }
 
 function exportarAuditoriaPDF() {
