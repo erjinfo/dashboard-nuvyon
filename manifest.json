@@ -4,7 +4,7 @@
   "description": "Dashboard de Inteligência Operacional Nuvyon",
   "start_url": "index.html",
    "scope": "./",
-  "display": "standalone",
+  "display": "minimal-ui",
   "background_color": "#080C14",
   "theme_color": "#00C9A7",
   "icons": [
