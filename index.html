@@ -479,7 +479,7 @@ const ABA_GRUPOS = [
   { id:'comercial', label:'🛒 Comercial', abas:['visao360','cancelamentos','churn','bi'] },
   { id:'sac',       label:'🎧 SAC',       abas:['sac','nps','bonificacao'] },
   { id:'tecnica',   label:'🔧 Técnica',   abas:['despacho','infra','campo'] },
-  { id:'controle-tecnico', label:'⚙️ Controle Técnico', abas:['techfeedback','analisefrota', 'frotamanager'] },
+  { id:'controle-tecnico', label:'⚙️ Controle Técnico', abas:['analisefrota', 'frotamanager','techfeedback'] },
 ];
 
 async function dbLoad() {
@@ -627,15 +627,16 @@ function applySession() {
     el.style.display = '';
   });
 
-  // 4. Navegar para primeira aba autorizada
-  const first = MenuRBAC.firstAllowed(abasAutorizadas);
+  // 4. Tentar manter a aba atual do usuário (se autorizada)
+  const activeTab = document.querySelector('.tab-content.active')?.id?.replace(/^tab-content-/,'') || localStorage.getItem('nuvyon_current_tab');
+  const initial = (activeTab && abasAutorizadas.includes(activeTab)) ? activeTab : MenuRBAC.firstAllowed(abasAutorizadas);
   if (_showTabOrig) {
-    _showTabOrig(first);
-    MenuRBAC.activate(first); // também chama sidebarActivate()
+    _showTabOrig(initial);
+    MenuRBAC.activate(initial); // também chama sidebarActivate()
   }
   // Construir sidebar agrupada e activar item inicial
   if (typeof buildGroupedTabbar === 'function') buildGroupedTabbar();
-  if (typeof sidebarActivate === 'function') sidebarActivate(first);
+  if (typeof sidebarActivate === 'function') sidebarActivate(initial);
 }
 
 /* ── Logoff ── */
@@ -972,6 +973,7 @@ window.addEventListener('load', async () => {
     const abasOk = SESSION.role === 'master' ? ABAS.map(a => a.id) : (SESSION.abas || []);
     if (!abasOk.includes(t)) return;
     if (_showTabOrig) _showTabOrig(t);
+    localStorage.setItem('nuvyon_current_tab', t);
     MenuRBAC.activate(t);
   };
 
@@ -979,6 +981,43 @@ window.addEventListener('load', async () => {
   const tabbar = document.getElementById('tabbar');
   if (tabbar) tabbar.style.display = 'none';
 });
+
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  const installBtn = document.getElementById('install-button');
+  if (installBtn) {
+    installBtn.style.display = 'inline-flex';
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('Nuvyon PWA instalado com sucesso.');
+  deferredInstallPrompt = null;
+  const installBtn = document.getElementById('install-button');
+  if (installBtn) {
+    installBtn.style.display = 'none';
+  }
+});
+
+function promptInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then((choiceResult) => {
+    const installBtn = document.getElementById('install-button');
+    if (installBtn) {
+      installBtn.style.display = 'none';
+    }
+    if (choiceResult.outcome === 'accepted') {
+      console.log('Usuário aceitou instalar o app.');
+    } else {
+      console.log('Usuário rejeitou a instalação do app.');
+    }
+    deferredInstallPrompt = null;
+  });
+}
 
 // Registra o Service Worker para permitir instalação como App
 if ('serviceWorker' in navigator) {
@@ -998,6 +1037,10 @@ if ('serviceWorker' in navigator) {
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div id="file-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <button id="install-button" onclick="promptInstall()" 
+            style="display:none;background:var(--accent);color:#000;border:none;border-radius:18px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
+      Instalar App
+    </button>
     <div id="db-mode-badge" onclick="SESSION?.role==='master'?openAdmin():null"
          style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:default;white-space:nowrap"
          title="Modo do banco de dados">💾 Local</div>
